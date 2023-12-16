@@ -26,6 +26,15 @@ type HttpNetworkConfig struct {
 	} `json:"header"`
 }
 
+type HttpRequest struct {
+	Version string   `json:"version"`
+	Method  string   `json:"method"`
+	Path    []string `json:"path"`
+	Headers struct {
+		Host []string `json:"Host"`
+	} `json:"headers"`
+}
+
 type WsNetworkConfig struct {
 	Path    string            `json:"path"`
 	Headers map[string]string `json:"headers"`
@@ -109,10 +118,19 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 				if err != nil {
 					return option.Inbound{}, fmt.Errorf("decode NetworkSettings error: %s", err)
 				}
+				//Todo fix http options
 				if network.Header.Type == "http" {
 					t.Type = network.Header.Type
-					//Todo fix http options
-					//t.HTTPOptions.Host =
+					var request HttpRequest
+					if network.Header.Request != nil {
+						err = json.Unmarshal(*network.Header.Request, &request)
+						if err != nil {
+							return option.Inbound{}, fmt.Errorf("decode HttpRequest error: %s", err)
+						}
+						t.HTTPOptions.Host = request.Headers.Host
+						t.HTTPOptions.Path = request.Path[0]
+						t.HTTPOptions.Method = request.Method
+					}
 				} else {
 					t.Type = ""
 				}
