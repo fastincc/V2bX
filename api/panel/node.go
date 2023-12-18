@@ -94,7 +94,11 @@ type ShadowsocksNode struct {
 	ServerKey string `json:"server_key"`
 }
 
-type TrojanNode CommonNode
+type TrojanNode struct {
+	CommonNode
+	Network         string          `json:"network"`
+	NetworkSettings json.RawMessage `json:"networkSettings"`
+}
 
 type HysteriaNode struct {
 	CommonNode
@@ -188,7 +192,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode trojan params error: %s", err)
 		}
-		cm = (*CommonNode)(rsp)
+		cm = &rsp.CommonNode
 		node.Trojan = rsp
 		node.Security = Tls
 	case "hysteria":
