@@ -278,6 +278,7 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 			InboundTLSOptionsContainer: option.InboundTLSOptionsContainer{
 				TLS: &tls,
 			},
+			Transport: &t,
 		}
 		if c.SingOptions.FallBackConfigs != nil {
 			// fallback handling
