@@ -10,14 +10,14 @@ require (
 	github.com/goccy/go-json v0.10.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.3.0-beta.5
+	github.com/sagernet/sing v0.3.0-rc.7
 	github.com/sagernet/sing-box v1.8.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
-	github.com/xtls/xray-core v1.8.7-0.20231217225615-5a5e615b4636
-	golang.org/x/crypto v0.16.0
+	github.com/xtls/xray-core v1.8.7-0.20231229161648-44bb83033f23
+	golang.org/x/crypto v0.17.0
 	golang.org/x/sys v0.15.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.32.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -67,7 +67,7 @@ require (
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344 // indirect
-	github.com/go-chi/chi/v5 v5.0.10 // indirect
+	github.com/go-chi/chi/v5 v5.0.11 // indirect
 	github.com/go-chi/cors v1.2.1 // indirect
 	github.com/go-chi/render v1.0.3 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
@@ -150,7 +150,7 @@ require (
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/quic-go/quic-go v0.40.1 // indirect
-	github.com/refraction-networking/utls v1.5.4 // indirect
+	github.com/refraction-networking/utls v1.6.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/sacloud/api-client-go v0.2.8 // indirect
 	github.com/sacloud/go-http v0.1.6 // indirect
@@ -160,14 +160,14 @@ require (
 	github.com/sagernet/cloudflare-tls v0.0.0-20231208171750-a4483c1b7cd1 // indirect
 	github.com/sagernet/gvisor v0.0.0-20231209105102-8d27a30e436e // indirect
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97 // indirect
-	github.com/sagernet/quic-go v0.40.0 // indirect
-	github.com/sagernet/sing-dns v0.1.11 // indirect
-	github.com/sagernet/sing-mux v0.1.6-beta.1 // indirect
-	github.com/sagernet/sing-quic v0.1.6-beta.1 // indirect
+	github.com/sagernet/quic-go v0.40.1-beta.2 // indirect
+	github.com/sagernet/sing-dns v0.1.12 // indirect
+	github.com/sagernet/sing-mux v0.1.8-rc.1 // indirect
+	github.com/sagernet/sing-quic v0.1.7-rc.2 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.6 // indirect
-	github.com/sagernet/sing-shadowsocks2 v0.1.6-beta.1 // indirect
+	github.com/sagernet/sing-shadowsocks2 v0.1.6-rc.1 // indirect
 	github.com/sagernet/sing-shadowtls v0.1.4 // indirect
-	github.com/sagernet/sing-tun v0.2.0-beta.4 // indirect
+	github.com/sagernet/sing-tun v0.2.0-rc.1 // indirect
 	github.com/sagernet/sing-vmess v0.1.8 // indirect
 	github.com/sagernet/smux v0.0.0-20231208180855-7041f6ea79e7 // indirect
 	github.com/sagernet/tfo-go v0.0.0-20231209031829-7b5343ac1dc6 // indirect
@@ -205,7 +205,7 @@ require (
 	go.uber.org/ratelimit v0.2.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611 // indirect
+	golang.org/x/exp v0.0.0-20231226003508-02704c960a9b // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
@@ -219,7 +219,7 @@ require (
 	google.golang.org/genproto v0.0.0-20231030173426-d783a09b4405 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
-	google.golang.org/grpc v1.60.0 // indirect
+	google.golang.org/grpc v1.60.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/ns1/ns1-go.v2 v2.7.6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -228,4 +228,4 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-replace github.com/sagernet/sing-box v1.8.0 => github.com/wyx2685/sing-box_mod v0.0.0-20231218150307-b20bae8948ec
+replace github.com/sagernet/sing-box v1.8.0 => github.com/wyx2685/sing-box_mod v0.0.0-20240101150548-e0184ecdfef1
