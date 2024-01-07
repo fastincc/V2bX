@@ -10,11 +10,11 @@ require (
 	github.com/goccy/go-json v0.10.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.3.0-rc.7
+	github.com/sagernet/sing v0.3.0-rc.7.0.20240105061852-782bc05c5573
 	github.com/sagernet/sing-box v1.8.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
-	github.com/xtls/xray-core v1.8.7-0.20231229161648-44bb83033f23
+	github.com/xtls/xray-core v1.8.7-0.20240103005614-2fc4b31fcf5f
 	golang.org/x/crypto v0.17.0
 	golang.org/x/sys v0.15.0
 	google.golang.org/protobuf v1.32.0
@@ -228,4 +228,4 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-replace github.com/sagernet/sing-box v1.8.0 => github.com/wyx2685/sing-box_mod v0.0.0-20240101150548-e0184ecdfef1
+replace github.com/sagernet/sing-box v1.8.0 => github.com/wyx2685/sing-box_mod v0.0.0-20240107155604-00398168e6a9
