@@ -76,9 +76,8 @@ func New(c *conf.CoreConfig) (vCore.Core, error) {
 		}
 		os.Setenv("SING_DNS_PATH", c.SingConfig.DnsConfigPath)
 	}
-	ctx := context.Background()
 	b, err := box.New(box.Options{
-		Context: ctx,
+		Context: context.Background(),
 		Options: options,
 	})
 	if err != nil {
