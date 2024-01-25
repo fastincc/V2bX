@@ -30,13 +30,21 @@ func (c *Client) GetUserList() (UserList []UserInfo, err error) {
 	r, err := c.client.R().
 		SetHeader("If-None-Match", c.userEtag).
 		Get(path)
-	err = c.checkResponse(r, path, err)
-	if err != nil {
+	if err = c.checkResponse(r, path, err); err != nil {
 		return nil, err
 	}
 
-	if r.StatusCode() == 304 {
-		return nil, nil
+	if r != nil {
+		defer func() {
+			if r.RawBody() != nil {
+				r.RawBody().Close()
+			}
+		}()
+		if r.StatusCode() == 304 {
+			return nil, nil
+		}
+	} else {
+		return nil, fmt.Errorf("received nil response")
 	}
 	var userList *UserListBody
 	err = json.Unmarshal(r.Body(), &userList)

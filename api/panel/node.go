@@ -134,8 +134,18 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 	if err = c.checkResponse(r, path, err); err != nil {
 		return nil, err
 	}
-	if r.StatusCode() == 304 {
-		return nil, nil
+
+	if r != nil {
+		defer func() {
+			if r.RawBody() != nil {
+				r.RawBody().Close()
+			}
+		}()
+		if r.StatusCode() == 304 {
+			return nil, nil
+		}
+	} else {
+		return nil, fmt.Errorf("received nil response")
 	}
 	node = &NodeInfo{
 		Id:   c.NodeId,
