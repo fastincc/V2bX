@@ -3,10 +3,7 @@ package panel
 import (
 	"fmt"
 
-	"encoding/json"
-
-	"github.com/bitly/go-simplejson"
-	"github.com/go-resty/resty/v2"
+	"github.com/goccy/go-json"
 )
 
 type OnlineUser struct {
@@ -51,12 +48,12 @@ func (c *Client) GetUserList() (UserList []UserInfo, err error) {
 		return nil, fmt.Errorf("received nil response")
 	}
 	var userList *UserListBody
-	usersResp, err := c.parseResponse(r, path, err)
 	if err != nil {
+		return nil, fmt.Errorf("read body error: %s", err)
+	}
+	if err := json.Unmarshal(r.Body(), &userList); err != nil {
 		return nil, fmt.Errorf("unmarshal userlist error: %s", err)
 	}
-	b, _ := usersResp.Encode()
-	json.Unmarshal(b, &userList)
 	c.userEtag = r.Header().Get("ETag")
 
 	var userinfos []UserInfo
@@ -122,21 +119,4 @@ func (c *Client) ReportNodeOnlineUsers(data *map[int][]string, reportOnline *map
 	}
 
 	return nil
-}
-
-func (c *Client) parseResponse(res *resty.Response, path string, err error) (*simplejson.Json, error) {
-	if err != nil {
-		return nil, fmt.Errorf("request %s failed: %v", c.assembleURL(path), err)
-	}
-
-	if res.StatusCode() > 399 {
-		return nil, fmt.Errorf("request %s failed: %s, %v", c.assembleURL(path), res.String(), err)
-	}
-
-	rtn, err := simplejson.NewJson(res.Body())
-	if err != nil {
-		return nil, fmt.Errorf("ret %s invalid", res.String())
-	}
-
-	return rtn, nil
 }

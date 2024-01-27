@@ -4,7 +4,6 @@ go 1.21.4
 
 require (
 	github.com/beevik/ntp v1.2.0
-	github.com/bitly/go-simplejson v0.5.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.13.2
 	github.com/go-resty/resty/v2 v2.7.0
@@ -222,4 +221,4 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-replace github.com/sagernet/sing-box v1.8.2 => github.com/wyx2685/sing-box_mod v0.0.0-20240127041531-d639d330f343
+replace github.com/sagernet/sing-box v1.8.2 => github.com/wyx2685/sing-box_mod v0.0.0
