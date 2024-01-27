@@ -4,6 +4,7 @@ go 1.21.4
 
 require (
 	github.com/beevik/ntp v1.2.0
+	github.com/bitly/go-simplejson v0.5.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.13.2
 	github.com/go-resty/resty/v2 v2.7.0
@@ -14,7 +15,7 @@ require (
 	github.com/sagernet/sing-box v1.8.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
-	github.com/xtls/xray-core v1.8.8-0.20240120214034-53de58fad3a0
+	github.com/xtls/xray-core v1.8.8-0.20240125151013-25c531c6c358
 	golang.org/x/crypto v0.18.0
 	golang.org/x/sys v0.16.0
 	google.golang.org/protobuf v1.32.0
@@ -154,7 +155,7 @@ require (
 	github.com/sagernet/cloudflare-tls v0.0.0-20231208171750-a4483c1b7cd1 // indirect
 	github.com/sagernet/gvisor v0.0.0-20231209105102-8d27a30e436e // indirect
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97 // indirect
-	github.com/sagernet/quic-go v0.40.1-beta.2 // indirect
+	github.com/sagernet/quic-go v0.40.1 // indirect
 	github.com/sagernet/sing-dns v0.1.12 // indirect
 	github.com/sagernet/sing-mux v0.2.0 // indirect
 	github.com/sagernet/sing-quic v0.1.7 // indirect
@@ -201,7 +202,7 @@ require (
 	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.20.0 // indirect
-	golang.org/x/oauth2 v0.13.0 // indirect
+	golang.org/x/oauth2 v0.14.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.17.0 // indirect
@@ -212,7 +213,7 @@ require (
 	google.golang.org/genproto v0.0.0-20231212172506-995d672761c0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231211222908-989df2bf70f3 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240102182953-50ed04b92917 // indirect
-	google.golang.org/grpc v1.60.1 // indirect
+	google.golang.org/grpc v1.61.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/ns1/ns1-go.v2 v2.7.6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -221,4 +222,4 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-replace github.com/sagernet/sing-box v1.8.2 => github.com/wyx2685/sing-box_mod v0.0.0-20240122043647-0854bf9053ab
+replace github.com/sagernet/sing-box v1.8.2 => github.com/wyx2685/sing-box_mod v0.0.0-20240127041531-d639d330f343
