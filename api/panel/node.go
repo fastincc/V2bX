@@ -1,7 +1,9 @@
 package panel
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -130,7 +132,19 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 	r, err := c.client.
 		R().
 		SetHeader("If-None-Match", c.nodeEtag).
+		ForceContentType("application/json").
 		Get(path)
+
+	if r.StatusCode() == 304 {
+		return nil, nil
+	}
+	hash := sha256.Sum256(r.Body())
+	newBodyHash := hex.EncodeToString(hash[:])
+	if c.responseBodyHash == newBodyHash {
+		return nil, nil
+	}
+	c.responseBodyHash = newBodyHash
+	c.nodeEtag = r.Header().Get("ETag")
 	if err = c.checkResponse(r, path, err); err != nil {
 		return nil, err
 	}
@@ -141,9 +155,6 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 				r.RawBody().Close()
 			}
 		}()
-		if r.StatusCode() == 304 {
-			return nil, nil
-		}
 	} else {
 		return nil, fmt.Errorf("received nil response")
 	}
@@ -274,8 +285,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 	cm.Routes = nil
 	cm.BaseConfig = nil
 
-	c.nodeEtag = r.Header().Get("ETag")
-	return
+	return node, nil
 }
 
 func intervalToTime(i interface{}) time.Duration {

@@ -307,10 +307,8 @@ func extractPortFromAddr(addr string) int {
 }
 
 func formatAddress(ip string, port int) string {
-	// 检查 IP 地址是否为 IPv6
 	if strings.Contains(ip, ":") {
 		return fmt.Sprintf("[%s]:%d", ip, port)
 	}
-	// 对于 IPv4 地址，直接返回 IP:Port 格式
 	return fmt.Sprintf("%s:%d", ip, port)
 }
