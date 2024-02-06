@@ -103,17 +103,18 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) (err error) {
 }
 
 type Options struct {
-	Name                   string          `json:"Name"`
-	Core                   string          `json:"Core"`
-	CoreName               string          `json:"CoreName"`
-	ListenIP               string          `json:"ListenIP"`
-	SendIP                 string          `json:"SendIP"`
-	DeviceOnlineMinTraffic int64           `json:"DeviceOnlineMinTraffic"`
-	LimitConfig            LimitConfig     `json:"LimitConfig"`
-	RawOptions             json.RawMessage `json:"RawOptions"`
-	XrayOptions            *XrayOptions    `json:"XrayOptions"`
-	SingOptions            *SingOptions    `json:"SingOptions"`
-	CertConfig             *CertConfig     `json:"CertConfig"`
+	Name                   string            `json:"Name"`
+	Core                   string            `json:"Core"`
+	CoreName               string            `json:"CoreName"`
+	ListenIP               string            `json:"ListenIP"`
+	SendIP                 string            `json:"SendIP"`
+	DeviceOnlineMinTraffic int64             `json:"DeviceOnlineMinTraffic"`
+	LimitConfig            LimitConfig       `json:"LimitConfig"`
+	RawOptions             json.RawMessage   `json:"RawOptions"`
+	XrayOptions            *XrayOptions      `json:"XrayOptions"`
+	SingOptions            *SingOptions      `json:"SingOptions"`
+	Hysteria2Options       *Hysteria2Options `json:"Hysteria2Options"`
+	CertConfig             *CertConfig       `json:"CertConfig"`
 }
 
 func (o *Options) UnmarshalJSON(data []byte) error {
@@ -129,6 +130,9 @@ func (o *Options) UnmarshalJSON(data []byte) error {
 	case "sing":
 		o.SingOptions = NewSingOptions()
 		return json.Unmarshal(data, o.SingOptions)
+	case "hysteria2":
+		o.Hysteria2Options = NewHysteria2Options()
+		return json.Unmarshal(data, o.Hysteria2Options)
 	default:
 		o.Core = ""
 		o.RawOptions = data

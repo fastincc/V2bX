@@ -120,15 +120,15 @@ func (l *Limiter) UpdateDynamicSpeedLimit(tag, uuid string, limit int, expire ti
 	return nil
 }
 
-func (l *Limiter) CheckLimit(email string, ip string, isTcp bool) (Bucket *ratelimit.Bucket, Reject bool) {
+func (l *Limiter) CheckLimit(uuid string, ip string, isTcp bool) (Bucket *ratelimit.Bucket, Reject bool) {
 	// ip and conn limiter
-	if l.ConnLimiter.AddConnCount(email, ip, isTcp) {
+	if l.ConnLimiter.AddConnCount(uuid, ip, isTcp) {
 		return nil, true
 	}
 	// check and gen speed limit Bucket
 	nodeLimit := l.SpeedLimit
 	userLimit := 0
-	if v, ok := l.UserLimitInfo.Load(email); ok {
+	if v, ok := l.UserLimitInfo.Load(uuid); ok {
 		u := v.(*UserLimitInfo)
 		if u.ExpireTime < time.Now().Unix() && u.ExpireTime != 0 {
 			if u.SpeedLimit != 0 {
@@ -136,7 +136,7 @@ func (l *Limiter) CheckLimit(email string, ip string, isTcp bool) (Bucket *ratel
 				u.DynamicSpeedLimit = 0
 				u.ExpireTime = 0
 			} else {
-				l.UserLimitInfo.Delete(email)
+				l.UserLimitInfo.Delete(uuid)
 			}
 		} else {
 			userLimit = determineSpeedLimit(u.SpeedLimit, u.DynamicSpeedLimit)
@@ -145,10 +145,10 @@ func (l *Limiter) CheckLimit(email string, ip string, isTcp bool) (Bucket *ratel
 
 	// Store online user for device limit
 	ipMap := new(sync.Map)
-	uid := l.UUIDtoUID[email]
+	uid := l.UUIDtoUID[uuid]
 	ipMap.Store(ip, uid)
 	// If any device is online
-	if v, ok := l.UserOnlineIP.LoadOrStore(email, ipMap); ok {
+	if v, ok := l.UserOnlineIP.LoadOrStore(uuid, ipMap); ok {
 		ipMap := v.(*sync.Map)
 		// If this is a new ip
 		if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
@@ -163,10 +163,10 @@ func (l *Limiter) CheckLimit(email string, ip string, isTcp bool) (Bucket *ratel
 	limit := int64(determineSpeedLimit(nodeLimit, userLimit)) * 1000000 / 8 // If you need the Speed limit
 	if limit > 0 {
 		Bucket = ratelimit.NewBucketWithQuantum(time.Second, limit, limit) // Byte/s
-		if v, ok := l.SpeedLimiter.LoadOrStore(email, Bucket); ok {
+		if v, ok := l.SpeedLimiter.LoadOrStore(uuid, Bucket); ok {
 			return v.(*ratelimit.Bucket), false
 		} else {
-			l.SpeedLimiter.Store(email, Bucket)
+			l.SpeedLimiter.Store(uuid, Bucket)
 			return Bucket, false
 		}
 	} else {

@@ -3,6 +3,8 @@ module github.com/InazumaV/V2bX
 go 1.21.4
 
 require (
+	github.com/apernet/hysteria/core v1.3.5-0.20240201034858-bb99579bb92c
+	github.com/apernet/hysteria/extras v0.0.0-20240201034858-bb99579bb92c
 	github.com/beevik/ntp v1.2.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.13.2
@@ -15,6 +17,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/xtls/xray-core v1.8.8-0.20240125151013-25c531c6c358
+	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.18.0
 	golang.org/x/sys v0.16.0
 	google.golang.org/protobuf v1.32.0
@@ -47,7 +50,9 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1755 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/andybalholm/brotli v1.0.6 // indirect
+	github.com/apernet/quic-go v0.41.1-0.20240122005439-5bf4609c416f // indirect
 	github.com/aws/aws-sdk-go v1.39.0 // indirect
+	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/caddyserver/certmagic v0.20.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
@@ -90,6 +95,7 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/iij/doapi v0.0.0-20190504054126-0bbf12d6d7df // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -182,6 +188,8 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.490 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod v1.0.490 // indirect
 	github.com/transip/gotransip/v6 v6.20.0 // indirect
+	github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf // indirect
+	github.com/txthinking/socks5 v0.0.0-20230325130024-4230056ae301 // indirect
 	github.com/ultradns/ultradns-go-sdk v1.5.0-20230427130837-23c9b0c // indirect
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e // indirect
 	github.com/vinyldns/go-vinyldns v0.9.16 // indirect
@@ -196,7 +204,6 @@ require (
 	go.uber.org/mock v0.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
-	go.uber.org/zap v1.26.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
 	golang.org/x/mod v0.14.0 // indirect
@@ -221,4 +228,5 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
+//github.com/apernet/hysteria/core v1.3.5-0.20240201034858-bb99579bb92c => /root/hysteria/core
 replace github.com/sagernet/sing-box v1.8.2 => github.com/wyx2685/sing-box_mod v0.0.0
