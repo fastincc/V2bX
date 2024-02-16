@@ -19,12 +19,13 @@ func NewHysteria2Config() *Hysteria2Config {
 }
 
 type Hysteria2Options struct {
+	Hysteria2ConfigPath   string                 `json:"Hysteria2ConfigPath"`
 	QUICConfig            QUICConfig             `json:"QUICConfig"`
 	Outbounds             []Outbounds            `json:"Outbounds"`
 	IgnoreClientBandwidth bool                   `json:"IgnoreClientBandwidth"`
 	DisableUDP            bool                   `json:"DisableUDP"`
 	UDPIdleTimeout        time.Duration          `json:"UDPIdleTimeout"`
-	Masquerade            serverConfigMasquerade `json:"masquerade"`
+	Masquerade            serverConfigMasquerade `json:"Masquerade"`
 }
 
 type QUICConfig struct {

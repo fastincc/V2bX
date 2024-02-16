@@ -1,9 +1,13 @@
 package hy2
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/apernet/hysteria/core/server"
+	"github.com/goccy/go-json"
 	"go.uber.org/zap"
 )
 
@@ -52,6 +56,18 @@ func (n *Hysteria2node) getHyConfig(tag string, info *panel.NodeInfo, config *co
 }
 
 func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
+	var err error
+	hyconfig := &server.Config{}
+	if len(config.Hysteria2Options.Hysteria2ConfigPath) != 0 {
+		data, err := os.ReadFile(config.Hysteria2Options.Hysteria2ConfigPath)
+		if err != nil {
+			return fmt.Errorf("read hysteria2 config error: %s", err)
+		}
+		err = json.Unmarshal(data, hyconfig)
+		if err != nil {
+			return fmt.Errorf("unmarshal original config error: %s", err)
+		}
+	}
 	n := Hysteria2node{
 		Tag:    tag,
 		Logger: h.Logger,
@@ -63,7 +79,8 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 			Tag: tag,
 		},
 	}
-	hyconfig, err := n.getHyConfig(tag, info, config)
+
+	hyconfig, err = n.getHyConfig(tag, info, config)
 	if err != nil {
 		return err
 	}

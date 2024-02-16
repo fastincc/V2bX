@@ -13,10 +13,10 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
 	github.com/sagernet/sing v0.3.1-0.20240105061852-782bc05c5573
-	github.com/sagernet/sing-box v1.8.2
+	github.com/sagernet/sing-box v1.9.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
-	github.com/xtls/xray-core v1.8.8-0.20240125151013-25c531c6c358
+	github.com/xtls/xray-core v1.8.8-0.20240206154139-303beff5dd1a
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.18.0
 	golang.org/x/sys v0.16.0
@@ -150,7 +150,7 @@ require (
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/quic-go/quic-go v0.41.0 // indirect
-	github.com/refraction-networking/utls v1.6.1 // indirect
+	github.com/refraction-networking/utls v1.6.2 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/sacloud/api-client-go v0.2.8 // indirect
 	github.com/sacloud/go-http v0.1.6 // indirect
@@ -163,11 +163,11 @@ require (
 	github.com/sagernet/quic-go v0.40.1 // indirect
 	github.com/sagernet/sing-dns v0.1.12 // indirect
 	github.com/sagernet/sing-mux v0.2.0 // indirect
-	github.com/sagernet/sing-quic v0.1.7 // indirect
+	github.com/sagernet/sing-quic v0.1.8 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.6 // indirect
 	github.com/sagernet/sing-shadowsocks2 v0.2.0 // indirect
 	github.com/sagernet/sing-shadowtls v0.1.4 // indirect
-	github.com/sagernet/sing-tun v0.2.0 // indirect
+	github.com/sagernet/sing-tun v0.2.1 // indirect
 	github.com/sagernet/sing-vmess v0.1.8 // indirect
 	github.com/sagernet/smux v0.0.0-20231208180855-7041f6ea79e7 // indirect
 	github.com/sagernet/tfo-go v0.0.0-20231209031829-7b5343ac1dc6 // indirect
@@ -205,7 +205,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/oauth2 v0.14.0 // indirect
@@ -229,4 +229,4 @@ require (
 )
 
 //github.com/apernet/hysteria/core v1.3.5-0.20240201034858-bb99579bb92c => /root/hysteria/core
-replace github.com/sagernet/sing-box v1.8.2 => github.com/wyx2685/sing-box_mod v0.0.0
+replace github.com/sagernet/sing-box v1.9.0 => github.com/wyx2685/sing-box_mod v0.0.1
