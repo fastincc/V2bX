@@ -1,6 +1,8 @@
 module github.com/InazumaV/V2bX
 
-go 1.21.4
+go 1.22
+
+toolchain go1.22.0
 
 require (
 	github.com/apernet/hysteria/core v1.3.5-0.20240201034858-bb99579bb92c
@@ -16,7 +18,7 @@ require (
 	github.com/sagernet/sing-box v1.9.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
-	github.com/xtls/xray-core v1.8.8-0.20240206154139-303beff5dd1a
+	github.com/xtls/xray-core v1.8.8-0.20240219151643-ad3dd3df56b9
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.19.0
 	golang.org/x/sys v0.17.0
@@ -161,7 +163,7 @@ require (
 	github.com/sagernet/gvisor v0.0.0-20240214044702-a3d61928a32f // indirect
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97 // indirect
 	github.com/sagernet/quic-go v0.41.0-beta.2 // indirect
-	github.com/sagernet/sing-dns v0.2.0-beta.4.0.20240214131950-9a328d89cce6 // indirect
+	github.com/sagernet/sing-dns v0.2.0-beta.6 // indirect
 	github.com/sagernet/sing-mux v0.2.0 // indirect
 	github.com/sagernet/sing-quic v0.1.9-beta.1 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.6 // indirect
@@ -229,4 +231,4 @@ require (
 )
 
 //github.com/apernet/hysteria/core v1.3.5-0.20240201034858-bb99579bb92c => /root/hysteria/core
-replace github.com/sagernet/sing-box v1.9.0 => github.com/wyx2685/sing-box_mod v0.0.2
+replace github.com/sagernet/sing-box v1.9.0 => github.com/wyx2685/sing-box_mod v0.0.3

@@ -63,7 +63,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 		us := make([]option.HysteriaUser, len(p.Users))
 		for i := range p.Users {
 			us[i] = option.HysteriaUser{
-				Name:       p.Users[i].Uuid,
+				Name:       string(p.Users[i].Id),
 				AuthString: p.Users[i].Uuid,
 			}
 		}
@@ -72,7 +72,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 		us := make([]option.Hysteria2User, len(p.Users))
 		for i := range p.Users {
 			us[i] = option.Hysteria2User{
-				Name:     p.Users[i].Uuid,
+				Name:     string(p.Users[i].Id),
 				Password: p.Users[i].Uuid,
 			}
 		}
