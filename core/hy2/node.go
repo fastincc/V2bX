@@ -2,12 +2,11 @@ package hy2
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/apernet/hysteria/core/server"
-	"github.com/goccy/go-json"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -19,54 +18,21 @@ type Hysteria2node struct {
 	TrafficLogger server.TrafficLogger
 }
 
-func (n *Hysteria2node) getHyConfig(tag string, info *panel.NodeInfo, config *conf.Options) (*server.Config, error) {
-	tls, err := n.getTLSConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	quic, err := n.getQUICConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	conn, err := n.getConn(info, config)
-	if err != nil {
-		return nil, err
-	}
-	Outbound, err := n.getOutboundConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	Masq, err := n.getMasqHandler(tls, conn, info, config)
-	if err != nil {
-		return nil, err
-	}
-	return &server.Config{
-		TLSConfig:             *tls,
-		QUICConfig:            *quic,
-		Conn:                  conn,
-		Outbound:              Outbound,
-		BandwidthConfig:       *n.getBandwidthConfig(info),
-		IgnoreClientBandwidth: config.Hysteria2Options.IgnoreClientBandwidth,
-		DisableUDP:            config.Hysteria2Options.DisableUDP,
-		UDPIdleTimeout:        config.Hysteria2Options.UDPIdleTimeout,
-		EventLogger:           n.EventLogger,
-		TrafficLogger:         n.TrafficLogger,
-		MasqHandler:           Masq,
-	}, nil
-}
-
 func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
 	var err error
 	hyconfig := &server.Config{}
-	if len(config.Hysteria2Options.Hysteria2ConfigPath) != 0 {
-		data, err := os.ReadFile(config.Hysteria2Options.Hysteria2ConfigPath)
-		if err != nil {
-			return fmt.Errorf("read hysteria2 config error: %s", err)
+	var c serverConfig
+	v := viper.New()
+	if len(config.Hysteria2ConfigPath) != 0 {
+		v.SetConfigFile(config.Hysteria2ConfigPath)
+		if err := v.ReadInConfig(); err != nil {
+			h.Logger.Fatal("failed to read server config", zap.Error(err))
 		}
-		err = json.Unmarshal(data, hyconfig)
-		if err != nil {
-			return fmt.Errorf("unmarshal original config error: %s", err)
+		if err := v.Unmarshal(&c); err != nil {
+			h.Logger.Fatal("failed to parse server config", zap.Error(err))
 		}
+		h.Logger.Debug("loaded server config:")
+		fmt.Printf("%+v", c)
 	}
 	n := Hysteria2node{
 		Tag:    tag,
@@ -80,7 +46,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 		},
 	}
 
-	hyconfig, err = n.getHyConfig(tag, info, config)
+	hyconfig, err = n.getHyConfig(tag, info, config, &c)
 	if err != nil {
 		return err
 	}

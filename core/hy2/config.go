@@ -77,37 +77,49 @@ func (n *Hysteria2node) getTLSConfig(config *conf.Options) (*server.TLSConfig, e
 	}
 }
 
-func (n *Hysteria2node) getQUICConfig(config *conf.Options) (*server.QUICConfig, error) {
+func (n *Hysteria2node) getQUICConfig(config *serverConfig) (*server.QUICConfig, error) {
 	quic := &server.QUICConfig{}
-	if config.Hysteria2Options.QUICConfig.InitialStreamReceiveWindow == 0 {
+	if config.QUIC.InitStreamReceiveWindow == 0 {
 		quic.InitialStreamReceiveWindow = defaultStreamReceiveWindow
-	} else if config.Hysteria2Options.QUICConfig.InitialStreamReceiveWindow < 16384 {
+	} else if config.QUIC.InitStreamReceiveWindow < 16384 {
 		return nil, fmt.Errorf("QUICConfig.InitialStreamReceiveWindowf must be at least 16384")
+	} else {
+		quic.InitialConnectionReceiveWindow = config.QUIC.InitConnectionReceiveWindow
 	}
-	if config.Hysteria2Options.QUICConfig.MaxStreamReceiveWindow == 0 {
+	if config.QUIC.MaxStreamReceiveWindow == 0 {
 		quic.MaxStreamReceiveWindow = defaultStreamReceiveWindow
-	} else if config.Hysteria2Options.QUICConfig.MaxStreamReceiveWindow < 16384 {
+	} else if config.QUIC.MaxStreamReceiveWindow < 16384 {
 		return nil, fmt.Errorf("QUICConfig.MaxStreamReceiveWindowf must be at least 16384")
+	} else {
+		quic.MaxStreamReceiveWindow = config.QUIC.MaxStreamReceiveWindow
 	}
-	if config.Hysteria2Options.QUICConfig.InitialConnectionReceiveWindow == 0 {
+	if config.QUIC.InitConnectionReceiveWindow == 0 {
 		quic.InitialConnectionReceiveWindow = defaultConnReceiveWindow
-	} else if config.Hysteria2Options.QUICConfig.InitialConnectionReceiveWindow < 16384 {
+	} else if config.QUIC.InitConnectionReceiveWindow < 16384 {
 		return nil, fmt.Errorf("QUICConfig.InitialConnectionReceiveWindowf must be at least 16384")
+	} else {
+		quic.InitialConnectionReceiveWindow = config.QUIC.InitConnectionReceiveWindow
 	}
-	if config.Hysteria2Options.QUICConfig.MaxConnectionReceiveWindow == 0 {
+	if config.QUIC.MaxConnectionReceiveWindow == 0 {
 		quic.MaxConnectionReceiveWindow = defaultConnReceiveWindow
-	} else if config.Hysteria2Options.QUICConfig.MaxConnectionReceiveWindow < 16384 {
+	} else if config.QUIC.MaxConnectionReceiveWindow < 16384 {
 		return nil, fmt.Errorf("QUICConfig.MaxConnectionReceiveWindowf must be at least 16384")
+	} else {
+		quic.MaxConnectionReceiveWindow = config.QUIC.MaxConnectionReceiveWindow
 	}
-	if config.Hysteria2Options.QUICConfig.MaxIdleTimeout == 0 {
+	if config.QUIC.MaxIdleTimeout == 0 {
 		quic.MaxIdleTimeout = defaultMaxIdleTimeout
-	} else if config.Hysteria2Options.QUICConfig.MaxIdleTimeout < 4*time.Second || config.Hysteria2Options.QUICConfig.MaxIdleTimeout > 120*time.Second {
+	} else if config.QUIC.MaxIdleTimeout < 4*time.Second || config.QUIC.MaxIdleTimeout > 120*time.Second {
 		return nil, fmt.Errorf("QUICConfig.MaxIdleTimeoutf must be between 4s and 120s")
+	} else {
+		quic.MaxIdleTimeout = config.QUIC.MaxIdleTimeout
 	}
-	if config.Hysteria2Options.QUICConfig.MaxIncomingStreams == 0 {
+	if config.QUIC.MaxIncomingStreams == 0 {
 		quic.MaxIncomingStreams = defaultMaxIncomingStreams
-	} else if config.Hysteria2Options.QUICConfig.MaxIncomingStreams < 8 {
+	} else if config.QUIC.MaxIncomingStreams < 8 {
 		return nil, fmt.Errorf("QUICConfig.MaxIncomingStreamsf must be at least 8")
+	} else {
+		quic.MaxIncomingStreams = config.QUIC.MaxIncomingStreams
 	}
 	// todo fix !linux && !windows && !darwin
 	quic.DisablePathMTUDiscovery = false
@@ -149,19 +161,24 @@ func (n *Hysteria2node) getBandwidthConfig(info *panel.NodeInfo) *server.Bandwid
 	return band
 }
 
-func (n *Hysteria2node) getOutboundConfig(config *conf.Options) (server.Outbound, error) {
+func (n *Hysteria2node) getOutboundConfig(c *serverConfig) (server.Outbound, error) {
+	// Resolver, ACL, actual outbound are all implemented through the Outbound interface.
+	// Depending on the config, we build a chain like this:
+	// Resolver(ACL(Outbounds...))
+
+	// Outbounds
 	var obs []outbounds.OutboundEntry
-	if len(config.Hysteria2Options.Outbounds) == 0 {
+	if len(c.Outbounds) == 0 {
 		// Guarantee we have at least one outbound
 		obs = []outbounds.OutboundEntry{{
 			Name:     "default",
 			Outbound: outbounds.NewDirectOutboundSimple(outbounds.DirectOutboundModeAuto),
 		}}
 	} else {
-		obs = make([]outbounds.OutboundEntry, len(config.Hysteria2Options.Outbounds))
-		for i, entry := range config.Hysteria2Options.Outbounds {
+		obs = make([]outbounds.OutboundEntry, len(c.Outbounds))
+		for i, entry := range c.Outbounds {
 			if entry.Name == "" {
-				return nil, fmt.Errorf("outbounds.name empty outbound name")
+				return nil, fmt.Errorf("empty outbound name")
 			}
 			var ob outbounds.PluggableOutbound
 			var err error
@@ -183,33 +200,89 @@ func (n *Hysteria2node) getOutboundConfig(config *conf.Options) (server.Outbound
 	}
 	var uOb outbounds.PluggableOutbound // "unified" outbound
 
+	// ACL
 	hasACL := false
-	if hasACL {
-		// todo fix ACL
+	if c.ACL.File != "" && len(c.ACL.Inline) > 0 {
+		return nil, fmt.Errorf("cannot set both acl.file and acl.inline")
+	}
+	gLoader := &GeoLoader{
+		GeoIPFilename:   c.ACL.GeoIP,
+		GeoSiteFilename: c.ACL.GeoSite,
+		UpdateInterval:  c.ACL.GeoUpdateInterval,
+		Logger:          n.Logger,
+	}
+
+	if c.ACL.File != "" {
+		hasACL = true
+		acl, err := outbounds.NewACLEngineFromFile(c.ACL.File, obs, gLoader)
+		if err != nil {
+			return nil, err
+		}
+		uOb = acl
+	} else if len(c.ACL.Inline) > 0 {
+		n.Logger.Debug("found ACL Inline:", zap.Strings("Inline", c.ACL.Inline))
+		hasACL = true
+		acl, err := outbounds.NewACLEngineFromString(strings.Join(c.ACL.Inline, "\n"), obs, gLoader)
+		if err != nil {
+			return nil, err
+		}
+		uOb = acl
 	} else {
 		// No ACL, use the first outbound
 		uOb = obs[0].Outbound
+	}
+
+	switch strings.ToLower(c.Resolver.Type) {
+	case "", "system":
+		if hasACL {
+			// If the user uses ACL, we must put a resolver in front of it,
+			// for IP rules to work on domain requests.
+			uOb = outbounds.NewSystemResolver(uOb)
+		}
+		// Otherwise we can just rely on outbound handling on its own.
+	case "tcp":
+		if c.Resolver.TCP.Addr == "" {
+			return nil, fmt.Errorf("empty resolver address")
+		}
+		uOb = outbounds.NewStandardResolverTCP(c.Resolver.TCP.Addr, c.Resolver.TCP.Timeout, uOb)
+	case "udp":
+		if c.Resolver.UDP.Addr == "" {
+			return nil, fmt.Errorf("empty resolver address")
+		}
+		uOb = outbounds.NewStandardResolverUDP(c.Resolver.UDP.Addr, c.Resolver.UDP.Timeout, uOb)
+	case "tls", "tcp-tls":
+		if c.Resolver.TLS.Addr == "" {
+			return nil, fmt.Errorf("empty resolver address")
+		}
+		uOb = outbounds.NewStandardResolverTLS(c.Resolver.TLS.Addr, c.Resolver.TLS.Timeout, c.Resolver.TLS.SNI, c.Resolver.TLS.Insecure, uOb)
+	case "https", "http":
+		if c.Resolver.HTTPS.Addr == "" {
+			return nil, fmt.Errorf("empty resolver address")
+		}
+		uOb = outbounds.NewDoHResolver(c.Resolver.HTTPS.Addr, c.Resolver.HTTPS.Timeout, c.Resolver.HTTPS.SNI, c.Resolver.HTTPS.Insecure, uOb)
+	default:
+		return nil, fmt.Errorf("unsupported resolver type")
 	}
 	Outbound := &outbounds.PluggableOutboundAdapter{PluggableOutbound: uOb}
 
 	return Outbound, nil
 }
 
-func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.PacketConn, info *panel.NodeInfo, config *conf.Options) (http.Handler, error) {
+func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.PacketConn, info *panel.NodeInfo, c *serverConfig) (http.Handler, error) {
 	var handler http.Handler
-	switch strings.ToLower(config.Hysteria2Options.Masquerade.Type) {
+	switch strings.ToLower(c.Masquerade.Type) {
 	case "", "404":
 		handler = http.NotFoundHandler()
 	case "file":
-		if config.Hysteria2Options.Masquerade.File.Dir == "" {
+		if c.Masquerade.File.Dir == "" {
 			return nil, fmt.Errorf("masquerade.file.dir empty file directory")
 		}
-		handler = http.FileServer(http.Dir(config.Hysteria2Options.Masquerade.File.Dir))
+		handler = http.FileServer(http.Dir(c.Masquerade.File.Dir))
 	case "proxy":
-		if config.Hysteria2Options.Masquerade.Proxy.URL == "" {
+		if c.Masquerade.Proxy.URL == "" {
 			return nil, fmt.Errorf("masquerade.proxy.url empty proxy url")
 		}
-		u, err := url.Parse(config.Hysteria2Options.Masquerade.Proxy.URL)
+		u, err := url.Parse(c.Masquerade.Proxy.URL)
 		if err != nil {
 			return nil, fmt.Errorf(fmt.Sprintf("masquerade.proxy.url %s", err))
 		}
@@ -218,7 +291,7 @@ func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.Pac
 				r.SetURL(u)
 				// SetURL rewrites the Host header,
 				// but we don't want that if rewriteHost is false
-				if !config.Hysteria2Options.Masquerade.Proxy.RewriteHost {
+				if !c.Masquerade.Proxy.RewriteHost {
 					r.Out.Host = r.In.Host
 				}
 			},
@@ -228,50 +301,86 @@ func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.Pac
 			},
 		}
 	case "string":
-		if config.Hysteria2Options.Masquerade.String.Content == "" {
+		if c.Masquerade.String.Content == "" {
 			return nil, fmt.Errorf("masquerade.string.content empty string content")
 		}
-		if config.Hysteria2Options.Masquerade.String.StatusCode != 0 &&
-			(config.Hysteria2Options.Masquerade.String.StatusCode < 200 ||
-				config.Hysteria2Options.Masquerade.String.StatusCode > 599 ||
-				config.Hysteria2Options.Masquerade.String.StatusCode == 233) {
+		if c.Masquerade.String.StatusCode != 0 &&
+			(c.Masquerade.String.StatusCode < 200 ||
+				c.Masquerade.String.StatusCode > 599 ||
+				c.Masquerade.String.StatusCode == 233) {
 			// 233 is reserved for Hysteria authentication
 			return nil, fmt.Errorf("masquerade.string.statusCode invalid status code (must be 200-599, except 233)")
 		}
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for k, v := range config.Hysteria2Options.Masquerade.String.Headers {
+			for k, v := range c.Masquerade.String.Headers {
 				w.Header().Set(k, v)
 			}
-			if config.Hysteria2Options.Masquerade.String.StatusCode != 0 {
-				w.WriteHeader(config.Hysteria2Options.Masquerade.String.StatusCode)
+			if c.Masquerade.String.StatusCode != 0 {
+				w.WriteHeader(c.Masquerade.String.StatusCode)
 			} else {
 				w.WriteHeader(http.StatusOK) // Use 200 OK by default
 			}
-			_, _ = w.Write([]byte(config.Hysteria2Options.Masquerade.String.Content))
+			_, _ = w.Write([]byte(c.Masquerade.String.Content))
 		})
 	default:
 		return nil, fmt.Errorf("masquerade.type unsupported masquerade type")
 	}
 	MasqHandler := &masqHandlerLogWrapper{H: handler, QUIC: true, Logger: n.Logger}
 
-	if config.Hysteria2Options.Masquerade.ListenHTTP != "" || config.Hysteria2Options.Masquerade.ListenHTTPS != "" {
-		if config.Hysteria2Options.Masquerade.ListenHTTP != "" && config.Hysteria2Options.Masquerade.ListenHTTPS == "" {
+	if c.Masquerade.ListenHTTP != "" || c.Masquerade.ListenHTTPS != "" {
+		if c.Masquerade.ListenHTTP != "" && c.Masquerade.ListenHTTPS == "" {
 			return nil, fmt.Errorf("masquerade.listenHTTPS having only HTTP server without HTTPS is not supported")
 		}
 		s := masq.MasqTCPServer{
 			QUICPort:  extractPortFromAddr(conn.LocalAddr().String()),
-			HTTPSPort: extractPortFromAddr(config.Hysteria2Options.Masquerade.ListenHTTPS),
+			HTTPSPort: extractPortFromAddr(c.Masquerade.ListenHTTPS),
 			Handler:   &masqHandlerLogWrapper{H: handler, QUIC: false},
 			TLSConfig: &tls.Config{
 				Certificates:   tlsconfig.Certificates,
 				GetCertificate: tlsconfig.GetCertificate,
 			},
-			ForceHTTPS: config.Hysteria2Options.Masquerade.ForceHTTPS,
+			ForceHTTPS: c.Masquerade.ForceHTTPS,
 		}
-		go runMasqTCPServer(&s, config.Hysteria2Options.Masquerade.ListenHTTP, config.Hysteria2Options.Masquerade.ListenHTTPS, n.Logger)
+		go runMasqTCPServer(&s, c.Masquerade.ListenHTTP, c.Masquerade.ListenHTTPS, n.Logger)
 	}
 
 	return MasqHandler, nil
+}
+
+func (n *Hysteria2node) getHyConfig(tag string, info *panel.NodeInfo, config *conf.Options, c *serverConfig) (*server.Config, error) {
+	tls, err := n.getTLSConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	quic, err := n.getQUICConfig(c)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := n.getConn(info, config)
+	if err != nil {
+		return nil, err
+	}
+	Outbound, err := n.getOutboundConfig(c)
+	if err != nil {
+		return nil, err
+	}
+	Masq, err := n.getMasqHandler(tls, conn, info, c)
+	if err != nil {
+		return nil, err
+	}
+	return &server.Config{
+		TLSConfig:             *tls,
+		QUICConfig:            *quic,
+		Conn:                  conn,
+		Outbound:              Outbound,
+		BandwidthConfig:       *n.getBandwidthConfig(info),
+		IgnoreClientBandwidth: c.IgnoreClientBandwidth,
+		DisableUDP:            c.DisableUDP,
+		UDPIdleTimeout:        c.UDPIdleTimeout,
+		EventLogger:           n.EventLogger,
+		TrafficLogger:         n.TrafficLogger,
+		MasqHandler:           Masq,
+	}, nil
 }
 
 func runMasqTCPServer(s *masq.MasqTCPServer, httpAddr, httpsAddr string, logger *zap.Logger) {
