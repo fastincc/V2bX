@@ -1,8 +1,6 @@
 package hy2
 
 import (
-	"fmt"
-
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/apernet/hysteria/core/server"
@@ -31,8 +29,6 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 		if err := v.Unmarshal(&c); err != nil {
 			h.Logger.Fatal("failed to parse server config", zap.Error(err))
 		}
-		h.Logger.Debug("loaded server config:")
-		fmt.Printf("%+v", c)
 	}
 	n := Hysteria2node{
 		Tag:    tag,

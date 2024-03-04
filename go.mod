@@ -14,13 +14,13 @@ require (
 	github.com/goccy/go-json v0.10.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.3.2
+	github.com/sagernet/sing v0.3.4-beta.1
 	github.com/sagernet/sing-box v1.9.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
 	github.com/xtls/xray-core v1.8.8
-	go.uber.org/zap v1.26.0
+	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.19.0
 	golang.org/x/sys v0.17.0
 	google.golang.org/protobuf v1.32.0
@@ -75,7 +75,7 @@ require (
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344 // indirect
-	github.com/go-chi/chi/v5 v5.0.11 // indirect
+	github.com/go-chi/chi/v5 v5.0.12 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
@@ -171,13 +171,13 @@ require (
 	github.com/sagernet/gvisor v0.0.0-20240214044702-a3d61928a32f // indirect
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97 // indirect
 	github.com/sagernet/quic-go v0.41.0-beta.2 // indirect
-	github.com/sagernet/sing-dns v0.2.0-beta.6 // indirect
+	github.com/sagernet/sing-dns v0.2.0-beta.14 // indirect
 	github.com/sagernet/sing-mux v0.2.0 // indirect
 	github.com/sagernet/sing-quic v0.1.9-beta.1 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.6 // indirect
 	github.com/sagernet/sing-shadowsocks2 v0.2.0 // indirect
 	github.com/sagernet/sing-shadowtls v0.1.4 // indirect
-	github.com/sagernet/sing-tun v0.2.2-beta.3 // indirect
+	github.com/sagernet/sing-tun v0.2.4-beta.1 // indirect
 	github.com/sagernet/sing-vmess v0.1.8 // indirect
 	github.com/sagernet/smux v0.0.0-20231208180855-7041f6ea79e7 // indirect
 	github.com/sagernet/tfo-go v0.0.0-20231209031829-7b5343ac1dc6 // indirect
@@ -246,4 +246,4 @@ require (
 )
 
 //github.com/apernet/hysteria/core v1.3.5-0.20240201034858-bb99579bb92c => /root/hysteria/core
-replace github.com/sagernet/sing-box v1.9.0 => github.com/wyx2685/sing-box_mod v0.0.4
+replace github.com/sagernet/sing-box v1.9.0 => github.com/wyx2685/sing-box_mod v0.0.5

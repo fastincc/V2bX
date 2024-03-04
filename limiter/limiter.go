@@ -45,6 +45,7 @@ type Limiter struct {
 type UserLimitInfo struct {
 	UID               int
 	SpeedLimit        int
+	DeviceLimit       int
 	DynamicSpeedLimit int
 	ExpireTime        int64
 }
@@ -60,13 +61,15 @@ func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo) *Limite
 	uuidmap := make(map[string]int)
 	for i := range users {
 		uuidmap[users[i].Uuid] = users[i].Id
+		userLimit := &UserLimitInfo{}
+		userLimit.UID = users[i].Id
 		if users[i].SpeedLimit != 0 {
-			userLimit := &UserLimitInfo{
-				UID:        users[i].Id,
-				SpeedLimit: users[i].SpeedLimit,
-			}
-			info.UserLimitInfo.Store(format.UserTag(tag, users[i].Uuid), userLimit)
+			userLimit.SpeedLimit = users[i].SpeedLimit
 		}
+		if users[i].DeviceLimit != 0 {
+			userLimit.DeviceLimit = users[i].DeviceLimit
+		}
+		info.UserLimitInfo.Store(format.UserTag(tag, users[i].Uuid), userLimit)
 	}
 	info.UUIDtoUID = uuidmap
 	limitLock.Lock()
@@ -97,14 +100,17 @@ func (l *Limiter) UpdateUser(tag string, added []panel.UserInfo, deleted []panel
 		delete(l.UUIDtoUID, deleted[i].Uuid)
 	}
 	for i := range added {
-		if added[i].SpeedLimit != 0 {
-			userLimit := &UserLimitInfo{
-				UID:        added[i].Id,
-				SpeedLimit: added[i].SpeedLimit,
-				ExpireTime: 0,
-			}
-			l.UserLimitInfo.Store(format.UserTag(tag, added[i].Uuid), userLimit)
+		userLimit := &UserLimitInfo{
+			UID: added[i].Id,
 		}
+		if added[i].SpeedLimit != 0 {
+			userLimit.SpeedLimit = added[i].SpeedLimit
+			userLimit.ExpireTime = 0
+		}
+		if added[i].DeviceLimit != 0 {
+			userLimit.DeviceLimit = added[i].DeviceLimit
+		}
+		l.UserLimitInfo.Store(format.UserTag(tag, added[i].Uuid), userLimit)
 		l.UUIDtoUID[added[i].Uuid] = added[i].Id
 	}
 }
@@ -128,8 +134,10 @@ func (l *Limiter) CheckLimit(uuid string, ip string, isTcp bool) (Bucket *rateli
 	// check and gen speed limit Bucket
 	nodeLimit := l.SpeedLimit
 	userLimit := 0
+	deviceLimit := 0
 	if v, ok := l.UserLimitInfo.Load(uuid); ok {
 		u := v.(*UserLimitInfo)
+		deviceLimit = u.DeviceLimit
 		if u.ExpireTime < time.Now().Unix() && u.ExpireTime != 0 {
 			if u.SpeedLimit != 0 {
 				userLimit = u.SpeedLimit
@@ -157,6 +165,10 @@ func (l *Limiter) CheckLimit(uuid string, ip string, isTcp bool) (Bucket *rateli
 				counter++
 				return true
 			})
+			if counter > deviceLimit && deviceLimit > 0 {
+				ipMap.Delete(ip)
+				return nil, true
+			}
 		}
 	}
 
