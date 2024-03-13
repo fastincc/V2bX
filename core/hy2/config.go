@@ -49,7 +49,7 @@ const (
 	defaultStreamReceiveWindow = 8388608                            // 8MB
 	defaultConnReceiveWindow   = defaultStreamReceiveWindow * 5 / 2 // 20MB
 	defaultMaxIdleTimeout      = 30 * time.Second
-	defaultMaxIncomingStreams  = 1024
+	defaultMaxIncomingStreams  = 4096
 	defaultUDPIdleTimeout      = 60 * time.Second
 )
 
@@ -268,7 +268,7 @@ func (n *Hysteria2node) getOutboundConfig(c *serverConfig) (server.Outbound, err
 	return Outbound, nil
 }
 
-func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.PacketConn, info *panel.NodeInfo, c *serverConfig) (http.Handler, error) {
+func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.PacketConn, c *serverConfig) (http.Handler, error) {
 	var handler http.Handler
 	switch strings.ToLower(c.Masquerade.Type) {
 	case "", "404":
@@ -347,7 +347,7 @@ func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.Pac
 	return MasqHandler, nil
 }
 
-func (n *Hysteria2node) getHyConfig(tag string, info *panel.NodeInfo, config *conf.Options, c *serverConfig) (*server.Config, error) {
+func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, c *serverConfig) (*server.Config, error) {
 	tls, err := n.getTLSConfig(config)
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func (n *Hysteria2node) getHyConfig(tag string, info *panel.NodeInfo, config *co
 	if err != nil {
 		return nil, err
 	}
-	Masq, err := n.getMasqHandler(tls, conn, info, c)
+	Masq, err := n.getMasqHandler(tls, conn, c)
 	if err != nil {
 		return nil, err
 	}

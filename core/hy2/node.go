@@ -42,7 +42,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 		},
 	}
 
-	hyconfig, err = n.getHyConfig(tag, info, config, &c)
+	hyconfig, err = n.getHyConfig(info, config, &c)
 	if err != nil {
 		return err
 	}
