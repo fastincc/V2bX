@@ -348,6 +348,7 @@ func (b *Sing) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) e
 		b.ctx,
 		b.box.Router(),
 		b.logFactory.NewLogger(F.ToString("inbound/", c.Type, "[", tag, "]")),
+		tag,
 		c,
 		nil,
 	)

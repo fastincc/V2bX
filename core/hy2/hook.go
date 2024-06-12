@@ -11,7 +11,7 @@ type HookServer struct {
 	Counter sync.Map
 }
 
-func (h *HookServer) Log(id string, tx, rx uint64) (ok bool) {
+func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	var c interface{}
 	var exists bool
 
@@ -27,4 +27,7 @@ func (h *HookServer) Log(id string, tx, rx uint64) (ok bool) {
 	}
 
 	return false
+}
+
+func (s *HookServer) LogOnlineState(id string, online bool) {
 }

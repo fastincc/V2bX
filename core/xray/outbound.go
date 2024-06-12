@@ -5,7 +5,6 @@ import (
 
 	conf2 "github.com/InazumaV/V2bX/conf"
 	"github.com/goccy/go-json"
-	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/infra/conf"
 )
@@ -18,8 +17,7 @@ func buildOutbound(config *conf2.Options, tag string) (*core.OutboundHandlerConf
 
 	// Build Send IP address
 	if config.SendIP != "" {
-		ipAddress := net.ParseAddress(config.SendIP)
-		outboundDetourConfig.SendThrough = &conf.Address{Address: ipAddress}
+		outboundDetourConfig.SendThrough = &config.SendIP
 	}
 
 	// Freedom Protocol setting
