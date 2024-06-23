@@ -8,7 +8,6 @@ type SingConfig struct {
 	LogConfig       SingLogConfig `json:"Log"`
 	NtpConfig       SingNtpConfig `json:"NTP"`
 	EnableConnClear bool          `json:"EnableConnClear"`
-	DnsConfigPath   string        `json:"DnsConfigPath"`
 	OriginalPath    string        `json:"OriginalPath"`
 }
 

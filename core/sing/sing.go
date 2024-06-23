@@ -3,7 +3,6 @@ package sing
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/sagernet/sing-box/log"
@@ -63,29 +62,6 @@ func New(c *conf.CoreConfig) (vCore.Core, error) {
 		},
 	}
 	os.Setenv("SING_DNS_PATH", "")
-	options.DNS = &option.DNSOptions{}
-	if c.SingConfig.DnsConfigPath != "" {
-		f, err := os.OpenFile(c.SingConfig.DnsConfigPath, os.O_RDWR|os.O_CREATE, 0755)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open or create sing dns config file: %s", err)
-		}
-		defer f.Close()
-		data, err := io.ReadAll(f)
-		if err != nil {
-			log.Warn(fmt.Sprintf(
-				"Failed to read sing dns config from file '%v': %v. Using default DNS options",
-				f.Name(), err))
-			options.DNS = &option.DNSOptions{}
-		} else {
-			if err := json.Unmarshal(data, options.DNS); err != nil {
-				log.Warn(fmt.Sprintf(
-					"Failed to unmarshal sing dns config from file '%v': %v. Using default DNS options",
-					f.Name(), err))
-				options.DNS = &option.DNSOptions{}
-			}
-		}
-		os.Setenv("SING_DNS_PATH", c.SingConfig.DnsConfigPath)
-	}
 	b, err := box.New(box.Options{
 		Context: context.Background(),
 		Options: options,
