@@ -52,17 +52,17 @@ wget -N https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh 
 
 ### 手动安装
 
-[手动安装教程（过时待更新）](https://yuzuki-1.gitbook.io/v2bx-doc/xrayr-xia-zai-he-an-zhuang/install/manual)
+[手动安装教程](https://v2bx.v-50.me/v2bx/v2bx-xia-zai-he-an-zhuang/install/manual)
 
 ## 构建
 ``` bash
 # 通过-tags选项指定要编译的内核， 可选 xray， sing
-go build -o V2bX -ldflags '-s -w' -gcflags="all=-trimpath=${PWD}" -asmflags="all=-trimpath=${PWD} -tags "xray sing"
+go build -v -o ./V2bX -tags "sing hysteria2 with_reality_server with_quic with_grpc with_utls with_wireguard with_acme" -trimpath -ldflags "-s -w -buildid="
 ```
 
 ## 配置文件及详细使用教程
 
-[详细使用教程](https://yuzuki-1.gitbook.io/v2bx-doc/)
+[详细使用教程](https://v2bx.v-50.me/)
 
 ## 免责声明
 
@@ -82,4 +82,4 @@ go build -o V2bX -ldflags '-s -w' -gcflags="all=-trimpath=${PWD}" -asmflags="all
 
 ## Stars 增长记录
 
-[![Stargazers over time](https://starchart.cc/InazumaV/V2bX.svg)](https://starchart.cc/InazumaV/V2bX)
+[![Stargazers over time](https://starchart.cc/wyx2685/V2bX.svg)](https://starchart.cc/wyx2685/V2bX)
