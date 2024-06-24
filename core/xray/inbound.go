@@ -26,8 +26,12 @@ func buildInbound(option *conf.Options, nodeInfo *panel.NodeInfo, tag string) (*
 		err = buildV2ray(option, nodeInfo, in)
 		network = nodeInfo.VAllss.Network
 	case "trojan":
-		err = buildTrojan(option, in)
-		network = "tcp"
+		err = buildTrojan(option, nodeInfo, in)
+		if nodeInfo.Trojan.Network != "" {
+			network = nodeInfo.Trojan.Network
+		} else {
+			network = "tcp"
+		}
 	case "shadowsocks":
 		err = buildShadowsocks(option, nodeInfo, in)
 		network = "tcp"
@@ -69,8 +73,13 @@ func buildInbound(option *conf.Options, nodeInfo *panel.NodeInfo, tag string) (*
 			in.StreamSetting.TCPSettings = tcpSetting
 		}
 	case "ws":
-		in.StreamSetting.WSSettings = &coreConf.WebSocketConfig{
-			AcceptProxyProtocol: option.XrayOptions.EnableProxyProtocol} //Enable proxy protocol
+		if in.StreamSetting.WSSettings != nil {
+			in.StreamSetting.WSSettings.AcceptProxyProtocol = option.XrayOptions.EnableProxyProtocol
+		} else {
+			in.StreamSetting.WSSettings = &coreConf.WebSocketConfig{
+				AcceptProxyProtocol: option.XrayOptions.EnableProxyProtocol,
+			} //Enable proxy protocol
+		}
 	default:
 		socketConfig := &coreConf.SocketConfig{
 			AcceptProxyProtocol: option.XrayOptions.EnableProxyProtocol,
@@ -131,6 +140,7 @@ func buildInbound(option *conf.Options, nodeInfo *panel.NodeInfo, tag string) (*
 			MaxTimeDiff:  uint64(mtd.Microseconds()),
 			ShortIds:     []string{v.TlsSettings.ShortId},
 		}
+	default:
 		break
 	}
 	in.Tag = tag
@@ -204,8 +214,9 @@ func buildV2ray(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreCon
 	return nil
 }
 
-func buildTrojan(config *conf.Options, inbound *coreConf.InboundDetourConfig) error {
+func buildTrojan(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "trojan"
+	v := nodeInfo.Trojan
 	if config.XrayOptions.EnableFallback {
 		// Set fallback
 		fallbackConfigs, err := buildTrojanFallbacks(config.XrayOptions.FallBackConfigs)
@@ -223,8 +234,31 @@ func buildTrojan(config *conf.Options, inbound *coreConf.InboundDetourConfig) er
 		s := []byte("{}")
 		inbound.Settings = (*json.RawMessage)(&s)
 	}
-	t := coreConf.TransportProtocol("tcp")
+	network := v.Network
+	if network == "" {
+		network = "tcp"
+	}
+	t := coreConf.TransportProtocol(network)
 	inbound.StreamSetting = &coreConf.StreamConfig{Network: &t}
+	switch network {
+	case "tcp":
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.TCPSettings)
+		if err != nil {
+			return fmt.Errorf("unmarshal tcp settings error: %s", err)
+		}
+	case "ws":
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.WSSettings)
+		if err != nil {
+			return fmt.Errorf("unmarshal ws settings error: %s", err)
+		}
+	case "grpc":
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.GRPCConfig)
+		if err != nil {
+			return fmt.Errorf("unmarshal grpc settings error: %s", err)
+		}
+	default:
+		return errors.New("the network type is not vail")
+	}
 	return nil
 }
 
