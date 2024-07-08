@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apernet/hysteria/extras/outbounds"
+	"github.com/apernet/hysteria/extras/v2/outbounds"
 )
 
 type serverConfig struct {

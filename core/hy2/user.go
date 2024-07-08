@@ -7,7 +7,7 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/counter"
 	vCore "github.com/InazumaV/V2bX/core"
-	"github.com/apernet/hysteria/core/server"
+	"github.com/apernet/hysteria/core/v2/server"
 )
 
 var _ server.Authenticator = &V2bX{}
