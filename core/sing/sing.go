@@ -69,7 +69,7 @@ func New(c *conf.CoreConfig) (vCore.Core, error) {
 	if err != nil {
 		return nil, err
 	}
-	hs := NewHookServer(c.SingConfig.EnableConnClear)
+	hs := NewHookServer(b.Router().GetCtx(), c.SingConfig.EnableConnClear)
 	b.Router().SetClashServer(hs)
 	return &Sing{
 		ctx:        b.Router().GetCtx(),

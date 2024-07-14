@@ -17,9 +17,14 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/log"
 	N "github.com/sagernet/sing/common/network"
+	"github.com/sagernet/sing/service"
 )
 
+var _ adapter.ClashServer = (*HookServer)(nil)
+
 type HookServer struct {
+	ctx             context.Context
+	urlTestHistory  *urltest.HistoryStorage
 	EnableConnClear bool
 	counter         sync.Map
 	connClears      sync.Map
@@ -56,12 +61,18 @@ func (h *HookServer) ModeList() []string {
 	return nil
 }
 
-func NewHookServer(enableClear bool) *HookServer {
-	return &HookServer{
+func NewHookServer(ctx context.Context, enableClear bool) *HookServer {
+	server := &HookServer{
+		ctx:             ctx,
 		EnableConnClear: enableClear,
 		counter:         sync.Map{},
 		connClears:      sync.Map{},
 	}
+	server.urlTestHistory = service.PtrFromContext[urltest.HistoryStorage](ctx)
+	if server.urlTestHistory == nil {
+		server.urlTestHistory = urltest.NewHistoryStorage()
+	}
+	return server
 }
 
 func (h *HookServer) Start() error {
@@ -69,6 +80,7 @@ func (h *HookServer) Start() error {
 }
 
 func (h *HookServer) Close() error {
+	h.urlTestHistory.Close()
 	return nil
 }
 
@@ -193,7 +205,7 @@ func (h *HookServer) CacheFile() adapter.CacheFile {
 	return nil
 }
 func (h *HookServer) HistoryStorage() *urltest.HistoryStorage {
-	return nil
+	return h.urlTestHistory
 }
 
 func (h *HookServer) StoreFakeIP() bool {

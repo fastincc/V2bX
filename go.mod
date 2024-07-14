@@ -5,8 +5,8 @@ go 1.22
 toolchain go1.22.5
 
 require (
-	github.com/apernet/hysteria/core/v2 v2.5.1-0.20240702222552-458ee1386cc4
-	github.com/apernet/hysteria/extras/v2 v2.5.1-0.20240702222552-458ee1386cc4
+	github.com/apernet/hysteria/core/v2 v2.5.1-0.20240710201643-b563f3981fc6
+	github.com/apernet/hysteria/extras/v2 v2.5.1-0.20240710201643-b563f3981fc6
 	github.com/beevik/ntp v1.2.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.17.4
@@ -19,7 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
-	github.com/xtls/xray-core v1.8.17-0.20240708033233-ce637c0c232c
+	github.com/xtls/xray-core v1.8.17
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.25.0
 	golang.org/x/sys v0.22.0
@@ -237,7 +237,7 @@ require (
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20230316163032-ced5aaba43e3 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/vultr/govultr/v2 v2.17.2 // indirect
-	github.com/xtls/reality v0.0.0-20240429224917-ecc4401070cc // indirect
+	github.com/xtls/reality v0.0.0-20240712055506-48f0b2d5ed6d // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20240318083951-4fe6125f286e // indirect
 	github.com/yandex-cloud/go-sdk v0.0.0-20240318084659-dfa50323a0b4 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
