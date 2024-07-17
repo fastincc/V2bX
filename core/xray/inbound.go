@@ -208,6 +208,26 @@ func buildV2ray(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreCon
 		if err != nil {
 			return fmt.Errorf("unmarshal grpc settings error: %s", err)
 		}
+	case "http":
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.HTTPSettings)
+		if err != nil {
+			return fmt.Errorf("unmarshal grpc settings error: %s", err)
+		}
+	case "quic":
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.QUICSettings)
+		if err != nil {
+			return fmt.Errorf("unmarshal grpc settings error: %s", err)
+		}
+	case "httpupgrade":
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.HTTPUPGRADESettings)
+		if err != nil {
+			return fmt.Errorf("unmarshal grpc settings error: %s", err)
+		}
+	case "splithttp":
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.SplitHTTPSettings)
+		if err != nil {
+			return fmt.Errorf("unmarshal grpc settings error: %s", err)
+		}
 	default:
 		return errors.New("the network type is not vail")
 	}
