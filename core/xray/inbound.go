@@ -190,7 +190,7 @@ func buildV2ray(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreCon
 		return nil
 	}
 
-	t := coreConf.TransportProtocol(nodeInfo.VAllss.Network)
+	t := coreConf.TransportProtocol(v.Network)
 	inbound.StreamSetting = &coreConf.StreamConfig{Network: &t}
 	switch v.Network {
 	case "tcp":
@@ -221,12 +221,12 @@ func buildV2ray(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreCon
 	case "httpupgrade":
 		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.HTTPUPGRADESettings)
 		if err != nil {
-			return fmt.Errorf("unmarshal grpc settings error: %s", err)
+			return fmt.Errorf("unmarshal httpupgrade settings error: %s", err)
 		}
 	case "splithttp":
 		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.SplitHTTPSettings)
 		if err != nil {
-			return fmt.Errorf("unmarshal grpc settings error: %s", err)
+			return fmt.Errorf("unmarshal splithttp settings error: %s", err)
 		}
 	default:
 		return errors.New("the network type is not vail")

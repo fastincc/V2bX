@@ -14,12 +14,12 @@ require (
 	github.com/goccy/go-json v0.10.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.5.0-alpha.12
-	github.com/sagernet/sing-box v1.10.0
+	github.com/sagernet/sing v0.5.0-alpha.12.0.20240717075530-332e47007567
+	github.com/sagernet/sing-box v1.10.0-alpha.22
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
-	github.com/xtls/xray-core v1.8.19
+	github.com/xtls/xray-core v1.8.21-0.20240720172606-57248d34013e
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.25.0
 	golang.org/x/sys v0.22.0
@@ -273,5 +273,4 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-//github.com/apernet/hysteria/core v1.3.5-0.20240201034858-bb99579bb92c => /root/hysteria/core
-replace github.com/sagernet/sing-box v1.10.0 => github.com/wyx2685/sing-box_mod v0.0.9
+replace github.com/sagernet/sing-box v1.10.0-alpha.22 => github.com/wyx2685/sing-box_mod v1.10.0-alpha.22

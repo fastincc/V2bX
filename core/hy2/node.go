@@ -1,6 +1,8 @@
 package hy2
 
 import (
+	"strings"
+
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/apernet/hysteria/core/v2/server"
@@ -56,7 +58,9 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 	h.Hy2nodes[tag] = n
 	go func() {
 		if err := s.Serve(); err != nil {
-			h.Logger.Error("Server Error", zap.Error(err))
+			if !strings.Contains(err.Error(), "quic: server closed") {
+				h.Logger.Error("Server Error", zap.Error(err))
+			}
 		}
 	}()
 	return nil
