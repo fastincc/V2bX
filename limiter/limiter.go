@@ -3,6 +3,7 @@ package limiter
 import (
 	"errors"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -129,7 +130,10 @@ func (l *Limiter) UpdateDynamicSpeedLimit(tag, uuid string, limit int, expire ti
 	return nil
 }
 
-func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool) (Bucket *ratelimit.Bucket, Reject bool) {
+func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool) (Bucket *ratelimit.Bucket, Reject bool) {
+	// check if ipv4 mapped ipv6
+	ip = strings.TrimPrefix(ip, "::ffff:")
+
 	// ip and conn limiter
 	if l.ConnLimiter.AddConnCount(taguuid, ip, isTcp) {
 		return nil, true
@@ -155,23 +159,24 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool) (Bucket *rat
 			userLimit = determineSpeedLimit(u.SpeedLimit, u.DynamicSpeedLimit)
 		}
 	}
-
-	// Store online user for device limit
-	ipMap := new(sync.Map)
-	ipMap.Store(ip, uid)
-	// If any device is online
-	if v, ok := l.UserOnlineIP.LoadOrStore(taguuid, ipMap); ok {
-		ipMap := v.(*sync.Map)
-		// If this is a new ip
-		if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
-			counter := 0
-			ipMap.Range(func(key, value interface{}) bool {
-				counter++
-				return true
-			})
-			if counter > deviceLimit && deviceLimit > 0 {
-				ipMap.Delete(ip)
-				return nil, true
+	if noSSUDP {
+		// Store online user for device limit
+		ipMap := new(sync.Map)
+		ipMap.Store(ip, uid)
+		// If any device is online
+		if v, ok := l.UserOnlineIP.LoadOrStore(taguuid, ipMap); ok {
+			ipMap := v.(*sync.Map)
+			// If this is a new ip
+			if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
+				counter := 0
+				ipMap.Range(func(key, value interface{}) bool {
+					counter++
+					return true
+				})
+				if counter > deviceLimit && deviceLimit > 0 {
+					ipMap.Delete(ip)
+					return nil, true
+				}
 			}
 		}
 	}

@@ -177,7 +177,8 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 		// Speed Limit and Device Limit
 		w, reject := limit.CheckLimit(user.Email,
 			sessionInbound.Source.Address.IP().String(),
-			network == net.Network_TCP)
+			network == net.Network_TCP,
+			sessionInbound.Source.Network == net.Network_TCP)
 		if reject {
 			errors.LogInfo(ctx, "Limited ", user.Email, " by conn or ip")
 			common.Close(outboundLink.Writer)
@@ -241,7 +242,7 @@ func (d *DefaultDispatcher) shouldOverride(ctx context.Context, result SniffResu
 		protocolString = resComp.ProtocolForDomainResult()
 	}
 	for _, p := range request.OverrideDestinationForProtocol {
-		if strings.HasPrefix(protocolString, p) || strings.HasPrefix(protocolString, p) {
+		if strings.HasPrefix(protocolString, p) || strings.HasPrefix(p, protocolString) {
 			return true
 		}
 		if fkr0, ok := d.fdns.(dns.FakeDNSEngineRev0); ok && protocolString != "bittorrent" && p == "fakedns" &&

@@ -14,8 +14,8 @@ require (
 	github.com/goccy/go-json v0.10.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.5.0-alpha.12.0.20240717075530-332e47007567
-	github.com/sagernet/sing-box v1.10.0-alpha.22
+	github.com/sagernet/sing v0.5.0-alpha.13
+	github.com/sagernet/sing-box v1.10.0-alpha.23
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
@@ -273,4 +273,5 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/sagernet/sing-box v1.10.0-alpha.22 => github.com/wyx2685/sing-box_mod v1.10.0-alpha.22
+// replace github.com/sagernet/sing-box v1.10.0-alpha.22 => /root/sing-box_mod
+replace github.com/sagernet/sing-box v1.10.0-alpha.23 => github.com/wyx2685/sing-box_mod v1.10.0-alpha.23

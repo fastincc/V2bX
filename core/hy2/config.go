@@ -284,15 +284,23 @@ func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.Pac
 		}
 		u, err := url.Parse(c.Masquerade.Proxy.URL)
 		if err != nil {
-			return nil, fmt.Errorf(fmt.Sprintf("masquerade.proxy.url %s", err))
+			return nil, fmt.Errorf("masquerade.proxy.url %s", err)
 		}
 		handler = &httputil.ReverseProxy{
-			Rewrite: func(r *httputil.ProxyRequest) {
-				r.SetURL(u)
-				// SetURL rewrites the Host header,
-				// but we don't want that if rewriteHost is false
+			Director: func(req *http.Request) {
+				req.URL.Scheme = u.Scheme
+				req.URL.Host = u.Host
+
+				if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+					xff := req.Header.Get("X-Forwarded-For")
+					if xff != "" {
+						clientIP = xff + ", " + clientIP
+					}
+					req.Header.Set("X-Forwarded-For", clientIP)
+				}
+
 				if !c.Masquerade.Proxy.RewriteHost {
-					r.Out.Host = r.In.Host
+					req.Host = req.URL.Host
 				}
 			},
 			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
