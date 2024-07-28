@@ -6,8 +6,7 @@ import (
 )
 
 type TrafficCounter struct {
-	counters map[string]*TrafficStorage
-	lock     sync.RWMutex
+	counters sync.Map
 }
 
 type TrafficStorage struct {
@@ -16,60 +15,52 @@ type TrafficStorage struct {
 }
 
 func NewTrafficCounter() *TrafficCounter {
-	return &TrafficCounter{
-		counters: map[string]*TrafficStorage{},
-	}
+	return &TrafficCounter{}
 }
 
 func (c *TrafficCounter) GetCounter(id string) *TrafficStorage {
-	c.lock.RLock()
-	cts, ok := c.counters[id]
-	c.lock.RUnlock()
-	if !ok {
-		cts = &TrafficStorage{}
-		c.counters[id] = cts
+	if cts, ok := c.counters.Load(id); ok {
+		return cts.(*TrafficStorage)
 	}
-	return cts
+	newStorage := &TrafficStorage{}
+	if cts, loaded := c.counters.LoadOrStore(id, newStorage); loaded {
+		return cts.(*TrafficStorage)
+	}
+	return newStorage
 }
 
 func (c *TrafficCounter) GetUpCount(id string) int64 {
-	c.lock.RLock()
-	cts, ok := c.counters[id]
-	c.lock.RUnlock()
-	if ok {
-		return cts.UpCounter.Load()
+	if cts, ok := c.counters.Load(id); ok {
+		return cts.(*TrafficStorage).UpCounter.Load()
 	}
 	return 0
 }
 
 func (c *TrafficCounter) GetDownCount(id string) int64 {
-	c.lock.RLock()
-	cts, ok := c.counters[id]
-	c.lock.RUnlock()
-	if ok {
-		return cts.DownCounter.Load()
+	if cts, ok := c.counters.Load(id); ok {
+		return cts.(*TrafficStorage).DownCounter.Load()
 	}
 	return 0
 }
 
 func (c *TrafficCounter) Len() int {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return len(c.counters)
+	length := 0
+	c.counters.Range(func(_, _ interface{}) bool {
+		length++
+		return true
+	})
+	return length
 }
 
 func (c *TrafficCounter) Reset(id string) {
-	c.lock.RLock()
-	cts := c.GetCounter(id)
-	c.lock.RUnlock()
-	cts.UpCounter.Store(0)
-	cts.DownCounter.Store(0)
+	if cts, ok := c.counters.Load(id); ok {
+		cts.(*TrafficStorage).UpCounter.Store(0)
+		cts.(*TrafficStorage).DownCounter.Store(0)
+	}
 }
 
 func (c *TrafficCounter) Delete(id string) {
-	c.lock.Lock()
-	delete(c.counters, id)
-	c.lock.Unlock()
+	c.counters.Delete(id)
 }
 
 func (c *TrafficCounter) Rx(id string, n int) {
@@ -80,12 +71,4 @@ func (c *TrafficCounter) Rx(id string, n int) {
 func (c *TrafficCounter) Tx(id string, n int) {
 	cts := c.GetCounter(id)
 	cts.UpCounter.Add(int64(n))
-}
-
-func (c *TrafficCounter) IncConn(auth string) {
-	return
-}
-
-func (c *TrafficCounter) DecConn(auth string) {
-	return
 }
