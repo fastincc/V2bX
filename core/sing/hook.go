@@ -162,7 +162,7 @@ func (h *HookServer) RoutedPacketConnection(_ context.Context, conn N.PacketConn
 		return conn, t
 	}
 	ip := m.Source.Addr.String()
-	if b, r := l.CheckLimit(format.UserTag(m.Inbound, m.User), ip, true, false); r {
+	if b, r := l.CheckLimit(format.UserTag(m.Inbound, m.User), ip, false, false); r {
 		conn.Close()
 		log.Error("[", m.Inbound, "] ", "Limited ", m.User, " by ip or conn")
 		return conn, t

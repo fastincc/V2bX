@@ -183,7 +183,7 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 
 	limit := int64(determineSpeedLimit(nodeLimit, userLimit)) * 1000000 / 8 // If you need the Speed limit
 	if limit > 0 {
-		Bucket = ratelimit.NewBucketWithQuantum(time.Second, limit, limit) // Byte/s
+		Bucket = ratelimit.NewBucketWithQuantum(time.Second, 5*limit, limit) // Byte/s
 		if v, ok := l.SpeedLimiter.LoadOrStore(taguuid, Bucket); ok {
 			return v.(*ratelimit.Bucket), false
 		} else {
