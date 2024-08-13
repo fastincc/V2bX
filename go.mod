@@ -14,8 +14,8 @@ require (
 	github.com/goccy/go-json v0.10.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.5.0-alpha.13
-	github.com/sagernet/sing-box v1.10.0-alpha.23
+	github.com/sagernet/sing v0.5.0-alpha.15
+	github.com/sagernet/sing-box v1.10.0-alpha.29
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
@@ -195,9 +195,9 @@ require (
 	github.com/sagernet/gvisor v0.0.0-20240428053021-e691de28565f // indirect
 	github.com/sagernet/netlink v0.0.0-20240612041022-b9a21c07ac6a // indirect
 	github.com/sagernet/nftables v0.3.0-beta.4 // indirect
-	github.com/sagernet/quic-go v0.45.1-beta.2 // indirect
+	github.com/sagernet/quic-go v0.46.0-beta.2 // indirect
 	github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691 // indirect
-	github.com/sagernet/sing-dns v0.3.0-beta.10 // indirect
+	github.com/sagernet/sing-dns v0.3.0-beta.14 // indirect
 	github.com/sagernet/sing-mux v0.2.0 // indirect
 	github.com/sagernet/sing-quic v0.2.0-beta.12 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.7 // indirect
@@ -250,14 +250,14 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.3.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
-	golang.org/x/mod v0.18.0 // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
+	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.22.0 // indirect
+	golang.org/x/tools v0.23.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	google.golang.org/api v0.172.0 // indirect
@@ -274,4 +274,4 @@ require (
 )
 
 // replace github.com/sagernet/sing-box v1.10.0-alpha.22 => /root/sing-box_mod
-replace github.com/sagernet/sing-box v1.10.0-alpha.23 => github.com/wyx2685/sing-box_mod v1.10.0-alpha.23
+replace github.com/sagernet/sing-box v1.10.0-alpha.29 => github.com/wyx2685/sing-box_mod v1.10.0-alpha.29
