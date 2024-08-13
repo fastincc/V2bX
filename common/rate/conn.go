@@ -4,9 +4,6 @@ import (
 	"net"
 
 	"github.com/juju/ratelimit"
-	"github.com/sagernet/sing/common/buf"
-	M "github.com/sagernet/sing/common/metadata"
-	"github.com/sagernet/sing/common/network"
 )
 
 func NewConnRateLimiter(c net.Conn, l *ratelimit.Bucket) *Conn {
@@ -31,6 +28,7 @@ func (c *Conn) Write(b []byte) (n int, err error) {
 	return c.Conn.Write(b)
 }
 
+/*
 type PacketConnCounter struct {
 	network.PacketConn
 	limiter *ratelimit.Bucket
@@ -47,10 +45,11 @@ func (p *PacketConnCounter) ReadPacket(buff *buf.Buffer) (destination M.Socksadd
 	pLen := buff.Len()
 	destination, err = p.PacketConn.ReadPacket(buff)
 	p.limiter.Wait(int64(buff.Len() - pLen))
-	return
+	return destination, err
 }
 
 func (p *PacketConnCounter) WritePacket(buff *buf.Buffer, destination M.Socksaddr) (err error) {
 	p.limiter.Wait(int64(buff.Len()))
 	return p.PacketConn.WritePacket(buff, destination)
 }
+*/

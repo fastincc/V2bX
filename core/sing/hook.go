@@ -167,7 +167,7 @@ func (h *HookServer) RoutedPacketConnection(_ context.Context, conn N.PacketConn
 		log.Error("[", m.Inbound, "] ", "Limited ", m.User, " by ip or conn")
 		return conn, t
 	} else if b != nil {
-		conn = rate.NewPacketConnCounter(conn, b)
+		//conn = rate.NewPacketConnCounter(conn, b)
 	}
 	if h.EnableConnClear {
 		var key int
