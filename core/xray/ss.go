@@ -38,6 +38,8 @@ func buildSSUser(tag string, userInfo *panel.UserInfo, cypher string, serverKey 
 			keyLength = 16
 		case "2022-blake3-aes-256-gcm":
 			keyLength = 32
+		case "2022-blake3-chacha20-poly1305":
+			keyLength = 32
 		}
 		ssAccount := &shadowsocks_2022.User{
 			Level: 0,

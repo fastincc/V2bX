@@ -21,13 +21,13 @@ var limiter map[string]*Limiter
 func Init() {
 	limiter = map[string]*Limiter{}
 	c := task.Periodic{
-		Interval: time.Minute * 2,
+		Interval: time.Minute * 3,
 		Execute:  ClearOnlineIP,
 	}
 	go func() {
 		log.WithField("Type", "Limiter").
 			Debug("ClearOnlineIP started")
-		time.Sleep(time.Minute * 2)
+		time.Sleep(time.Minute * 3)
 		_ = c.Start()
 	}()
 }
@@ -41,6 +41,7 @@ type Limiter struct {
 	UserLimitInfo *sync.Map      // Key: Uid value: UserLimitInfo
 	ConnLimiter   *ConnLimiter   // Key: Uid value: ConnLimiter
 	SpeedLimiter  *sync.Map      // key: Uid, value: *ratelimit.Bucket
+	AliveList     map[int]int    // Key:Id, value:alive_ip
 }
 
 type UserLimitInfo struct {
@@ -52,13 +53,14 @@ type UserLimitInfo struct {
 	OverLimit         bool
 }
 
-func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo) *Limiter {
+func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo, aliveList map[int]int) *Limiter {
 	info := &Limiter{
 		SpeedLimit:    l.SpeedLimit,
 		UserOnlineIP:  new(sync.Map),
 		UserLimitInfo: new(sync.Map),
 		ConnLimiter:   NewConnLimiter(l.ConnLimit, l.IPLimit, l.EnableRealtime),
 		SpeedLimiter:  new(sync.Map),
+		AliveList:     aliveList,
 	}
 	uuidmap := make(map[string]int)
 	for i := range users {
@@ -163,18 +165,23 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 		// Store online user for device limit
 		ipMap := new(sync.Map)
 		ipMap.Store(ip, uid)
+		aliveIp := l.AliveList[uid]
 		// If any device is online
 		if v, ok := l.UserOnlineIP.LoadOrStore(taguuid, ipMap); ok {
 			ipMap := v.(*sync.Map)
 			// If this is a new ip
 			if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
-				counter := 0
-				ipMap.Range(func(key, value interface{}) bool {
-					counter++
-					return true
-				})
-				if counter > deviceLimit && deviceLimit > 0 {
-					ipMap.Delete(ip)
+				if deviceLimit > 0 {
+					if deviceLimit <= aliveIp {
+						ipMap.Delete(ip)
+						return nil, true
+					}
+				}
+			}
+		} else {
+			if deviceLimit > 0 {
+				if deviceLimit <= aliveIp {
+					l.UserOnlineIP.Delete(taguuid)
 					return nil, true
 				}
 			}
@@ -217,24 +224,4 @@ func (l *Limiter) GetOnlineDevice() (*[]panel.OnlineUser, error) {
 type UserIpList struct {
 	Uid    int      `json:"Uid"`
 	IpList []string `json:"Ips"`
-}
-
-func determineDeviceLimit(nodeLimit, userLimit int) (limit int) {
-	if nodeLimit == 0 || userLimit == 0 {
-		if nodeLimit > userLimit {
-			return nodeLimit
-		} else if nodeLimit < userLimit {
-			return userLimit
-		} else {
-			return 0
-		}
-	} else {
-		if nodeLimit > userLimit {
-			return userLimit
-		} else if nodeLimit < userLimit {
-			return nodeLimit
-		} else {
-			return nodeLimit
-		}
-	}
 }

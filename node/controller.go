@@ -19,6 +19,7 @@ type Controller struct {
 	limiter                   *limiter.Limiter
 	traffic                   map[string]int64
 	userList                  []panel.UserInfo
+	aliveMap                  map[int]int
 	info                      *panel.NodeInfo
 	nodeInfoMonitorPeriodic   *task.Task
 	userReportPeriodic        *task.Task
@@ -54,6 +55,10 @@ func (c *Controller) Start() error {
 	if len(c.userList) == 0 {
 		return errors.New("add users error: not have any user")
 	}
+	c.aliveMap, err = c.apiClient.GetUserAlive()
+	if err != nil {
+		return fmt.Errorf("failed to get user alive list: %s", err)
+	}
 	if len(c.Options.Name) == 0 {
 		c.tag = c.buildNodeTag(node)
 	} else {
@@ -61,7 +66,7 @@ func (c *Controller) Start() error {
 	}
 
 	// add limiter
-	l := limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList)
+	l := limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList, c.aliveMap)
 	// add rule limiter
 	if err = l.UpdateRule(&node.Rules); err != nil {
 		return fmt.Errorf("update rule error: %s", err)

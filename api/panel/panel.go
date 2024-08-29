@@ -25,6 +25,8 @@ type Client struct {
 	userEtag         string
 	responseBodyHash string
 	LastReportOnline map[int]int
+	UserList         *UserListBody
+	AliveMap         *AliveMap
 }
 
 func New(c *conf.ApiConfig) (*Client, error) {
@@ -71,5 +73,7 @@ func New(c *conf.ApiConfig) (*Client, error) {
 		APIHost:  c.APIHost,
 		NodeType: c.NodeType,
 		NodeId:   c.NodeID,
+		UserList: &UserListBody{},
+		AliveMap: &AliveMap{},
 	}, nil
 }

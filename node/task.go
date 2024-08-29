@@ -68,6 +68,11 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		}).Error("Get user list failed")
 		return nil
 	}
+	// get user alive
+	newA, err := c.apiClient.GetUserAlive()
+	if err != nil {
+		return err
+	}
 	if newN != nil {
 		c.info = newN
 		// nodeInfo changed
@@ -92,7 +97,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			// Remove Old limiter
 			limiter.DeleteLimiter(c.tag)
 			// Add new Limiter
-			l := limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList)
+			l := limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList, newA)
 			c.limiter = l
 		}
 		// Update rule
@@ -154,7 +159,10 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		// exit
 		return nil
 	}
-
+	// update alive list
+	if newA != nil {
+		c.limiter.AliveList = newA
+	}
 	// node no changed, check users
 	if len(newU) == 0 {
 		return nil
