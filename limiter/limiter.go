@@ -62,6 +62,7 @@ func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo, aliveLi
 		ConnLimiter:   NewConnLimiter(l.ConnLimit, l.IPLimit, l.EnableRealtime),
 		SpeedLimiter:  new(sync.Map),
 		AliveList:     aliveList,
+		OldUserOnline: make(map[string]int),
 	}
 	uuidmap := make(map[string]int)
 	for i := range users {
