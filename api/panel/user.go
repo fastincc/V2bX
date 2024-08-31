@@ -54,14 +54,14 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 	return c.UserList.Users, nil
 }
 
-// GetUserAlive will fetch the alive IPs for users
+// GetUserAlive will fetch the alive_ip count for users
 func (c *Client) GetUserAlive() (map[int]int, error) {
 	const path = "/api/v1/server/UniProxy/alivelist"
 	r, err := c.client.R().
 		ForceContentType("application/json").
 		Get(path)
-	if err = c.checkResponse(r, path, err); err != nil {
-		return nil, err
+	if err != nil {
+		return make(map[int]int), nil
 	}
 
 	if r != nil {
