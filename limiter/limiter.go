@@ -37,11 +37,12 @@ type Limiter struct {
 	ProtocolRules []string
 	SpeedLimit    int
 	UserOnlineIP  *sync.Map      // Key: Name, value: {Key: Ip, value: Uid}
-	UUIDtoUID     map[string]int // Key: UUID, value: UID
+	OldUserOnline map[string]int // Key: Ip, value: Uid
+	UUIDtoUID     map[string]int // Key: UUID, value: Uid
 	UserLimitInfo *sync.Map      // Key: Uid value: UserLimitInfo
 	ConnLimiter   *ConnLimiter   // Key: Uid value: ConnLimiter
 	SpeedLimiter  *sync.Map      // key: Uid, value: *ratelimit.Bucket
-	AliveList     map[int]int    // Key:Id, value:alive_ip
+	AliveList     map[int]int    // Key: Uid, value: alive_ip
 }
 
 type UserLimitInfo struct {
@@ -178,6 +179,8 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 					}
 				}
 			}
+		} else if l.OldUserOnline[ip] == uid {
+			delete(l.OldUserOnline, ip)
 		} else {
 			if deviceLimit > 0 {
 				if deviceLimit <= aliveIp {
@@ -204,17 +207,17 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 
 func (l *Limiter) GetOnlineDevice() (*[]panel.OnlineUser, error) {
 	var onlineUser []panel.OnlineUser
-
 	l.UserOnlineIP.Range(func(key, value interface{}) bool {
-		email := key.(string)
+		taguuid := key.(string)
 		ipMap := value.(*sync.Map)
 		ipMap.Range(func(key, value interface{}) bool {
 			uid := value.(int)
 			ip := key.(string)
+			l.OldUserOnline[ip] = uid
 			onlineUser = append(onlineUser, panel.OnlineUser{UID: uid, IP: ip})
 			return true
 		})
-		l.UserOnlineIP.Delete(email) // Reset online device
+		l.UserOnlineIP.Delete(taguuid) // Reset online device
 		return true
 	})
 

@@ -14,11 +14,7 @@ func (c *Controller) reportUserTrafficTask() (err error) {
 		up, down := c.server.GetUserTraffic(c.tag, c.userList[i].Uuid, true)
 		if up > 0 || down > 0 {
 			if c.LimitConfig.EnableDynamicSpeedLimit {
-				if _, ok := c.traffic[c.userList[i].Uuid]; ok {
-					c.traffic[c.userList[i].Uuid] += up + down
-				} else {
-					c.traffic[c.userList[i].Uuid] = up + down
-				}
+				c.traffic[c.userList[i].Uuid] += up + down
 			}
 			userTraffic = append(userTraffic, panel.UserTraffic{
 				UID:      (c.userList)[i].Id,
@@ -55,18 +51,12 @@ func (c *Controller) reportUserTrafficTask() (err error) {
 				result = append(result, online)
 			}
 		}
-		reportOnline := make(map[int]int)
 		data := make(map[int][]string)
 		for _, onlineuser := range result {
 			// json structure: { UID1:["ip1","ip2"],UID2:["ip3","ip4"] }
 			data[onlineuser.UID] = append(data[onlineuser.UID], onlineuser.IP)
-			if _, ok := reportOnline[onlineuser.UID]; ok {
-				reportOnline[onlineuser.UID]++
-			} else {
-				reportOnline[onlineuser.UID] = 1
-			}
 		}
-		if err = c.apiClient.ReportNodeOnlineUsers(&data, &reportOnline); err != nil {
+		if err = c.apiClient.ReportNodeOnlineUsers(&data); err != nil {
 			log.WithFields(log.Fields{
 				"tag": c.tag,
 				"err": err,

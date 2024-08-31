@@ -101,8 +101,7 @@ func (c *Client) ReportUserTraffic(userTraffic []UserTraffic) error {
 	return nil
 }
 
-func (c *Client) ReportNodeOnlineUsers(data *map[int][]string, reportOnline *map[int]int) error {
-	c.LastReportOnline = *reportOnline
+func (c *Client) ReportNodeOnlineUsers(data *map[int][]string) error {
 	const path = "/api/v1/server/UniProxy/alive"
 	r, err := c.client.R().
 		SetBody(data).

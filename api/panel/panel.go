@@ -24,7 +24,6 @@ type Client struct {
 	nodeEtag         string
 	userEtag         string
 	responseBodyHash string
-	LastReportOnline map[int]int
 	UserList         *UserListBody
 	AliveMap         *AliveMap
 }
