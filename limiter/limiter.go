@@ -104,7 +104,9 @@ func DeleteLimiter(tag string) {
 func (l *Limiter) UpdateUser(tag string, added []panel.UserInfo, deleted []panel.UserInfo) {
 	for i := range deleted {
 		l.UserLimitInfo.Delete(format.UserTag(tag, deleted[i].Uuid))
+		l.UserOnlineIP.Delete(format.UserTag(tag, deleted[i].Uuid))
 		delete(l.UUIDtoUID, deleted[i].Uuid)
+		delete(l.AliveList, deleted[i].Id)
 	}
 	for i := range added {
 		userLimit := &UserLimitInfo{

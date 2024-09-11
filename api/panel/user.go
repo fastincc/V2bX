@@ -34,24 +34,24 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 		SetHeader("If-None-Match", c.userEtag).
 		ForceContentType("application/json").
 		Get(path)
-	if err = c.checkResponse(r, path, err); err != nil {
-		return nil, err
+	if r == nil || r.RawResponse == nil {
+		return nil, fmt.Errorf("received nil response or raw response")
 	}
-	if r != nil {
-		defer r.RawResponse.Body.Close()
-	} else {
-		return nil, fmt.Errorf("received nil response")
-	}
+	defer r.RawResponse.Body.Close()
 
 	if r.StatusCode() == 304 {
 		return nil, nil
-	} else {
-		if err := json.Unmarshal(r.Body(), c.UserList); err != nil {
-			return nil, fmt.Errorf("unmarshal user list error: %w", err)
-		}
-		c.userEtag = r.Header().Get("ETag")
 	}
-	return c.UserList.Users, nil
+
+	if err = c.checkResponse(r, path, err); err != nil {
+		return nil, err
+	}
+	userlist := &UserListBody{}
+	if err := json.Unmarshal(r.Body(), userlist); err != nil {
+		return nil, fmt.Errorf("unmarshal user list error: %w", err)
+	}
+	c.userEtag = r.Header().Get("ETag")
+	return userlist.Users, nil
 }
 
 // GetUserAlive will fetch the alive_ip count for users
@@ -60,14 +60,15 @@ func (c *Client) GetUserAlive() (map[int]int, error) {
 	r, err := c.client.R().
 		ForceContentType("application/json").
 		Get(path)
-	if err != nil || r.StatusCode() >= 399 {
-		return make(map[int]int), nil
+	if r == nil || r.RawResponse == nil {
+		return nil, fmt.Errorf("received nil response or raw response")
 	}
+	defer r.RawResponse.Body.Close()
 
-	if r != nil {
-		defer r.RawResponse.Body.Close()
-	} else {
-		return nil, fmt.Errorf("received nil response")
+	c.AliveMap = &AliveMap{}
+	if err != nil || r.StatusCode() >= 399 {
+		c.AliveMap.Alive = make(map[int]int)
+		return c.AliveMap.Alive, nil
 	}
 
 	if err := json.Unmarshal(r.Body(), c.AliveMap); err != nil {
