@@ -19,7 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
-	github.com/xtls/xray-core v1.8.25-0.20240909154422-c90affe7dbed
+	github.com/xtls/xray-core v1.8.25-0.20240916124828-a35d5719f425
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.27.0
 	golang.org/x/sys v0.25.0
@@ -263,7 +263,7 @@ require (
 	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
-	google.golang.org/grpc v1.66.0 // indirect
+	google.golang.org/grpc v1.66.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/ns1/ns1-go.v2 v2.7.13 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
