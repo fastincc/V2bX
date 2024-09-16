@@ -1,16 +1,17 @@
 # V2bX
 
-[![](https://img.shields.io/badge/TgChat-%E4%BA%A4%E6%B5%81%E7%BE%A4-blue)](https://t.me/YuzukiProjects)
+[![](https://img.shields.io/badge/TgChat-UnOfficialV2Board%E4%BA%A4%E6%B5%81%E7%BE%A4-green)](https://t.me/unofficialV2board)
+[![](https://img.shields.io/badge/TgChat-YuzukiProjects%E4%BA%A4%E6%B5%81%E7%BE%A4-blue)](https://t.me/YuzukiProjects)
 
 A V2board node server based on multi core, modified from XrayR.  
 一个基于多种内核的V2board节点服务端，修改自XrayR，支持V2ay,Trojan,Shadowsocks协议。
 
-**注意： 本项目需要V2board版本 >= 1.7.0**
+**注意： 本项目需要搭配[修改版V2board](https://github.com/wyx2685/v2board)**
 
 ## 特点
 
 * 永久开源且免费。
-* 支持Vmess/Vless, Trojan， Shadowsocks, Hysteria多种协议。
+* 支持Vmess/Vless, Trojan， Shadowsocks, Hysteria1/2多种协议。
 * 支持Vless和XTLS等新特性。
 * 支持单实例对接多节点，无需重复启动。
 * 支持限制在线IP。
@@ -23,7 +24,7 @@ A V2board node server based on multi core, modified from XrayR.
 
 ## 功能介绍
 
-| 功能        | v2ray | trojan | shadowsocks | hysteria |
+| 功能        | v2ray | trojan | shadowsocks | hysteria1/2 |
 |-----------|-------|--------|-------------|----------|
 | 自动申请tls证书 | √     | √      | √           | √        |
 | 自动续签tls证书 | √     | √      | √           | √        |
@@ -32,7 +33,7 @@ A V2board node server based on multi core, modified from XrayR.
 | 自定义DNS    | √     | √      | √           | √        |
 | 在线IP数限制   | √     | √      | √           | √        |
 | 连接数限制     | √     | √      | √           | √         |
-| 跨节点IP数限制  |      |       |            |          |
+| 跨节点IP数限制  |√      |√       |√            |√          |
 | 按照用户限速    | √     | √      | √           | √         |
 | 动态限速(未测试) | √     | √      | √           | √         |
 
@@ -56,8 +57,8 @@ wget -N https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh 
 
 ## 构建
 ``` bash
-# 通过-tags选项指定要编译的内核， 可选 xray， sing
-go build -v -o ./V2bX -tags "sing hysteria2 with_reality_server with_quic with_grpc with_utls with_wireguard with_acme" -trimpath -ldflags "-s -w -buildid="
+# 通过-tags选项指定要编译的内核， 可选 xray， sing, hysteria2
+go build -v -o ./V2bX -tags "xray sing hysteria2 with_reality_server with_quic with_grpc with_utls with_wireguard with_acme" -trimpath -ldflags "-s -w -buildid="
 ```
 
 ## 配置文件及详细使用教程
