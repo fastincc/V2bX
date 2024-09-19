@@ -19,7 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
-	github.com/xtls/xray-core v1.8.25-0.20240916124828-a35d5719f425
+	github.com/xtls/xray-core v1.8.25-0.20240919004539-f406b2dee02b
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.27.0
 	golang.org/x/sys v0.25.0
