@@ -1,12 +1,12 @@
 module github.com/InazumaV/V2bX
 
-go 1.22
+go 1.23
 
-toolchain go1.22.5
+toolchain go1.23.2
 
 require (
-	github.com/apernet/hysteria/core/v2 v2.5.2-0.20240825173017-21ea2a024a5b
-	github.com/apernet/hysteria/extras/v2 v2.5.2-0.20240825173017-21ea2a024a5b
+	github.com/apernet/hysteria/core/v2 v2.5.2
+	github.com/apernet/hysteria/extras/v2 v2.5.2
 	github.com/beevik/ntp v1.2.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.17.4
@@ -14,12 +14,12 @@ require (
 	github.com/goccy/go-json v0.10.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.5.0-beta.1
-	github.com/sagernet/sing-box v1.10.0-beta.7
+	github.com/sagernet/sing v0.5.0-beta.2
+	github.com/sagernet/sing-box v1.10.0-beta.11
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
-	github.com/xtls/xray-core v1.8.25-0.20240919004539-f406b2dee02b
+	github.com/xtls/xray-core v1.8.25-0.20241005021528-c30f5d47964b
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.27.0
 	golang.org/x/sys v0.25.0
@@ -29,7 +29,7 @@ require (
 
 require (
 	berty.tech/go-libtor v1.0.385 // indirect
-	cloud.google.com/go/compute/metadata v0.3.0 // indirect
+	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	github.com/AdamSLevy/jsonrpc2/v14 v14.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.12.0 // indirect
@@ -52,7 +52,7 @@ require (
 	github.com/akamai/AkamaiOPEN-edgegrid-golang v1.2.2 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.712 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/apernet/quic-go v0.46.1-0.20240816230517-268ed2476167 // indirect
+	github.com/apernet/quic-go v0.47.1-0.20241004180137-a80d14e2080d // indirect
 	github.com/aws/aws-sdk-go-v2 v1.27.2 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.27.18 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.18 // indirect
@@ -86,7 +86,6 @@ require (
 	github.com/exoscale/egoscale v0.102.3 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344 // indirect
 	github.com/go-chi/chi/v5 v5.0.12 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
@@ -147,6 +146,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
+	github.com/metacubex/tfo-go v0.0.0-20240821025650-e9be0afd5e7d // indirect
 	github.com/mholt/acmez v1.2.0 // indirect
 	github.com/miekg/dns v1.1.62 // indirect
 	github.com/mimuret/golang-iij-dpf v0.9.1 // indirect
@@ -179,7 +179,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/otp v1.4.0 // indirect
-	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/quic-go/quic-go v0.46.0 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
@@ -202,11 +202,10 @@ require (
 	github.com/sagernet/sing-shadowsocks v0.2.7 // indirect
 	github.com/sagernet/sing-shadowsocks2 v0.2.0 // indirect
 	github.com/sagernet/sing-shadowtls v0.1.4 // indirect
-	github.com/sagernet/sing-tun v0.4.0-beta.13.0.20240703164908-1f043289199d // indirect
+	github.com/sagernet/sing-tun v0.4.0-beta.16 // indirect
 	github.com/sagernet/sing-vmess v0.1.12 // indirect
 	github.com/sagernet/smux v0.0.0-20231208180855-7041f6ea79e7 // indirect
-	github.com/sagernet/tfo-go v0.0.0-20231209031829-7b5343ac1dc6 // indirect
-	github.com/sagernet/utls v1.5.4 // indirect
+	github.com/sagernet/utls v1.6.7 // indirect
 	github.com/sagernet/wireguard-go v0.0.0-20231215174105-89dec3b2f3e8 // indirect
 	github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.27 // indirect
@@ -236,7 +235,7 @@ require (
 	github.com/vishvananda/netlink v1.3.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/vultr/govultr/v2 v2.17.2 // indirect
-	github.com/xtls/reality v0.0.0-20240712055506-48f0b2d5ed6d // indirect
+	github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463 // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20240318083951-4fe6125f286e // indirect
 	github.com/yandex-cloud/go-sdk v0.0.0-20240318084659-dfa50323a0b4 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
@@ -252,7 +251,7 @@ require (
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
-	golang.org/x/oauth2 v0.21.0 // indirect
+	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
@@ -261,9 +260,9 @@ require (
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	google.golang.org/api v0.172.0 // indirect
 	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
-	google.golang.org/grpc v1.66.2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
+	google.golang.org/grpc v1.67.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/ns1/ns1-go.v2 v2.7.13 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -273,4 +272,4 @@ require (
 )
 
 // replace github.com/sagernet/sing-box v1.10.0-alpha.22 => /root/sing-box_mod
-replace github.com/sagernet/sing-box v1.10.0-beta.7 => github.com/wyx2685/sing-box_mod v1.10.0-alpha.29
+replace github.com/sagernet/sing-box v1.10.0-beta.11 => github.com/wyx2685/sing-box_mod v1.10.0-beta.11
