@@ -69,6 +69,19 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 			DomainStrategy:           domainStrategy,
 		},
 	}
+	var multiplex *option.InboundMultiplexOptions
+	if c.SingOptions.Multiplex != nil {
+		multiplexOption := option.InboundMultiplexOptions{
+			Enabled: c.SingOptions.Multiplex.Enabled,
+			Padding: c.SingOptions.Multiplex.Padding,
+			Brutal: &option.BrutalOptions{
+				Enabled:  c.SingOptions.Multiplex.Brutal.Enabled,
+				UpMbps:   c.SingOptions.Multiplex.Brutal.UpMbps,
+				DownMbps: c.SingOptions.Multiplex.Brutal.DownMbps,
+			},
+		}
+		multiplex = &multiplexOption
+	}
 	var tls option.InboundTLSOptions
 	switch info.Security {
 	case panel.Tls:
@@ -210,6 +223,7 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 					TLS: &tls,
 				},
 				Transport: &t,
+				Multiplex: multiplex,
 			}
 		} else {
 			in.Type = "vmess"
@@ -219,6 +233,7 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 					TLS: &tls,
 				},
 				Transport: &t,
+				Multiplex: multiplex,
 			}
 		}
 	case "shadowsocks":
@@ -236,6 +251,7 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 		in.ShadowsocksOptions = option.ShadowsocksInboundOptions{
 			ListenOptions: listen,
 			Method:        n.Cipher,
+			Multiplex:     multiplex,
 		}
 		p := make([]byte, keyLength)
 		_, _ = rand.Read(p)
@@ -308,6 +324,7 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 				TLS: &tls,
 			},
 			Transport: &t,
+			Multiplex: multiplex,
 		}
 		if c.SingOptions.FallBackConfigs != nil {
 			// fallback handling
