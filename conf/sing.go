@@ -40,6 +40,7 @@ type SingOptions struct {
 	DomainStrategy           option.DomainStrategy  `json:"DomainStrategy"`
 	SniffOverrideDestination bool                   `json:"SniffOverrideDestination"`
 	FallBackConfigs          *FallBackConfigForSing `json:"FallBackConfigs"`
+	Multiplex                *MultiplexConfig       `json:"MultiplexConfig"`
 }
 
 type SingNtpConfig struct {
@@ -59,6 +60,18 @@ type FallBack struct {
 	ServerPort string `json:"ServerPort"`
 }
 
+type MultiplexConfig struct {
+	Enabled bool          `json:"Enable"`
+	Padding bool          `json:"Padding"`
+	Brutal  BrutalOptions `json:"Brutal"`
+}
+
+type BrutalOptions struct {
+	Enabled  bool `json:"Enable"`
+	UpMbps   int  `json:"UpMbps"`
+	DownMbps int  `json:"DownMbps"`
+}
+
 func NewSingOptions() *SingOptions {
 	return &SingOptions{
 		EnableDNS:                false,
@@ -67,5 +80,6 @@ func NewSingOptions() *SingOptions {
 		SniffEnabled:             true,
 		SniffOverrideDestination: true,
 		FallBackConfigs:          &FallBackConfigForSing{},
+		Multiplex:                &MultiplexConfig{},
 	}
 }
