@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.2-0.20240618221538-6fa16eae919d
 	github.com/juju/ratelimit v1.0.2
 	github.com/sagernet/sing v0.5.0-rc.2
-	github.com/sagernet/sing-box v1.11.0-alpha.2
+	github.com/sagernet/sing-box v1.11.0-alpha.2-1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.18.2
@@ -282,4 +282,4 @@ require (
 )
 
 // replace github.com/sagernet/sing-box v1.10.0-alpha.22 => /root/sing-box_mod
-replace github.com/sagernet/sing-box v1.11.0-alpha.2 => github.com/wyx2685/sing-box_mod v1.11.0-alpha.2
+replace github.com/sagernet/sing-box v1.11.0-alpha.2-1 => github.com/wyx2685/sing-box_mod v1.11.0-alpha.2-1
