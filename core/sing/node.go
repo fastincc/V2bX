@@ -61,7 +61,6 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 	listen := option.ListenOptions{
 		Listen:        (*option.ListenAddress)(&addr),
 		ListenPort:    uint16(info.Common.ServerPort),
-		ProxyProtocol: c.SingOptions.EnableProxyProtocol,
 		TCPFastOpen:   c.SingOptions.TCPFastOpen,
 		InboundOptions: option.InboundOptions{
 			SniffEnabled:             c.SingOptions.SniffEnabled,

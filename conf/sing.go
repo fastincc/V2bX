@@ -33,12 +33,11 @@ func NewSingConfig() *SingConfig {
 }
 
 type SingOptions struct {
-	EnableProxyProtocol      bool                   `json:"EnableProxyProtocol"`
 	TCPFastOpen              bool                   `json:"EnableTFO"`
 	SniffEnabled             bool                   `json:"EnableSniff"`
+	SniffOverrideDestination bool                   `json:"SniffOverrideDestination"`
 	EnableDNS                bool                   `json:"EnableDNS"`
 	DomainStrategy           option.DomainStrategy  `json:"DomainStrategy"`
-	SniffOverrideDestination bool                   `json:"SniffOverrideDestination"`
 	FallBackConfigs          *FallBackConfigForSing `json:"FallBackConfigs"`
 	Multiplex                *MultiplexConfig       `json:"MultiplexConfig"`
 }
@@ -75,7 +74,6 @@ type BrutalOptions struct {
 func NewSingOptions() *SingOptions {
 	return &SingOptions{
 		EnableDNS:                false,
-		EnableProxyProtocol:      false,
 		TCPFastOpen:              false,
 		SniffEnabled:             true,
 		SniffOverrideDestination: true,
