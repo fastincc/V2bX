@@ -5,8 +5,9 @@ go 1.23
 toolchain go1.23.2
 
 require (
-	github.com/apernet/hysteria/core/v2 v2.5.3-0.20241019184355-78598bfd1b0c
-	github.com/apernet/hysteria/extras/v2 v2.5.3-0.20241019184355-78598bfd1b0c
+	github.com/apernet/hysteria/core/v2 v2.6.0
+	github.com/apernet/hysteria/extras/v2 v2.6.0
+	github.com/apernet/quic-go v0.48.2-0.20241104191913-cb103fcecfe7
 	github.com/beevik/ntp v1.2.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.19.3-0.20241028134924-480950181787
@@ -19,7 +20,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.18.2
-	github.com/xtls/xray-core v1.8.25-0.20241121054707-513f18bf531e
+	github.com/xtls/xray-core v1.8.25-0.20241201231301-03d7d07c5b77
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.29.0
 	golang.org/x/sys v0.27.0
@@ -54,7 +55,6 @@ require (
 	github.com/akamai/AkamaiOPEN-edgegrid-golang v1.2.2 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.15 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/apernet/quic-go v0.47.1-0.20241004180137-a80d14e2080d // indirect
 	github.com/aws/aws-sdk-go-v2 v1.30.5 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.27.33 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.32 // indirect
@@ -229,7 +229,7 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1002 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod v1.0.1002 // indirect

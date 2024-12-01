@@ -71,7 +71,11 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	// get user alive
 	newA, err := c.apiClient.GetUserAlive()
 	if err != nil {
-		return err
+		log.WithFields(log.Fields{
+			"tag": c.tag,
+			"err": err,
+		}).Error("Get alive list failed")
+		return nil
 	}
 	if newN != nil {
 		c.info = newN
@@ -99,6 +103,10 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			// Add new Limiter
 			l := limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList, newA)
 			c.limiter = l
+		}
+		// update alive list
+		if newA != nil {
+			c.limiter.AliveList = newA
 		}
 		// Update rule
 		err = c.limiter.UpdateRule(&newN.Rules)

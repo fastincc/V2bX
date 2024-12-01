@@ -6,13 +6,23 @@ import (
 	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/InazumaV/V2bX/common/format"
 	"github.com/InazumaV/V2bX/limiter"
+	"github.com/apernet/hysteria/core/v2/server"
+	quic "github.com/apernet/quic-go"
 	"go.uber.org/zap"
 )
+
+var _ server.TrafficLogger = (*HookServer)(nil)
 
 type HookServer struct {
 	Tag     string
 	logger  *zap.Logger
 	Counter sync.Map
+}
+
+func (h *HookServer) TraceStream(stream quic.Stream, stats *server.StreamStats) {
+}
+
+func (h *HookServer) UntraceStream(stream quic.Stream) {
 }
 
 func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
