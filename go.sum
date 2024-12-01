@@ -1003,8 +1003,6 @@ github.com/xeipuuv/gojsonschema v1.2.0/go.mod h1:anYRn/JVcOK2ZgGU+IjEV4nwlhoK5sQ
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463 h1:g1Cj7d+my6k/HHxLAyxPwyX8i7FGRr6ulBDMkBzg2BM=
 github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463/go.mod h1:BjIOLmkEEtAgloAiVUcYj0Mt+YU00JARZw8AEU0IwAg=
-github.com/xtls/xray-core v1.8.25-0.20241129020808-4f6f12616ccf h1:vjmZXbLx9HYpYb7Cx50ubGSwCATTqkhynPCsQ2N2Dgk=
-github.com/xtls/xray-core v1.8.25-0.20241129020808-4f6f12616ccf/go.mod h1:BCeSy6P4xz8vSk46ziVkg0iby82W2Mmqvz2ub5kfYrc=
 github.com/xtls/xray-core v1.8.25-0.20241201231301-03d7d07c5b77 h1:4s1Q/Wb7Iwuzwgkoe1d48hSmexwlUOn+XJQ7sOuWSDQ=
 github.com/xtls/xray-core v1.8.25-0.20241201231301-03d7d07c5b77/go.mod h1:BCeSy6P4xz8vSk46ziVkg0iby82W2Mmqvz2ub5kfYrc=
 github.com/yandex-cloud/go-genproto v0.0.0-20240911120709-1fa0cb6f47c2 h1:WgeEP+8WizCQyccJNHOMLONq23qVAzYHtyg5qTdUWmg=
