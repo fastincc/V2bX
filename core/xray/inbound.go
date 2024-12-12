@@ -204,7 +204,7 @@ func buildV2ray(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreCon
 			return fmt.Errorf("unmarshal ws settings error: %s", err)
 		}
 	case "grpc":
-		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.GRPCConfig)
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.GRPCSettings)
 		if err != nil {
 			return fmt.Errorf("unmarshal grpc settings error: %s", err)
 		}
@@ -262,7 +262,7 @@ func buildTrojan(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreCo
 			return fmt.Errorf("unmarshal ws settings error: %s", err)
 		}
 	case "grpc":
-		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.GRPCConfig)
+		err := json.Unmarshal(v.NetworkSettings, &inbound.StreamSetting.GRPCSettings)
 		if err != nil {
 			return fmt.Errorf("unmarshal grpc settings error: %s", err)
 		}

@@ -7,11 +7,20 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/InazumaV/V2bX/core"
-	"github.com/sagernet/sing-box/inbound"
 	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing-box/protocol/hysteria"
+	"github.com/sagernet/sing-box/protocol/hysteria2"
+	"github.com/sagernet/sing-box/protocol/shadowsocks"
+	"github.com/sagernet/sing-box/protocol/trojan"
+	"github.com/sagernet/sing-box/protocol/vless"
+	"github.com/sagernet/sing-box/protocol/vmess"
 )
 
 func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
+	in, found := b.box.Inbound().Get(p.Tag)
+	if !found {
+		return 0, errors.New("the inbound not found")
+	}
 	switch p.NodeInfo.Type {
 	case "vmess", "vless":
 		if p.NodeInfo.Type == "vless" {
@@ -23,7 +32,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 					UUID: p.Users[i].Uuid,
 				}
 			}
-			err = b.inbounds[p.Tag].(*inbound.VLESS).AddUsers(us)
+			err = in.(*vless.Inbound).AddUsers(us)
 		} else {
 			us := make([]option.VMessUser, len(p.Users))
 			for i := range p.Users {
@@ -32,7 +41,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 					UUID: p.Users[i].Uuid,
 				}
 			}
-			err = b.inbounds[p.Tag].(*inbound.VMess).AddUsers(us)
+			err = in.(*vmess.Inbound).AddUsers(us)
 		}
 	case "shadowsocks":
 		us := make([]option.ShadowsocksUser, len(p.Users))
@@ -49,7 +58,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 				Password: password,
 			}
 		}
-		err = b.inbounds[p.Tag].(*inbound.ShadowsocksMulti).AddUsers(us)
+		err = in.(*shadowsocks.MultiInbound).AddUsers(us)
 	case "trojan":
 		us := make([]option.TrojanUser, len(p.Users))
 		for i := range p.Users {
@@ -58,7 +67,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 				Password: p.Users[i].Uuid,
 			}
 		}
-		err = b.inbounds[p.Tag].(*inbound.Trojan).AddUsers(us)
+		err = in.(*trojan.Inbound).AddUsers(us)
 	case "hysteria":
 		us := make([]option.HysteriaUser, len(p.Users))
 		for i := range p.Users {
@@ -67,7 +76,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 				AuthString: p.Users[i].Uuid,
 			}
 		}
-		err = b.inbounds[p.Tag].(*inbound.Hysteria).AddUsers(us)
+		err = in.(*hysteria.Inbound).AddUsers(us)
 	case "hysteria2":
 		us := make([]option.Hysteria2User, len(p.Users))
 		id := make([]int, len(p.Users))
@@ -78,7 +87,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 			}
 			id[i] = p.Users[i].Id
 		}
-		err = b.inbounds[p.Tag].(*inbound.Hysteria2).AddUsers(us, id)
+		err = in.(*hysteria2.Inbound).AddUsers(us, id)
 	}
 	if err != nil {
 		return 0, err
@@ -108,17 +117,17 @@ func (b *Sing) DelUsers(users []panel.UserInfo, tag string) error {
 	if i, ok := b.inbounds[tag]; ok {
 		switch i.Type() {
 		case "vmess":
-			del = i.(*inbound.VMess)
+			del = i.(*vmess.Inbound)
 		case "vless":
-			del = i.(*inbound.VLESS)
+			del = i.(*vless.Inbound)
 		case "shadowsocks":
-			del = i.(*inbound.ShadowsocksMulti)
+			del = i.(*shadowsocks.MultiInbound)
 		case "trojan":
-			del = i.(*inbound.Trojan)
+			del = i.(*trojan.Inbound)
 		case "hysteria":
-			del = i.(*inbound.Hysteria)
+			del = i.(*hysteria.Inbound)
 		case "hysteria2":
-			del = i.(*inbound.Hysteria2)
+			del = i.(*hysteria2.Inbound)
 		}
 	} else {
 		return errors.New("the inbound not found")
