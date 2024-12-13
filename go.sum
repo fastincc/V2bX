@@ -849,8 +849,6 @@ github.com/sagernet/nftables v0.3.0-beta.4 h1:kbULlAwAC3jvdGAC1P5Fa3GSxVwQJibNen
 github.com/sagernet/nftables v0.3.0-beta.4/go.mod h1:OQXAjvjNGGFxaTgVCSTRIhYB5/llyVDeapVoENYBDS8=
 github.com/sagernet/quic-go v0.48.2-beta.1 h1:W0plrLWa1XtOWDTdX3CJwxmQuxkya12nN5BRGZ87kEg=
 github.com/sagernet/quic-go v0.48.2-beta.1/go.mod h1:1WgdDIVD1Gybp40JTWketeSfKA/+or9YMLaG5VeTk4k=
-github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691 h1:5Th31OC6yj8byLGkEnIYp6grlXfo1QYUfiYFGjewIdc=
-github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691/go.mod h1:B8lp4WkQ1PwNnrVMM6KyuFR20pU8jYBD+A4EhJovEXU=
 github.com/sagernet/sing v0.2.18/go.mod h1:OL6k2F0vHmEzXz2KW19qQzu172FDgSbUSODylighuVo=
 github.com/sagernet/sing v0.6.0-beta.6 h1:IFnTCG06Z5rLMZJqw1ZmDncDl2N9gsVw0MGvgakrpg8=
 github.com/sagernet/sing v0.6.0-beta.6/go.mod h1:ARkL0gM13/Iv5VCZmci/NuoOlePoIsW0m7BWfln/Hak=
@@ -999,8 +997,10 @@ github.com/volcengine/volc-sdk-golang v1.0.177 h1:Wzqw3ONLNRelhgxk9qQide+CHGNnOz
 github.com/volcengine/volc-sdk-golang v1.0.177/go.mod h1:u0VtPvlXWpXDTmc9IHkaW1q+5Jjwus4oAqRhNMDRInE=
 github.com/vultr/govultr/v3 v3.9.1 h1:uxSIb8Miel7tqTs3ee+z3t+JelZikwqBBsZzCOPBy/8=
 github.com/vultr/govultr/v3 v3.9.1/go.mod h1:Rd8ebpXm7jxH3MDmhnEs+zrlYW212ouhx+HeUMfHm2o=
-github.com/wyx2685/sing-box_mod v0.0.0-20241212200744-9bf5415f166a h1:Bo4zQdrp2sWtppDq2twzXmMQmt1OAdq2qzj/tX4hG/g=
-github.com/wyx2685/sing-box_mod v0.0.0-20241212200744-9bf5415f166a/go.mod h1:scD+EWmuQoTMHdGfRrnkbGlmBBBKJjH+EHUwWJfer80=
+github.com/wyx2685/sing-box_mod v0.0.0-20241213112838-c7faac61b3fe h1:nIjHpdJuvJI99D65+tTAev5UiOrP0D2sQMN96L4S6Fk=
+github.com/wyx2685/sing-box_mod v0.0.0-20241213112838-c7faac61b3fe/go.mod h1:LDRxdLmL1ufmoriLp0qOWfF8QvsqyYw5yLNa45ZBnEs=
+github.com/wyx2685/sing-vmess v0.0.0-20241213093025-7de21a950272 h1:T1Bd7Cookzc/zbQoXV3nqugQl5X0hnmNvR5haU/QKpE=
+github.com/wyx2685/sing-vmess v0.0.0-20241213093025-7de21a950272/go.mod h1:hutc8pVvq29h64EyIBdohKYOnhbnWYnl+CrrW3jX7MQ=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=
 github.com/xdg-go/scram v1.0.2/go.mod h1:1WAq6h33pAW+iRreB34OORO2Nf7qel3VV3fjBj+hCSs=
 github.com/xdg-go/scram v1.1.2/go.mod h1:RT/sEzTbU5y00aCK8UOx6R7YryM0iF1N2MOmC3kKLN4=

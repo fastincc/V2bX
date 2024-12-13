@@ -203,7 +203,6 @@ require (
 	github.com/sagernet/netlink v0.0.0-20240612041022-b9a21c07ac6a // indirect
 	github.com/sagernet/nftables v0.3.0-beta.4 // indirect
 	github.com/sagernet/quic-go v0.48.2-beta.1 // indirect
-	github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691 // indirect
 	github.com/sagernet/sing-dns v0.4.0-beta.1 // indirect
 	github.com/sagernet/sing-mux v0.3.0-alpha.1 // indirect
 	github.com/sagernet/sing-quic v0.4.0-alpha.4 // indirect
@@ -248,6 +247,7 @@ require (
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.177 // indirect
 	github.com/vultr/govultr/v3 v3.9.1 // indirect
+	github.com/wyx2685/sing-vmess v0.0.0-20241213093025-7de21a950272 // indirect
 	github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463 // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20240911120709-1fa0cb6f47c2 // indirect
 	github.com/yandex-cloud/go-sdk v0.0.0-20240911121212-e4e74d0d02f5 // indirect
@@ -287,4 +287,4 @@ require (
 
 //replace github.com/sagernet/sing-box v1.10.4 => /root/sing-box_mod
 
-replace github.com/sagernet/sing-box v1.10.4 => github.com/wyx2685/sing-box_mod v0.0.0-20241212200744-9bf5415f166a
+replace github.com/sagernet/sing-box v1.10.4 => github.com/wyx2685/sing-box_mod v0.0.0-20241213112838-c7faac61b3fe
