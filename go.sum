@@ -1014,6 +1014,8 @@ github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463 h1:g1Cj7d+my6k/HHxLAy
 github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463/go.mod h1:BjIOLmkEEtAgloAiVUcYj0Mt+YU00JARZw8AEU0IwAg=
 github.com/xtls/xray-core v1.8.25-0.20241211140539-8cd9a743764a h1:aVhLpHaB2To7eNUwbv883CcuZbvgefWxBo1CI+A9Pvo=
 github.com/xtls/xray-core v1.8.25-0.20241211140539-8cd9a743764a/go.mod h1:lduNPDkXku+Avphl8g7W0yJrHhWyxdOnPo0XGYdF0Aw=
+github.com/xtls/xray-core v1.8.25-0.20241212121918-7463561856f7 h1:H1793FyHWPvU5RTTbBC0VR5ICt5D7RTY7BYs01KoQq0=
+github.com/xtls/xray-core v1.8.25-0.20241212121918-7463561856f7/go.mod h1:lduNPDkXku+Avphl8g7W0yJrHhWyxdOnPo0XGYdF0Aw=
 github.com/yandex-cloud/go-genproto v0.0.0-20240911120709-1fa0cb6f47c2 h1:WgeEP+8WizCQyccJNHOMLONq23qVAzYHtyg5qTdUWmg=
 github.com/yandex-cloud/go-genproto v0.0.0-20240911120709-1fa0cb6f47c2/go.mod h1:HEUYX/p8966tMUHHT+TsS0hF/Ca/NYwqprC5WXSDMfE=
 github.com/yandex-cloud/go-sdk v0.0.0-20240911121212-e4e74d0d02f5 h1:Q4LvUMF4kzaGtopoIdXReL9/qGtmzOewBhF3dQvuHMU=
