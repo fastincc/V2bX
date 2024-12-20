@@ -342,7 +342,7 @@ func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.Pac
 		s := masq.MasqTCPServer{
 			QUICPort:  extractPortFromAddr(conn.LocalAddr().String()),
 			HTTPSPort: extractPortFromAddr(c.Masquerade.ListenHTTPS),
-			Handler:   &masqHandlerLogWrapper{H: handler, QUIC: false},
+			Handler:   &masqHandlerLogWrapper{H: handler, QUIC: false, Logger: n.Logger},
 			TLSConfig: &tls.Config{
 				Certificates:   tlsconfig.Certificates,
 				GetCertificate: tlsconfig.GetCertificate,
