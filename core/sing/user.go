@@ -114,7 +114,7 @@ type UserDeleter interface {
 
 func (b *Sing) DelUsers(users []panel.UserInfo, tag string) error {
 	var del UserDeleter
-	if i, ok := b.inbounds[tag]; ok {
+	if i, found := b.box.Inbound().Get(tag); found {
 		switch i.Type() {
 		case "vmess":
 			del = i.(*vmess.Inbound)

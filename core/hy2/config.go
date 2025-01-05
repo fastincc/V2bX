@@ -299,7 +299,7 @@ func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.Pac
 					req.Header.Set("X-Forwarded-For", clientIP)
 				}
 
-				if !c.Masquerade.Proxy.RewriteHost {
+				if c.Masquerade.Proxy.RewriteHost {
 					req.Host = req.URL.Host
 				}
 			},

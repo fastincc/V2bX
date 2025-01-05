@@ -29,7 +29,6 @@ type Sing struct {
 	hookServer *HookServer
 	router     adapter.Router
 	logFactory log.Factory
-	inbounds   map[string]adapter.Inbound
 }
 
 func init() {
