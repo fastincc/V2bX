@@ -71,7 +71,7 @@ func New(c *conf.CoreConfig) (vCore.Core, error) {
 	if err != nil {
 		return nil, err
 	}
-	hs := NewHookServer(c.SingConfig.EnableConnClear)
+	hs := NewHookServer()
 	b.Router().SetTracker(hs)
 	return &Sing{
 		ctx:        b.Router().GetCtx(),
