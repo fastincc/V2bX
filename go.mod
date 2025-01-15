@@ -5,8 +5,8 @@ go 1.23
 toolchain go1.23.2
 
 require (
-	github.com/apernet/hysteria/core/v2 v2.6.1-0.20241213024049-cd396eea6031
-	github.com/apernet/hysteria/extras/v2 v2.6.1-0.20241213024049-cd396eea6031
+	github.com/apernet/hysteria/core/v2 v2.6.1-0.20250113035753-8c0521759079
+	github.com/apernet/hysteria/extras/v2 v2.6.1-0.20250113035753-8c0521759079
 	github.com/apernet/quic-go v0.48.2-0.20241104191913-cb103fcecfe7
 	github.com/beevik/ntp v1.4.4-0.20240716062501-06ef196b89ec
 	github.com/fsnotify/fsnotify v1.8.0
@@ -20,11 +20,11 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
-	github.com/xtls/xray-core v1.8.25-0.20250105063750-aeb12d9e3ba8
+	github.com/xtls/xray-core v1.8.25-0.20250115034836-4576f56ec82e
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.31.0
-	golang.org/x/sys v0.28.0
-	google.golang.org/protobuf v1.36.1
+	golang.org/x/crypto v0.32.0
+	golang.org/x/sys v0.29.0
+	google.golang.org/protobuf v1.36.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -266,7 +266,7 @@ require (
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/exp v0.0.0-20241210194714-1829a127f884 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
@@ -278,7 +278,7 @@ require (
 	google.golang.org/genproto v0.0.0-20241021214115-324edc3d5d38 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241118233622-e639e219e697 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 // indirect
-	google.golang.org/grpc v1.69.2 // indirect
+	google.golang.org/grpc v1.69.4 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/ns1/ns1-go.v2 v2.13.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
