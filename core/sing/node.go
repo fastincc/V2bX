@@ -369,10 +369,11 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 			}
 		}
 		in.Options = &option.Hysteria2InboundOptions{
-			ListenOptions: listen,
-			UpMbps:        info.Hysteria2.UpMbps,
-			DownMbps:      info.Hysteria2.DownMbps,
-			Obfs:          obfs,
+			ListenOptions:         listen,
+			UpMbps:                info.Hysteria2.UpMbps,
+			DownMbps:              info.Hysteria2.DownMbps,
+			IgnoreClientBandwidth: info.Hysteria2.Ignore_Client_Bandwidth,
+			Obfs:                  obfs,
 			InboundTLSOptionsContainer: option.InboundTLSOptionsContainer{
 				TLS: &tls,
 			},

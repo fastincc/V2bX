@@ -109,10 +109,11 @@ type HysteriaNode struct {
 
 type Hysteria2Node struct {
 	CommonNode
-	UpMbps       int    `json:"up_mbps"`
-	DownMbps     int    `json:"down_mbps"`
-	ObfsType     string `json:"obfs"`
-	ObfsPassword string `json:"obfs-password"`
+	Ignore_Client_Bandwidth bool   `json:"ignore_client_bandwidth"`
+	UpMbps                  int    `json:"up_mbps"`
+	DownMbps                int    `json:"down_mbps"`
+	ObfsType                string `json:"obfs"`
+	ObfsPassword            string `json:"obfs-password"`
 }
 
 type RawDNS struct {
