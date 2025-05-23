@@ -58,7 +58,7 @@ wget -N https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh 
 ## 构建
 ``` bash
 # 通过-tags选项指定要编译的内核， 可选 xray， sing, hysteria2
-go build -v -o ./V2bX -tags "xray sing hysteria2 with_reality_server with_quic with_grpc with_utls with_wireguard with_acme" -trimpath -ldflags "-s -w -buildid="
+go build -v -o ./V2bX -tags "xray sing hysteria2 with_quic with_grpc with_utls with_wireguard with_acme" -trimpath -ldflags "-s -w -buildid="
 ```
 
 ## 配置文件及详细使用教程

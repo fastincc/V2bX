@@ -8,6 +8,7 @@ import (
 	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/InazumaV/V2bX/core"
 	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing-box/protocol/anytls"
 	"github.com/sagernet/sing-box/protocol/hysteria"
 	"github.com/sagernet/sing-box/protocol/hysteria2"
 	"github.com/sagernet/sing-box/protocol/shadowsocks"
@@ -99,6 +100,16 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 			id[i] = p.Users[i].Id
 		}
 		err = in.(*hysteria2.Inbound).AddUsers(us, id)
+	case "anytls":
+		us := make([]option.AnyTLSUser, len(p.Users))
+		for i := range p.Users {
+			us[i] = option.AnyTLSUser{
+				Name:     p.Users[i].Uuid,
+				Password: p.Users[i].Uuid,
+			}
+		}
+		ids := make([]int, len(p.Users))
+		err = in.(*anytls.Inbound).AddUsers(us, ids)
 	}
 	if err != nil {
 		return 0, err
@@ -141,6 +152,8 @@ func (b *Sing) DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo
 			del = i.(*hysteria.Inbound)
 		case "hysteria2":
 			del = i.(*hysteria2.Inbound)
+		case "anytls":
+			del = i.(*anytls.Inbound)
 		}
 	} else {
 		return errors.New("the inbound not found")
