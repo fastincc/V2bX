@@ -108,8 +108,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 				Password: p.Users[i].Uuid,
 			}
 		}
-		ids := make([]int, len(p.Users))
-		err = in.(*anytls.Inbound).AddUsers(us, ids)
+		err = in.(*anytls.Inbound).AddUsers(us)
 	}
 	if err != nil {
 		return 0, err

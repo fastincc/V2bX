@@ -828,8 +828,8 @@ github.com/pierrec/lz4 v1.0.2-0.20190131084431-473cd7ce01a1/go.mod h1:3/3N9NVKO0
 github.com/pierrec/lz4 v2.6.1+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pierrec/lz4/v4 v4.1.21 h1:yOVMLb6qSIDP67pl/5F7RepeKYu/VmTyEXvuMI5d9mQ=
 github.com/pierrec/lz4/v4 v4.1.21/go.mod h1:gZWDp/Ze/IJXGXf23ltt2EXimqmTUXEy0GFuRQyBid4=
-github.com/pires/go-proxyproto v0.8.0 h1:5unRmEAPbHXHuLjDg01CxJWf91cw3lKHc/0xzKpXEe0=
-github.com/pires/go-proxyproto v0.8.0/go.mod h1:iknsfgnH8EkjrMeMyvfKByp9TiBZCKZM0jx2xmKqnVY=
+github.com/pires/go-proxyproto v0.8.1 h1:9KEixbdJfhrbtjpz/ZwCdWDD2Xem0NZ38qMYaASJgp0=
+github.com/pires/go-proxyproto v0.8.1/go.mod h1:ZKAAyp3cgy5Y5Mo4n9AlScrkCZwUy0g3Jf+slqQVcuU=
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c h1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c/go.mod h1:7rwL4CYBLnjLxUqIJNnCWiEdr3bn6IUYi15bNlnbCCU=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -1091,10 +1091,10 @@ github.com/volcengine/volc-sdk-golang v1.0.189 h1:VMDTHWYXakXJtZqPYn0As/h4eB0c4i
 github.com/volcengine/volc-sdk-golang v1.0.189/go.mod h1:u0VtPvlXWpXDTmc9IHkaW1q+5Jjwus4oAqRhNMDRInE=
 github.com/vultr/govultr/v3 v3.9.1 h1:uxSIb8Miel7tqTs3ee+z3t+JelZikwqBBsZzCOPBy/8=
 github.com/vultr/govultr/v3 v3.9.1/go.mod h1:Rd8ebpXm7jxH3MDmhnEs+zrlYW212ouhx+HeUMfHm2o=
-github.com/wyx2685/sing-box_mod v1.12.0-beta.17 h1:gQ+oALM2v4ezb9Nd4zN/SsrALOx9OM7l7yVZihqj/zY=
-github.com/wyx2685/sing-box_mod v1.12.0-beta.17/go.mod h1:9spjzehvdxlfwLpv5/lISwKBZbknoxoc8CWcZZ27lF8=
-github.com/wyx2685/sing-vmess v0.0.0-20250208043059-9bd6d628dc1c h1:/Rs7wibIQyOQy6XmW1BkBhnXpbdtJXX80fuFDI7KMC4=
-github.com/wyx2685/sing-vmess v0.0.0-20250208043059-9bd6d628dc1c/go.mod h1:/92DiwmRNxEIl7Q+qDmFhKTiiYOmnAMVcAdfP/s/R8E=
+github.com/wyx2685/sing-box_mod v1.12.0-beta.17.1 h1:cP+MU7/XO6H5pSaoYhkEYMlPe6Ano02NFl/pELAzJC4=
+github.com/wyx2685/sing-box_mod v1.12.0-beta.17.1/go.mod h1:ZybQCajA3r+okcxY9jNzcTIh35Kj35wbYANSoHU/kM8=
+github.com/wyx2685/sing-vmess v0.0.0-20250524094403-696835735021 h1:B/OF9zLyAl930HyOXnsVg1rN1uTZHFHOf6otkLHu1a4=
+github.com/wyx2685/sing-vmess v0.0.0-20250524094403-696835735021/go.mod h1:9GsbMmRg+GD02PRq9zv/K4MCollzq281D9qN5bpCBhM=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=

@@ -207,7 +207,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/peterhellberg/link v1.2.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
-	github.com/pires/go-proxyproto v0.8.0 // indirect
+	github.com/pires/go-proxyproto v0.8.1 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -282,7 +282,7 @@ require (
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.189 // indirect
 	github.com/vultr/govultr/v3 v3.9.1 // indirect
-	github.com/wyx2685/sing-vmess v0.0.0-20250208043059-9bd6d628dc1c // indirect
+	github.com/wyx2685/sing-vmess v0.0.0-20250524094403-696835735021 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463 // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20241220122821-aeb3b05efd1c // indirect
@@ -328,4 +328,4 @@ require (
 
 //replace github.com/sagernet/sing-box v1.12.0 => ./sing-box_mod
 
-replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-beta.17
+replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-beta.17.1
