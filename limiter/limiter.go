@@ -11,8 +11,6 @@ import (
 	"github.com/InazumaV/V2bX/common/format"
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/juju/ratelimit"
-	log "github.com/sirupsen/logrus"
-	"github.com/xtls/xray-core/common/task"
 )
 
 var limitLock sync.RWMutex
@@ -20,16 +18,6 @@ var limiter map[string]*Limiter
 
 func Init() {
 	limiter = map[string]*Limiter{}
-	c := task.Periodic{
-		Interval: time.Minute * 3,
-		Execute:  ClearOnlineIP,
-	}
-	go func() {
-		log.WithField("Type", "Limiter").
-			Debug("ClearOnlineIP started")
-		time.Sleep(time.Minute * 3)
-		_ = c.Start()
-	}()
 }
 
 type Limiter struct {
@@ -40,7 +28,6 @@ type Limiter struct {
 	OldUserOnline *sync.Map      // Key: Ip, value: Uid
 	UUIDtoUID     map[string]int // Key: UUID, value: Uid
 	UserLimitInfo *sync.Map      // Key: Uid value: UserLimitInfo
-	ConnLimiter   *ConnLimiter   // Key: Uid value: ConnLimiter
 	SpeedLimiter  *sync.Map      // key: Uid, value: *ratelimit.Bucket
 	AliveList     map[int]int    // Key: Uid, value: alive_ip
 }
@@ -59,7 +46,6 @@ func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo, aliveLi
 		SpeedLimit:    l.SpeedLimit,
 		UserOnlineIP:  new(sync.Map),
 		UserLimitInfo: new(sync.Map),
-		ConnLimiter:   NewConnLimiter(l.ConnLimit, l.IPLimit, l.EnableRealtime),
 		SpeedLimiter:  new(sync.Map),
 		AliveList:     aliveList,
 		OldUserOnline: new(sync.Map),
@@ -140,10 +126,6 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 	// check if ipv4 mapped ipv6
 	ip = strings.TrimPrefix(ip, "::ffff:")
 
-	// ip and conn limiter
-	if l.ConnLimiter.AddConnCount(taguuid, ip, isTcp) {
-		return nil, true
-	}
 	// check and gen speed limit Bucket
 	nodeLimit := l.SpeedLimit
 	userLimit := 0
@@ -169,17 +151,21 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 	}
 	if noSSUDP {
 		// Store online user for device limit
-		ipMap := new(sync.Map)
-		ipMap.Store(ip, uid)
+		newipMap := new(sync.Map)
+		newipMap.Store(ip, uid)
 		aliveIp := l.AliveList[uid]
 		// If any device is online
-		if v, ok := l.UserOnlineIP.LoadOrStore(taguuid, ipMap); ok {
-			ipMap := v.(*sync.Map)
+		if v, loaded := l.UserOnlineIP.LoadOrStore(taguuid, newipMap); loaded {
+			oldipMap := v.(*sync.Map)
 			// If this is a new ip
-			if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
-				if deviceLimit > 0 {
+			if _, loaded := oldipMap.LoadOrStore(ip, uid); !loaded {
+				if v, loaded := l.OldUserOnline.Load(ip); loaded {
+					if v.(int) == uid {
+						l.OldUserOnline.Delete(ip)
+					}
+				} else if deviceLimit > 0 {
 					if deviceLimit <= aliveIp {
-						ipMap.Delete(ip)
+						oldipMap.Delete(ip)
 						return nil, true
 					}
 				}
@@ -214,6 +200,7 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 
 func (l *Limiter) GetOnlineDevice() (*[]panel.OnlineUser, error) {
 	var onlineUser []panel.OnlineUser
+	l.OldUserOnline = new(sync.Map)
 	l.UserOnlineIP.Range(func(key, value interface{}) bool {
 		taguuid := key.(string)
 		ipMap := value.(*sync.Map)

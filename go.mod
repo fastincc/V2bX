@@ -20,7 +20,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
-	github.com/xtls/xray-core v1.250306.1-0.20250430044058-87ab8e512882
+	github.com/xtls/xray-core v1.250516.1-0.20250527015530-84c8e24a6c6b
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.38.0
 	golang.org/x/sys v0.33.0
@@ -214,8 +214,8 @@ require (
 	github.com/pquerna/otp v1.4.0 // indirect
 	github.com/prometheus-community/pro-bing v0.4.0 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
-	github.com/quic-go/quic-go v0.51.0 // indirect
-	github.com/refraction-networking/utls v1.7.1 // indirect
+	github.com/quic-go/quic-go v0.52.0 // indirect
+	github.com/refraction-networking/utls v1.7.3 // indirect
 	github.com/regfish/regfish-dnsapi-go v0.1.1 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/sacloud/api-client-go v0.2.10 // indirect
@@ -278,13 +278,13 @@ require (
 	github.com/ultradns/ultradns-go-sdk v1.8.0-20241010134910-243eeec // indirect
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e // indirect
 	github.com/vinyldns/go-vinyldns v0.9.16 // indirect
-	github.com/vishvananda/netlink v1.3.0 // indirect
+	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.189 // indirect
 	github.com/vultr/govultr/v3 v3.9.1 // indirect
 	github.com/wyx2685/sing-vmess v0.0.0-20250524094403-696835735021 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463 // indirect
+	github.com/xtls/reality v0.0.0-20250527000105-e679ef7bb130 // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20241220122821-aeb3b05efd1c // indirect
 	github.com/yandex-cloud/go-sdk v0.0.0-20241220131134-2393e243c134 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
@@ -317,15 +317,15 @@ require (
 	google.golang.org/genproto v0.0.0-20241021214115-324edc3d5d38 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
-	google.golang.org/grpc v1.72.0 // indirect
+	google.golang.org/grpc v1.72.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/ns1/ns1-go.v2 v2.13.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gvisor.dev/gvisor v0.0.0-20250428193742-2d800c3129d5 // indirect
-	lukechampine.com/blake3 v1.4.0 // indirect
+	lukechampine.com/blake3 v1.4.1 // indirect
 )
 
 //replace github.com/sagernet/sing-box v1.12.0 => ./sing-box_mod
 
-replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-beta.17.1
+replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-beta.17.2
