@@ -54,19 +54,10 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 	if err != nil {
 		return option.Inbound{}, fmt.Errorf("the listen ip not vail")
 	}
-	var domainStrategy option.DomainStrategy
-	if c.SingOptions.EnableDNS {
-		domainStrategy = c.SingOptions.DomainStrategy
-	}
 	listen := option.ListenOptions{
 		Listen:      (*badoption.Addr)(&addr),
 		ListenPort:  uint16(info.Common.ServerPort),
 		TCPFastOpen: c.SingOptions.TCPFastOpen,
-		InboundOptions: option.InboundOptions{
-			SniffEnabled:             c.SingOptions.SniffEnabled,
-			SniffOverrideDestination: c.SingOptions.SniffOverrideDestination,
-			DomainStrategy:           domainStrategy,
-		},
 	}
 	var multiplex *option.InboundMultiplexOptions
 	if c.SingOptions.Multiplex != nil {

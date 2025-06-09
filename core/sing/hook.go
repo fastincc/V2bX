@@ -51,7 +51,7 @@ func (h *HookServer) RoutedConnection(_ context.Context, conn net.Conn, m adapte
 	}
 	if l != nil {
 		destStr := m.Destination.AddrString()
-		protocol := m.Destination.Network()
+		protocol := m.Protocol
 		if l.CheckDomainRule(destStr) {
 			log.Error(fmt.Sprintf(
 				"User %s access domain %s reject by rule",
