@@ -2,8 +2,11 @@ package panel
 
 import (
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/goccy/go-json"
+	"github.com/vmihailenco/msgpack"
 )
 
 type OnlineUser struct {
@@ -12,15 +15,14 @@ type OnlineUser struct {
 }
 
 type UserInfo struct {
-	Id          int    `json:"id"`
-	Uuid        string `json:"uuid"`
-	SpeedLimit  int    `json:"speed_limit"`
-	DeviceLimit int    `json:"device_limit"`
+	Id          int    `json:"id" msgpack:"id"`
+	Uuid        string `json:"uuid" msgpack:"uuid"`
+	SpeedLimit  int    `json:"speed_limit" msgpack:"speed_limit"`
+	DeviceLimit int    `json:"device_limit" msgpack:"device_limit"`
 }
 
 type UserListBody struct {
-	//Msg  string `json:"msg"`
-	Users []UserInfo `json:"users"`
+	Users []UserInfo `json:"users" msgpack:"users"`
 }
 
 type AliveMap struct {
@@ -32,7 +34,8 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 	const path = "/api/v1/server/UniProxy/user"
 	r, err := c.client.R().
 		SetHeader("If-None-Match", c.userEtag).
-		ForceContentType("application/json").
+		SetHeader("X-Response-Format", "msgpack").
+		SetDoNotParseResponse(true).
 		Get(path)
 	if r == nil || r.RawResponse == nil {
 		return nil, fmt.Errorf("received nil response or raw response")
@@ -47,8 +50,19 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 		return nil, err
 	}
 	userlist := &UserListBody{}
-	if err := json.Unmarshal(r.Body(), userlist); err != nil {
-		return nil, fmt.Errorf("unmarshal user list error: %w", err)
+	if strings.Contains(r.Header().Get("Content-Type"), "application/x-msgpack") {
+		decoder := msgpack.NewDecoder(r.RawResponse.Body)
+		if err := decoder.Decode(userlist); err != nil {
+			return nil, fmt.Errorf("decode user list error: %w", err)
+		}
+	} else {
+		bodyBytes, err := io.ReadAll(r.RawResponse.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read response body error: %w", err)
+		}
+		if err := json.Unmarshal(bodyBytes, userlist); err != nil {
+			return nil, fmt.Errorf("unmarshal user list error: %w", err)
+		}
 	}
 	c.userEtag = r.Header().Get("ETag")
 	return userlist.Users, nil
