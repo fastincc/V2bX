@@ -102,8 +102,8 @@ type DefaultDispatcher struct {
 	router routing.Router
 	policy policy.Manager
 	stats  stats.Manager
-	dns    dns.Client
 	fdns   dns.FakeDNSEngine
+	Wm     *WriterManager
 }
 
 func init() {
@@ -127,6 +127,9 @@ func (d *DefaultDispatcher) Init(config *Config, om outbound.Manager, router rou
 	d.router = router
 	d.policy = pm
 	d.stats = sm
+	d.Wm = &WriterManager{
+		writers: make(map[string]map[*ManagedWriter]struct{}),
+	}
 	return nil
 }
 
@@ -148,9 +151,14 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 	uplinkReader, uplinkWriter := pipe.New(opt...)
 	downlinkReader, downlinkWriter := pipe.New(opt...)
 
+	managedWriter := &ManagedWriter{
+		writer:  uplinkWriter,
+		manager: d.Wm,
+	}
+
 	inboundLink := &transport.Link{
 		Reader: downlinkReader,
-		Writer: uplinkWriter,
+		Writer: managedWriter,
 	}
 
 	outboundLink := &transport.Link{
@@ -214,6 +222,8 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			}
 		}
 	}
+	managedWriter.email = user.Email
+	d.Wm.AddWriter(managedWriter)
 
 	return inboundLink, outboundLink, limit, nil
 }
