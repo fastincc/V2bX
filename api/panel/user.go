@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/goccy/go-json"
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type OnlineUser struct {

@@ -2,7 +2,7 @@ module github.com/InazumaV/V2bX
 
 go 1.24
 
-toolchain go1.24.1
+toolchain go1.24.5
 
 require (
 	github.com/apernet/hysteria/core/v2 v2.6.2
@@ -20,11 +20,11 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
-	github.com/vmihailenco/msgpack v4.0.4+incompatible
-	github.com/xtls/xray-core v1.250516.1-0.20250608135303-fbae89d017ae
+	github.com/vmihailenco/msgpack/v5 v5.4.1
+	github.com/xtls/xray-core v1.250608.1-0.20250721045543-eed05549fc99
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.39.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/crypto v0.40.0
+	golang.org/x/sys v0.34.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
@@ -125,7 +125,6 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -182,7 +181,7 @@ require (
 	github.com/metacubex/tfo-go v0.0.0-20241231083714-66613d49c422 // indirect
 	github.com/metacubex/utls v1.7.0-alpha.3 // indirect
 	github.com/mholt/acmez/v3 v3.1.2 // indirect
-	github.com/miekg/dns v1.1.66 // indirect
+	github.com/miekg/dns v1.1.67 // indirect
 	github.com/mimuret/golang-iij-dpf v0.9.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
@@ -216,7 +215,7 @@ require (
 	github.com/pquerna/otp v1.4.0 // indirect
 	github.com/prometheus-community/pro-bing v0.4.0 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
-	github.com/quic-go/quic-go v0.52.0 // indirect
+	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/refraction-networking/utls v1.7.3 // indirect
 	github.com/regfish/regfish-dnsapi-go v0.1.1 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
@@ -282,11 +281,12 @@ require (
 	github.com/vinyldns/go-vinyldns v0.9.16 // indirect
 	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.189 // indirect
 	github.com/vultr/govultr/v3 v3.9.1 // indirect
 	github.com/wyx2685/sing-vmess v0.0.0-20250524094403-696835735021 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xtls/reality v0.0.0-20250608132114-50752aec6bfb // indirect
+	github.com/xtls/reality v0.0.0-20250715055725-05a351a64521 // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20241220122821-aeb3b05efd1c // indirect
 	github.com/yandex-cloud/go-sdk v0.0.0-20241220131134-2393e243c134 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
@@ -305,18 +305,17 @@ require (
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
 	golang.org/x/mod v0.25.0 // indirect
-	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/term v0.33.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
-	golang.org/x/tools v0.33.0 // indirect
+	golang.org/x/tools v0.34.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 	google.golang.org/api v0.214.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20241021214115-324edc3d5d38 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250324211829-b45e905df463 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
