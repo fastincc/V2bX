@@ -130,22 +130,17 @@ func buildInbound(option *conf.Options, nodeInfo *panel.NodeInfo, tag string) (*
 			return nil, fmt.Errorf("marshal reality dest error: %s", err)
 		}
 		mtd, _ := time.ParseDuration(v.RealityConfig.MaxTimeDiff)
-		mldsa65Seed := v.TlsSettings.Mldsa65Seed
-		if mldsa65Seed == "" {
-			var seed [32]byte
-			rand.Read(seed[:])
-			mldsa65Seed = base64.RawURLEncoding.EncodeToString(seed[:])
-		}
 		in.StreamSetting.REALITYSettings = &coreConf.REALITYConfig{
 			Dest:         d,
 			Xver:         xver,
+			Show:         false,
 			ServerNames:  []string{v.TlsSettings.ServerName},
 			PrivateKey:   v.TlsSettings.PrivateKey,
 			MinClientVer: v.RealityConfig.MinClientVer,
 			MaxClientVer: v.RealityConfig.MaxClientVer,
 			MaxTimeDiff:  uint64(mtd.Microseconds()),
 			ShortIds:     []string{v.TlsSettings.ShortId},
-			Mldsa65Seed:  mldsa65Seed,
+			Mldsa65Seed:  v.TlsSettings.Mldsa65Seed,
 		}
 	default:
 		break
