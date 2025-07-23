@@ -329,4 +329,4 @@ require (
 
 //replace github.com/sagernet/sing-box v1.12.0 => ../sing-box_mod
 
-replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-rc.2
+replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-rc.2.1
