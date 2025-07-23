@@ -285,7 +285,7 @@ require (
 	github.com/vultr/govultr/v3 v3.9.1 // indirect
 	github.com/wyx2685/sing-vmess v0.0.0-20250723121437-95d5ab59ff92 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xtls/reality v0.0.0-20250723115123-fadd8146daab // indirect
+	github.com/xtls/reality v0.0.0-20250723121014-c6320729d93b // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20241220122821-aeb3b05efd1c // indirect
 	github.com/yandex-cloud/go-sdk v0.0.0-20241220131134-2393e243c134 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
@@ -330,3 +330,5 @@ require (
 //replace github.com/sagernet/sing-box v1.12.0 => ../sing-box_mod
 
 replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-rc.2.1
+
+replace github.com/xtls/xray-core v1.250608.1-0.20250723105259-dbd912568602 => github.com/wyx2685/xray-core v0.0.0-20250723170258-d07df9f8e259
