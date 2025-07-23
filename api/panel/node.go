@@ -75,12 +75,13 @@ type VAllssNode struct {
 }
 
 type TlsSettings struct {
-	ServerName string `json:"server_name"`
-	Dest       string `json:"dest"`
-	ServerPort string `json:"server_port"`
-	ShortId    string `json:"short_id"`
-	PrivateKey string `json:"private_key"`
-	Xver       uint64 `json:"xver,string"`
+	ServerName  string `json:"server_name"`
+	Dest        string `json:"dest"`
+	ServerPort  string `json:"server_port"`
+	ShortId     string `json:"short_id"`
+	PrivateKey  string `json:"private_key"`
+	Mldsa65Seed string `json:"mldsa65Seed"`
+	Xver        uint64 `json:"xver,string"`
 }
 
 type RealityConfig struct {
