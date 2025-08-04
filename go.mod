@@ -15,13 +15,13 @@ require (
 	github.com/goccy/go-json v0.10.4
 	github.com/hashicorp/go-multierror v1.1.2-0.20241119060415-613124da9385
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.7.0-beta.1.0.20250722151551-64142925accb
+	github.com/sagernet/sing v0.7.0-beta.2
 	github.com/sagernet/sing-box v1.12.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
-	github.com/xtls/xray-core v1.250608.1-0.20250724020803-26de58933f04
+	github.com/xtls/xray-core v1.250803.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.40.0
 	golang.org/x/sys v0.34.0
@@ -236,8 +236,8 @@ require (
 	github.com/sagernet/sing-shadowsocks v0.2.8 // indirect
 	github.com/sagernet/sing-shadowsocks2 v0.2.1 // indirect
 	github.com/sagernet/sing-shadowtls v0.2.1-0.20250503051639-fcd445d33c11 // indirect
-	github.com/sagernet/sing-tun v0.6.10-0.20250721014417-ebbe32588cfb // indirect
-	github.com/sagernet/sing-vmess v0.2.4 // indirect
+	github.com/sagernet/sing-tun v0.7.0-beta.1 // indirect
+	github.com/sagernet/sing-vmess v0.2.6 // indirect
 	github.com/sagernet/smux v1.5.34-mod.2 // indirect
 	github.com/sagernet/tailscale v1.80.3-mod.5 // indirect
 	github.com/sagernet/wireguard-go v0.0.1-beta.7 // indirect
@@ -285,7 +285,7 @@ require (
 	github.com/vultr/govultr/v3 v3.9.1 // indirect
 	github.com/wyx2685/sing-vmess v0.0.0-20250723121437-95d5ab59ff92 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xtls/reality v0.0.0-20250723121014-c6320729d93b // indirect
+	github.com/xtls/reality v0.0.0-20250725142056-5b52a03d4fb7 // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20241220122821-aeb3b05efd1c // indirect
 	github.com/yandex-cloud/go-sdk v0.0.0-20241220131134-2393e243c134 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
@@ -329,4 +329,4 @@ require (
 
 //replace github.com/sagernet/sing-box v1.12.0 => ../sing-box_mod
 
-replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0-rc.2.2
+replace github.com/sagernet/sing-box v1.12.0 => github.com/wyx2685/sing-box_mod v1.12.0
