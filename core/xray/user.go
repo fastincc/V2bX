@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/InazumaV/V2bX/api/panel"
+	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/InazumaV/V2bX/common/format"
 	vCore "github.com/InazumaV/V2bX/core"
 	"github.com/xtls/xray-core/common/protocol"
@@ -32,47 +33,61 @@ func (c *Xray) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeInfo) e
 	if err != nil {
 		return fmt.Errorf("get user manager error: %s", err)
 	}
-	var up, down, user string
+	var user string
+	c.users.mapLock.Lock()
+	defer c.users.mapLock.Unlock()
 	for i := range users {
 		user = format.UserTag(tag, users[i].Uuid)
 		err = userManager.RemoveUser(context.Background(), user)
 		if err != nil {
 			return err
 		}
-		up = "user>>>" + user + ">>>traffic>>>uplink"
-		down = "user>>>" + user + ">>>traffic>>>downlink"
-		c.shm.UnregisterCounter(up)
-		c.shm.UnregisterCounter(down)
+		delete(c.users.uidMap, user)
+		c.dispatcher.Counter.Delete(user)
 		c.dispatcher.Wm.RemoveWritersForUser(user)
 	}
 	return nil
 }
 
-func (c *Xray) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int64) {
-	upName := "user>>>" + format.UserTag(tag, uuid) + ">>>traffic>>>uplink"
-	downName := "user>>>" + format.UserTag(tag, uuid) + ">>>traffic>>>downlink"
-	upCounter := c.shm.GetCounter(upName)
-	downCounter := c.shm.GetCounter(downName)
-	if reset {
-		if upCounter != nil {
-			up = upCounter.Set(0)
+func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
+	trafficSlice := make([]panel.UserTraffic, 0)
+	x.users.mapLock.RLock()
+	defer x.users.mapLock.RUnlock()
+	if v, ok := x.dispatcher.Counter.Load(tag); ok {
+		c := v.(*counter.TrafficCounter)
+		c.Counters.Range(func(key, value interface{}) bool {
+			email := key.(string)
+			traffic := value.(*counter.TrafficStorage)
+			up := traffic.UpCounter.Load()
+			down := traffic.DownCounter.Load()
+			if up+down >= x.nodeReportMinTrafficBytes[tag] {
+				if reset {
+					traffic.UpCounter.Store(0)
+					traffic.DownCounter.Store(0)
+				}
+				trafficSlice = append(trafficSlice, panel.UserTraffic{
+					UID:      x.users.uidMap[email],
+					Upload:   up,
+					Download: down,
+				})
+			}
+			return true
+		})
+		if len(trafficSlice) == 0 {
+			return nil, nil
 		}
-		if downCounter != nil {
-			down = downCounter.Set(0)
-		}
-	} else {
-		if upCounter != nil {
-			up = upCounter.Value()
-		}
-		if downCounter != nil {
-			down = downCounter.Value()
-		}
+		return trafficSlice, nil
 	}
-	return up, down
+	return nil, nil
 }
 
 func (c *Xray) AddUsers(p *vCore.AddUsersParams) (added int, err error) {
-	users := make([]*protocol.User, 0, len(p.Users))
+	c.users.mapLock.Lock()
+	defer c.users.mapLock.Unlock()
+	for i := range p.Users {
+		c.users.uidMap[format.UserTag(p.Tag, p.Users[i].Uuid)] = p.Users[i].Id
+	}
+	var users []*protocol.User
 	switch p.NodeInfo.Type {
 	case "vmess":
 		users = buildVmessUsers(p.Tag, p.Users)

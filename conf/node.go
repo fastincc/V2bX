@@ -109,6 +109,7 @@ type Options struct {
 	ListenIP               string          `json:"ListenIP"`
 	SendIP                 string          `json:"SendIP"`
 	DeviceOnlineMinTraffic int64           `json:"DeviceOnlineMinTraffic"`
+	ReportMinTraffic       int64           `json:"ReportMinTraffic"`
 	LimitConfig            LimitConfig     `json:"LimitConfig"`
 	RawOptions             json.RawMessage `json:"RawOptions"`
 	XrayOptions            *XrayOptions    `json:"XrayOptions"`

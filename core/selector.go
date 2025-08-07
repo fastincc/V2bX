@@ -128,12 +128,12 @@ func (s *Selector) AddUsers(p *AddUsersParams) (added int, err error) {
 	return t.(Core).AddUsers(p)
 }
 
-func (s *Selector) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int64) {
+func (s *Selector) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
 	t, e := s.nodes.Load(tag)
 	if !e {
-		return 0, 0
+		return nil, errors.New("the node is not have")
 	}
-	return t.(Core).GetUserTraffic(tag, uuid, reset)
+	return t.(Core).GetUserTrafficSlice(tag, reset)
 }
 
 func (s *Selector) DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo) error {

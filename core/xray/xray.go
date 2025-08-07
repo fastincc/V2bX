@@ -30,16 +30,29 @@ func init() {
 
 // Xray Structure
 type Xray struct {
-	access     sync.Mutex
-	Server     *core.Instance
-	ihm        inbound.Manager
-	ohm        outbound.Manager
-	shm        statsFeature.Manager
-	dispatcher *dispatcher.DefaultDispatcher
+	access                    sync.Mutex
+	Server                    *core.Instance
+	ihm                       inbound.Manager
+	ohm                       outbound.Manager
+	shm                       statsFeature.Manager
+	dispatcher                *dispatcher.DefaultDispatcher
+	users                     *UserMap
+	nodeReportMinTrafficBytes map[string]int64
+}
+
+type UserMap struct {
+	uidMap  map[string]int
+	mapLock sync.RWMutex
 }
 
 func New(c *conf.CoreConfig) (vCore.Core, error) {
-	return &Xray{Server: getCore(c.XrayConfig)}, nil
+	return &Xray{
+		Server: getCore(c.XrayConfig),
+		users: &UserMap{
+			uidMap: make(map[string]int),
+		},
+		nodeReportMinTrafficBytes: make(map[string]int64),
+	}, nil
 }
 
 func parseConnectionConfig(c *conf.XrayConnectionConfig) (policy *coreConf.Policy) {

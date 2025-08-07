@@ -8,20 +8,7 @@ import (
 )
 
 func (c *Controller) reportUserTrafficTask() (err error) {
-	// Get User traffic
-	userTraffic := make([]panel.UserTraffic, 0)
-	for i := range c.userList {
-		up, down := c.server.GetUserTraffic(c.tag, c.userList[i].Uuid, true)
-		if up > 0 || down > 0 {
-			if c.LimitConfig.EnableDynamicSpeedLimit {
-				c.traffic[c.userList[i].Uuid] += up + down
-			}
-			userTraffic = append(userTraffic, panel.UserTraffic{
-				UID:      (c.userList)[i].Id,
-				Upload:   up,
-				Download: down})
-		}
-	}
+	userTraffic, err := c.server.GetUserTrafficSlice(c.tag, true)
 	if len(userTraffic) > 0 {
 		err = c.apiClient.ReportUserTraffic(userTraffic)
 		if err != nil {
