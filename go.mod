@@ -1,8 +1,8 @@
 module github.com/InazumaV/V2bX
 
-go 1.24
+go 1.25
 
-toolchain go1.24.5
+toolchain go1.25.0
 
 require (
 	github.com/apernet/hysteria/core/v2 v2.6.2
@@ -12,7 +12,6 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-acme/lego/v4 v4.21.1-0.20241220151055-ee7a9e4fa04f
 	github.com/go-resty/resty/v2 v2.16.2
-	github.com/goccy/go-json v0.10.4
 	github.com/hashicorp/go-multierror v1.1.2-0.20241119060415-613124da9385
 	github.com/juju/ratelimit v1.0.2
 	github.com/sagernet/sing v0.7.0-beta.2
@@ -119,6 +118,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/godbus/dbus/v5 v5.1.1-0.20230522191255-76236955d466 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gofrs/uuid/v5 v5.3.2 // indirect
