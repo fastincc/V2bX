@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
 )
@@ -50,14 +48,13 @@ func (s *Selector) Start() error {
 }
 
 func (s *Selector) Close() error {
-	var errs error
+	var errs []error
 	for i := range s.cores {
-		err := s.cores[i].Close()
-		if err != nil {
-			errs = multierror.Append(errs, err)
+		if err := s.cores[i].Close(); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return errs
+	return errors.Join(errs...)
 }
 
 func isSupported(protocol string, protocols []string) bool {

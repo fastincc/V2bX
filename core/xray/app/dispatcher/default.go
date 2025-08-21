@@ -14,6 +14,7 @@ import (
 	"github.com/InazumaV/V2bX/common/rate"
 	"github.com/InazumaV/V2bX/limiter"
 
+	"github.com/xtls/xray-core/app/dispatcher"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
@@ -167,7 +168,7 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 	var user *protocol.MemoryUser
 	if sessionInbound != nil {
 		user = sessionInbound.User
-		sessionInbound.CanSpliceCopy = 3
+		//sessionInbound.CanSpliceCopy = 3
 	}
 
 	var limit *limiter.Limiter
@@ -214,13 +215,15 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			t = c.(*counter.TrafficCounter)
 		}
 
-		inboundLink.Writer = &UploadTrafficWriter{
-			Counter: t.GetCounter(user.Email),
+		ts := t.GetCounter(user.Email)
+		upcounter := &counter.XrayTrafficCounter{V: &ts.UpCounter}
+		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter}
+		inboundLink.Writer = &dispatcher.SizeStatWriter{
+			Counter: upcounter,
 			Writer:  inboundLink.Writer,
 		}
-
-		outboundLink.Writer = &DownloadTrafficWriter{
-			Counter: t.GetCounter(user.Email),
+		outboundLink.Writer = &dispatcher.SizeStatWriter{
+			Counter: downcounter,
 			Writer:  outboundLink.Writer,
 		}
 	}
