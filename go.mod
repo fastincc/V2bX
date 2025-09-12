@@ -5,8 +5,8 @@ go 1.25
 toolchain go1.25.0
 
 require (
-	github.com/apernet/hysteria/core/v2 v2.6.2
-	github.com/apernet/hysteria/extras/v2 v2.6.2
+	github.com/apernet/hysteria/core/v2 v2.6.3
+	github.com/apernet/hysteria/extras/v2 v2.6.3
 	github.com/apernet/quic-go v0.52.1-0.20250607183305-9320c9d14431
 	github.com/beevik/ntp v1.4.4-0.20240716062501-06ef196b89ec
 	github.com/fsnotify/fsnotify v1.9.0
@@ -80,7 +80,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1 // indirect
 	github.com/aws/smithy-go v1.22.4 // indirect
 	github.com/aziontech/azionapi-go-sdk v0.142.0 // indirect
-	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 // indirect
 	github.com/baidubce/bce-sdk-go v0.9.235 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
