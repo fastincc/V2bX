@@ -67,6 +67,8 @@ type VAllssNode struct {
 	Network             string          `json:"network"`
 	NetworkSettings     json.RawMessage `json:"network_settings"`
 	NetworkSettingsBack json.RawMessage `json:"networkSettings"`
+	Encryption          string          `json:"encryption"`
+	EncryptionSettings  EncSettings     `json:"encryption_settings"`
 	ServerName          string          `json:"server_name"`
 
 	// vless only
@@ -82,6 +84,13 @@ type TlsSettings struct {
 	PrivateKey  string `json:"private_key"`
 	Mldsa65Seed string `json:"mldsa65Seed"`
 	Xver        uint64 `json:"xver,string"`
+}
+
+type EncSettings struct {
+	Mode          string `json:"mode"`
+	Ticket        string `json:"ticket"`
+	ServerPadding string `json:"server_padding"`
+	PrivateKey    string `json:"private_key"`
 }
 
 type RealityConfig struct {

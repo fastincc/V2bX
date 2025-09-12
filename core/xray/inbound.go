@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"encoding/json"
@@ -171,8 +172,27 @@ func buildV2ray(config *conf.Options, nodeInfo *panel.NodeInfo, inbound *coreCon
 			inbound.Settings = (*json.RawMessage)(&s)
 		} else {
 			var err error
+			decryption := "none"
+			if nodeInfo.VAllss.Encryption != "" {
+				switch nodeInfo.VAllss.Encryption {
+				case "mlkem768x25519plus":
+					encSettings := nodeInfo.VAllss.EncryptionSettings
+					parts := []string{
+						"mlkem768x25519plus",
+						encSettings.Mode,
+						encSettings.Ticket,
+					}
+					if encSettings.ServerPadding != "" {
+						parts = append(parts, encSettings.ServerPadding)
+					}
+					parts = append(parts, encSettings.PrivateKey)
+					decryption = strings.Join(parts, ".")
+				default:
+					return fmt.Errorf("vless decryption method %s is not support", nodeInfo.VAllss.Encryption)
+				}
+			}
 			s, err := json.Marshal(&coreConf.VLessInboundConfig{
-				Decryption: "none",
+				Decryption: decryption,
 			})
 			if err != nil {
 				return fmt.Errorf("marshal vless config error: %s", err)
