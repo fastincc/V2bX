@@ -197,8 +197,7 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 		var lm *LinkManager
 		if lmloaded, ok := d.LinkManagers.Load(user.Email); !ok {
 			lm = &LinkManager{
-				writers: make(map[*ManagedWriter]struct{}),
-				readers: make(map[*ManagedReader]struct{}),
+				links: make(map[*ManagedWriter]buf.Reader),
 			}
 			d.LinkManagers.Store(user.Email, lm)
 		} else {
@@ -208,14 +207,10 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			writer:  uplinkWriter,
 			manager: lm,
 		}
-		managedReader := &ManagedReader{
-			reader:  downlinkReader,
-			manager: lm,
-		}
-		lm.AddLink(managedWriter, managedReader)
+		lm.AddLink(managedWriter, outboundLink.Reader)
 		inboundLink.Writer = managedWriter
-		outboundLink.Reader = managedReader
 		if w != nil {
+			sessionInbound.CanSpliceCopy = 3
 			inboundLink.Writer = rate.NewRateLimitWriter(inboundLink.Writer, w)
 			outboundLink.Writer = rate.NewRateLimitWriter(outboundLink.Writer, w)
 		}
@@ -316,7 +311,7 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 	} else {
 		go func() {
 			cReader := &cachedReader{
-				reader: outbound.Reader.(*ManagedReader),
+				reader: outbound.Reader.(*pipe.Reader),
 			}
 			outbound.Reader = cReader
 			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
@@ -396,8 +391,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		var lm *LinkManager
 		if lmloaded, ok := d.LinkManagers.Load(user.Email); !ok {
 			lm = &LinkManager{
-				writers: make(map[*ManagedWriter]struct{}),
-				readers: make(map[*ManagedReader]struct{}),
+				links: make(map[*ManagedWriter]buf.Reader),
 			}
 			d.LinkManagers.Store(user.Email, lm)
 		} else {
@@ -407,14 +401,9 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			writer:  outbound.Writer,
 			manager: lm,
 		}
-		managedReader := &ManagedReader{
-			reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
-			manager: lm,
-		}
-		lm.AddLink(managedWriter, managedReader)
 		outbound.Writer = managedWriter
-		outbound.Reader = managedReader
 		if w != nil {
+			sessionInbound.CanSpliceCopy = 3
 			outbound.Writer = rate.NewRateLimitWriter(outbound.Writer, w)
 		}
 		var t *counter.TrafficCounter
@@ -428,9 +417,10 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		ts := t.GetCounter(user.Email)
 		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter}
 		outbound.Reader = &CounterReader{
-			Reader:  managedReader,
+			Reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
 			Counter: &ts.UpCounter,
 		}
+		lm.AddLink(managedWriter, outbound.Reader)
 		outbound.Writer = &dispatcher.SizeStatWriter{
 			Counter: downcounter,
 			Writer:  outbound.Writer,
