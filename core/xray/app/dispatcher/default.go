@@ -102,13 +102,13 @@ func (r *cachedReader) Interrupt() {
 
 // DefaultDispatcher is a default implementation of Dispatcher.
 type DefaultDispatcher struct {
-	ohm     outbound.Manager
-	router  routing.Router
-	policy  policy.Manager
-	stats   stats.Manager
-	fdns    dns.FakeDNSEngine
-	Wm      *WriterManager
-	Counter sync.Map
+	ohm          outbound.Manager
+	router       routing.Router
+	policy       policy.Manager
+	stats        stats.Manager
+	fdns         dns.FakeDNSEngine
+	Counter      sync.Map
+	LinkManagers sync.Map // map[string]*LinkManager
 }
 
 func init() {
@@ -132,9 +132,6 @@ func (d *DefaultDispatcher) Init(config *Config, om outbound.Manager, router rou
 	d.router = router
 	d.policy = pm
 	d.stats = sm
-	d.Wm = &WriterManager{
-		writers: make(map[string]map[*ManagedWriter]struct{}),
-	}
 	return nil
 }
 
@@ -197,13 +194,27 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			common.Interrupt(inboundLink.Reader)
 			return nil, nil, nil, errors.New("Limited ", user.Email, " by conn or ip")
 		}
+		var lm *LinkManager
+		if lmloaded, ok := d.LinkManagers.Load(user.Email); !ok {
+			lm = &LinkManager{
+				writers: make(map[*ManagedWriter]struct{}),
+				readers: make(map[*ManagedReader]struct{}),
+			}
+			d.LinkManagers.Store(user.Email, lm)
+		} else {
+			lm = lmloaded.(*LinkManager)
+		}
 		managedWriter := &ManagedWriter{
 			writer:  uplinkWriter,
-			email:   user.Email,
-			manager: d.Wm,
+			manager: lm,
 		}
-		d.Wm.AddWriter(managedWriter)
+		managedReader := &ManagedReader{
+			reader:  downlinkReader,
+			manager: lm,
+		}
+		lm.AddLink(managedWriter, managedReader)
 		inboundLink.Writer = managedWriter
+		outboundLink.Reader = managedReader
 		if w != nil {
 			inboundLink.Writer = rate.NewRateLimitWriter(inboundLink.Writer, w)
 			outboundLink.Writer = rate.NewRateLimitWriter(outboundLink.Writer, w)
@@ -305,7 +316,7 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 	} else {
 		go func() {
 			cReader := &cachedReader{
-				reader: outbound.Reader.(*pipe.Reader),
+				reader: outbound.Reader.(*ManagedReader),
 			}
 			outbound.Reader = cReader
 			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
@@ -382,13 +393,27 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			common.Interrupt(outbound.Reader)
 			return errors.New("Limited ", user.Email, " by conn or ip")
 		}
+		var lm *LinkManager
+		if lmloaded, ok := d.LinkManagers.Load(user.Email); !ok {
+			lm = &LinkManager{
+				writers: make(map[*ManagedWriter]struct{}),
+				readers: make(map[*ManagedReader]struct{}),
+			}
+			d.LinkManagers.Store(user.Email, lm)
+		} else {
+			lm = lmloaded.(*LinkManager)
+		}
 		managedWriter := &ManagedWriter{
 			writer:  outbound.Writer,
-			email:   user.Email,
-			manager: d.Wm,
+			manager: lm,
 		}
-		d.Wm.AddWriter(managedWriter)
+		managedReader := &ManagedReader{
+			reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
+			manager: lm,
+		}
+		lm.AddLink(managedWriter, managedReader)
 		outbound.Writer = managedWriter
+		outbound.Reader = managedReader
 		if w != nil {
 			outbound.Writer = rate.NewRateLimitWriter(outbound.Writer, w)
 		}
@@ -403,7 +428,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		ts := t.GetCounter(user.Email)
 		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter}
 		outbound.Reader = &CounterReader{
-			Reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
+			Reader:  managedReader,
 			Counter: &ts.UpCounter,
 		}
 		outbound.Writer = &dispatcher.SizeStatWriter{
