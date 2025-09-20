@@ -73,6 +73,10 @@ func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 					traffic.UpCounter.Store(0)
 					traffic.DownCounter.Store(0)
 				}
+				if x.users.uidMap[email] == 0 {
+					c.Delete(email)
+					return true
+				}
 				trafficSlice = append(trafficSlice, panel.UserTraffic{
 					UID:      x.users.uidMap[email],
 					Upload:   up,

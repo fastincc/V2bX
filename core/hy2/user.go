@@ -45,6 +45,10 @@ func (h *Hysteria2) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeIn
 	var wg sync.WaitGroup
 	for _, user := range users {
 		wg.Add(1)
+		if v, ok := h.Hy2nodes[tag].TrafficLogger.(*HookServer).Counter.Load(tag); ok {
+			c := v.(*counter.TrafficCounter)
+			c.Delete(user.Uuid)
+		}
 		go func(u panel.UserInfo) {
 			defer wg.Done()
 			h.Auth.mutex.Lock()
@@ -75,6 +79,10 @@ func (h *Hysteria2) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTra
 				if reset {
 					traffic.UpCounter.Store(0)
 					traffic.DownCounter.Store(0)
+				}
+				if h.Auth.usersMap[uuid] == 0 {
+					c.Delete(uuid)
+					return true
 				}
 				trafficSlice = append(trafficSlice, panel.UserTraffic{
 					UID:      h.Auth.usersMap[uuid],

@@ -151,6 +151,10 @@ func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 					traffic.UpCounter.Store(0)
 					traffic.DownCounter.Store(0)
 				}
+				if b.users.uidMap[uuid] == 0 {
+					c.Delete(uuid)
+					return true
+				}
 				trafficSlice = append(trafficSlice, panel.UserTraffic{
 					UID:      b.users.uidMap[uuid],
 					Upload:   up,
@@ -199,6 +203,10 @@ func (b *Sing) DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo
 	b.users.mapLock.Lock()
 	defer b.users.mapLock.Unlock()
 	for i := range users {
+		if v, ok := b.hookServer.counter.Load(tag); ok {
+			c := v.(*counter.TrafficCounter)
+			c.Delete(users[i].Uuid)
+		}
 		delete(b.users.uidMap, users[i].Uuid)
 		uuids[i] = users[i].Uuid
 	}
