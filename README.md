@@ -1,5 +1,7 @@
 # V2bX
 
+Independent distribution maintained under `fastincc`, based on `wyx2685/V2bX` and `InazumaV/V2bX`. Original authorship and MPL-2.0 license are retained. See [MIGRATION.md](MIGRATION.md) for provenance and release limitations.
+
 [![](https://img.shields.io/badge/TgChat-UnOfficialV2Board%E4%BA%A4%E6%B5%81%E7%BE%A4-green)](https://t.me/unofficialV2board)
 [![](https://img.shields.io/badge/TgChat-YuzukiProjects%E4%BA%A4%E6%B5%81%E7%BE%A4-blue)](https://t.me/YuzukiProjects)
 
@@ -47,7 +49,7 @@ A V2board node server based on multi core, modified from XrayR.
 ### 一键安装
 
 ```
-wget -N https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh && bash install.sh
+wget -N https://raw.githubusercontent.com/fastincc/V2bX-script/main/install.sh && bash install.sh
 ```
 
 ### 手动安装
