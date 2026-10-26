@@ -29,6 +29,10 @@ jobs:
       - name: Core regression
         working-directory: third_party/sing-box
         run: GOEXPERIMENT=jsonv2 go test ./common/trustedproxy ./protocol/anytls ./common/uot
+      - name: Device admission race regression
+        run: GOEXPERIMENT=jsonv2 go test -race ./limiter -count=1
+      - name: Device limit hot-update regression
+        run: GOEXPERIMENT=jsonv2 go test -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./node -run TestDevice -count=1
       - name: V2bX integration
         run: GOEXPERIMENT=jsonv2 go test -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./core/sing -run TestAnyTLS -count=1
 
@@ -199,6 +203,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
@@ -210,4 +215,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes "AnyTLS PROXY v2 reception is ON by default (3-second header timeout, no relay allowlist). AnyTLS audit also defaults ON. Set AnyTLSAuditAccess=false to disable; info log level is needed for access records (existing levels are preserved). Relays must send PROXY v2; direct/no-header listeners must explicitly set AnyTLSProxyProtocol.Enable=false before upgrading. See docs/ANYTLS.md. Includes bundled modified core source and licenses."
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-5.md
