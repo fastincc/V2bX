@@ -106,7 +106,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		}
 		// update alive list
 		if newA != nil {
-			c.limiter.AliveList = newA
+			c.limiter.UpdateAliveList(newA)
 		}
 		// Update rule
 		err = c.limiter.UpdateRule(&newN.Rules)
@@ -169,12 +169,14 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	}
 	// update alive list
 	if newA != nil {
-		c.limiter.AliveList = newA
+		c.limiter.UpdateAliveList(newA)
 	}
 	// node no changed, check users
 	if len(newU) == 0 {
 		return nil
 	}
+	// Device-only changes must not delete users or close established sessions.
+	c.limiter.UpdateDeviceLimits(c.tag, newU)
 	deleted, added := compareUserList(c.userList, newU)
 	if len(deleted) > 0 {
 		// have deleted users

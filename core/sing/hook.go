@@ -45,6 +45,7 @@ func (h *HookServer) RoutedConnection(ctx context.Context, conn net.Conn, m adap
 	} else if b != nil {
 		conn = rate.NewConnRateLimiter(conn, b)
 	}
+	conn = l.TrackDeviceConn(conn, taguuid, ip)
 	if l != nil {
 		destStr := m.Destination.AddrString()
 		protocol := m.Protocol
@@ -89,13 +90,16 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 	ip := m.Source.Addr.String()
 	logUser := anytls.AuditUserLabel(ctx, m.User)
 	taguuid := format.UserTag(m.Inbound, m.User)
-	if b, r := l.CheckLimit(taguuid, ip, false, false); r {
+	if b, r := l.CheckLimit(taguuid, ip, false, m.InboundType == "anytls"); r {
 		anytls.AuditPolicyDenied(ctx, "policy_limit_denied")
 		conn.Close()
 		log.Error("[", m.Inbound, "] ", "Limited ", logUser, " by ip or conn")
 		return conn
 	} else if b != nil {
 		//conn = rate.NewPacketConnCounter(conn, b)
+	}
+	if m.InboundType == "anytls" {
+		conn = &devicePacketConn{PacketConn: conn, release: l.TrackDevice(taguuid, ip)}
 	}
 	if l != nil {
 		destStr := m.Destination.AddrString()
@@ -131,3 +135,11 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 	conn = counter.NewPacketConnCounter(conn, t.GetCounter(m.User))
 	return conn
 }
+
+// Keep a device slot for the lifetime of an AnyTLS UDP-over-TCP logical stream.
+type devicePacketConn struct {
+	N.PacketConn
+	release func()
+}
+
+func (c *devicePacketConn) Close() error { err := c.PacketConn.Close(); c.release(); return err }

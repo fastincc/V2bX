@@ -1,7 +1,10 @@
 package panel
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"encoding/json/jsontext"
@@ -139,16 +142,28 @@ func (c *Client) ReportUserTraffic(userTraffic []UserTraffic) error {
 	return nil
 }
 
-func (c *Client) ReportNodeOnlineUsers(data *map[int][]string) error {
+func (c *Client) ReportNodeOnlineUsers(data *map[int][]string, events ...DeviceEvent) error {
+	payload := make(map[string]any, len(*data)+1)
+	for uid, ips := range *data {
+		payload[strconv.Itoa(uid)] = ips
+	}
+	if len(events) > 0 {
+		var batch [16]byte
+		if _, err := rand.Read(batch[:]); err != nil {
+			return fmt.Errorf("device event batch id unavailable")
+		}
+		payload["_device_events"] = map[string]any{"batch_id": hex.EncodeToString(batch[:]), "events": events}
+	}
+
 	const path = "/api/v1/server/UniProxy/alive"
 	r, err := c.client.R().
-		SetBody(data).
+		SetBody(payload).
 		ForceContentType("application/json").
 		Post(path)
 	err = c.checkResponse(r, path, err)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return nil

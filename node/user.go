@@ -24,7 +24,7 @@ func (c *Controller) reportUserTrafficTask() (err error) {
 
 	if onlineDevice, err := c.limiter.GetOnlineDevice(); err != nil {
 		log.Print(err)
-	} else if len(*onlineDevice) > 0 {
+	} else {
 		// Only report user has traffic > 100kb to allow ping test
 		var result []panel.OnlineUser
 		var nocountUID = make(map[int]struct{})
@@ -44,14 +44,18 @@ func (c *Controller) reportUserTrafficTask() (err error) {
 			// json structure: { UID1:["ip1","ip2"],UID2:["ip3","ip4"] }
 			data[onlineuser.UID] = append(data[onlineuser.UID], onlineuser.IP)
 		}
-		if err = c.apiClient.ReportNodeOnlineUsers(&data); err != nil {
+		events := c.limiter.GetDeviceEvents()
+		if len(data) == 0 && len(events) == 0 {
+			return nil
+		}
+		if err = c.apiClient.ReportNodeOnlineUsers(&data, events...); err != nil {
 			log.WithFields(log.Fields{
 				"tag": c.tag,
 				"err": err,
 			}).Info("Report online users failed")
 		} else {
 			log.WithField("tag", c.tag).Infof("Total %d online users, %d Reported", len(*onlineDevice), len(result))
-			log.WithField("tag", c.tag).Debugf("Online users: %+v", data)
+			// Do not log IP payloads or admission event bodies.
 		}
 	}
 
