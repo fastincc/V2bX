@@ -75,8 +75,8 @@ func TestAnyTLSProxyEnabledByDefault(t *testing.T) {
 		if err != nil || o == nil || !o.Enabled || o.Version != 2 || time.Duration(o.HeaderTimeout) != 3*time.Second || o.RequireTrustedProxy || len(o.TrustedProxies) != 0 {
 			t.Fatalf("unexpected defaults: %+v %v", o, err)
 		}
-		if n.Options.SingOptions.AnyTLSAuditAccess {
-			t.Fatal("audit must stay disabled")
+		if !n.Options.SingOptions.AnyTLSAuditAccess {
+			t.Fatal("audit must default enabled")
 		}
 	}
 	var n conf.NodeConfig

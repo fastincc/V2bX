@@ -13,7 +13,7 @@ A V2board node server based on multi core, modified from XrayR.
 ## AnyTLS 中转真实 IP 与审计
 
 `fastincc-v0.4.1-2` 增加可选 PROXY protocol 接收和结构化审计日志，默认关闭。
-`fastincc-v0.4.1-3` 调整为默认接收 PROXY v2，审计仍默认关闭；未发送 PROXY 头的线路需显式关闭接收。
+`fastincc-v0.4.1-3` 调整为默认接收 PROXY v2，`fastincc-v0.4.1-4` 起审计也默认开启；未发送 PROXY 头的线路需显式关闭接收。
 配置方式、可信边界和审计字段见 [AnyTLS 文档](docs/ANYTLS.md)。
 
 ## 特点

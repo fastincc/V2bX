@@ -2,7 +2,10 @@
 
 The published fastincc-v0.4.1-2 defaults both features off. Starting with fastincc-v0.4.1-3, this
 revision defaults PROXY v2 reception on (3-second timeout, no relay allowlist);
-audit remains off. These settings apply to sing-core AnyTLS nodes only.
+audit also defaults ON starting with fastincc-v0.4.1-4. These settings apply to
+sing-core AnyTLS nodes only. Set `"AnyTLSAuditAccess": false` to restore legacy
+logging. Explicit log levels are preserved: existing warn/error or disabled
+logging suppresses access events; use info level when audit access is desired.
 For direct clients or relays without PROXY headers, explicitly set
 `"AnyTLSProxyProtocol": {"Enable": false}` before upgrading to that revision.
 Omitted, null or empty configuration uses the new defaults. Existing authentication, traffic counters and panel

@@ -89,6 +89,7 @@ func DefaultAnyTLSProxyProtocolConfig() *AnyTLSProxyProtocolConfig {
 func NewSingOptions() *SingOptions {
 	return &SingOptions{
 		AnyTLSProxyProtocol:      DefaultAnyTLSProxyProtocolConfig(),
+		AnyTLSAuditAccess:        true,
 		EnableDNS:                false,
 		TCPFastOpen:              false,
 		SniffEnabled:             true,

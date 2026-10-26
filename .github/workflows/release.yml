@@ -210,4 +210,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes "AnyTLS PROXY v2 reception is ON by default (3-second header timeout, no relay allowlist). Audit remains OFF. Relays must send PROXY v2; direct/no-header listeners must explicitly set AnyTLSProxyProtocol.Enable=false before upgrading. See docs/ANYTLS.md. Includes bundled modified core source and licenses."
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes "AnyTLS PROXY v2 reception is ON by default (3-second header timeout, no relay allowlist). AnyTLS audit also defaults ON. Set AnyTLSAuditAccess=false to disable; info log level is needed for access records (existing levels are preserved). Relays must send PROXY v2; direct/no-header listeners must explicitly set AnyTLSProxyProtocol.Enable=false before upgrading. See docs/ANYTLS.md. Includes bundled modified core source and licenses."
