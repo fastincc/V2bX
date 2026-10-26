@@ -38,3 +38,8 @@ Prepared 2026-10-26 (Asia/Shanghai). No production deployment.
 - Restart, stop and confirmed uninstall passed; temporary service, binary directory and test configuration were removed.
 - This preserves upstream implementation; it does not claim current security patch coverage or end-to-end acceptance of every protocol. Proxy Protocol/AnyTLS real-IP adaptation is not included.
 - Upstream dependency hosts and external BBR/documentation links remain external; they have not been mirrored or executed in this test.
+
+
+## AnyTLS release update — 2026-10-26
+
+Release fastincc-v0.4.1-2 adds opt-in AnyTLS PROXY and audit logging, with a bundled modified core. See [release acceptance](docs/RELEASE-0.4.1-2.md) and [configuration](docs/ANYTLS.md). The original migration record above describes v0.4.1-1, not this update.
