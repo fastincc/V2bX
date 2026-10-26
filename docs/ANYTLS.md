@@ -1,6 +1,6 @@
 # AnyTLS PROXY protocol and audit logging
 
-The published fastincc-v0.4.1-2 defaults both features off. The next, unreleased
+The published fastincc-v0.4.1-2 defaults both features off. Starting with fastincc-v0.4.1-3, this
 revision defaults PROXY v2 reception on (3-second timeout, no relay allowlist);
 audit remains off. These settings apply to sing-core AnyTLS nodes only.
 For direct clients or relays without PROXY headers, explicitly set
