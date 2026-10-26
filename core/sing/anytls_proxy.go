@@ -11,7 +11,10 @@ import (
 )
 
 func anyTLSProxyOptions(c *conf.AnyTLSProxyProtocolConfig) (*option.AnyTLSProxyProtocolOptions, error) {
-	if c == nil || !c.Enable {
+	if c == nil {
+		c = conf.DefaultAnyTLSProxyProtocolConfig()
+	}
+	if !c.Enable {
 		return nil, nil
 	}
 	if c.HeaderTimeoutSeconds < 0 || c.HeaderTimeoutSeconds > 30 {

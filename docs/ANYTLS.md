@@ -1,7 +1,11 @@
 # AnyTLS PROXY protocol and audit logging
 
-Available in fastincc-v0.4.1-2. Both features are **off by default** and apply to
-sing-core AnyTLS nodes only. Existing authentication, traffic counters and panel
+The published fastincc-v0.4.1-2 defaults both features off. The next, unreleased
+revision defaults PROXY v2 reception on (3-second timeout, no relay allowlist);
+audit remains off. These settings apply to sing-core AnyTLS nodes only.
+For direct clients or relays without PROXY headers, explicitly set
+`"AnyTLSProxyProtocol": {"Enable": false}` before upgrading to that revision.
+Omitted, null or empty configuration uses the new defaults. Existing authentication, traffic counters and panel
 API formats are unchanged. Back up configuration and binaries before upgrading;
 restarting a service disconnects its active sessions. Start with a low-traffic
 node and observe real workload before wider rollout.

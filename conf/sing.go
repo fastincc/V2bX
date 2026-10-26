@@ -82,8 +82,13 @@ type BrutalOptions struct {
 	DownMbps int  `json:"DownMbps"`
 }
 
+func DefaultAnyTLSProxyProtocolConfig() *AnyTLSProxyProtocolConfig {
+	return &AnyTLSProxyProtocolConfig{Enable: true, Version: 2, HeaderTimeoutSeconds: 3}
+}
+
 func NewSingOptions() *SingOptions {
 	return &SingOptions{
+		AnyTLSProxyProtocol:      DefaultAnyTLSProxyProtocolConfig(),
 		EnableDNS:                false,
 		TCPFastOpen:              false,
 		SniffEnabled:             true,

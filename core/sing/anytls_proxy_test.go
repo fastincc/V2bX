@@ -8,8 +8,8 @@ import (
 	"github.com/InazumaV/V2bX/conf"
 )
 
-func TestAnyTLSProxyDefaultAndDisabled(t *testing.T) {
-	for _, c := range []*conf.AnyTLSProxyProtocolConfig{nil, {Enable: false, TrustedProxies: []string{"invalid"}}} {
+func TestAnyTLSProxyExplicitDisabled(t *testing.T) {
+	for _, c := range []*conf.AnyTLSProxyProtocolConfig{{Enable: false, TrustedProxies: []string{"invalid"}}} {
 		o, err := anyTLSProxyOptions(c)
 		if err != nil || o != nil {
 			t.Fatal("disabled config changed existing behavior", o, err)
@@ -58,5 +58,37 @@ func TestAnyTLSProxyOptionalTrust(t *testing.T) {
 	o, e = anyTLSProxyOptions(&conf.AnyTLSProxyProtocolConfig{Enable: true, RequireTrustedProxy: true, TrustedProxies: []string{"192.0.2.1/32"}})
 	if e != nil || !o.RequireTrustedProxy {
 		t.Fatal("strict trust mapping failed", e)
+	}
+}
+
+func TestAnyTLSProxyEnabledByDefault(t *testing.T) {
+	for _, raw := range []string{
+		`{"Core":"sing","NodeType":"anytls","NodeID":42}`,
+		`{"Core":"sing","NodeType":"anytls","AnyTLSProxyProtocol":{}}`,
+		`{"Core":"sing","NodeType":"anytls","AnyTLSProxyProtocol":null}`,
+	} {
+		var n conf.NodeConfig
+		if err := json.Unmarshal([]byte(raw), &n); err != nil {
+			t.Fatal(err)
+		}
+		o, err := anyTLSProxyOptions(n.Options.SingOptions.AnyTLSProxyProtocol)
+		if err != nil || o == nil || !o.Enabled || o.Version != 2 || time.Duration(o.HeaderTimeout) != 3*time.Second || o.RequireTrustedProxy || len(o.TrustedProxies) != 0 {
+			t.Fatalf("unexpected defaults: %+v %v", o, err)
+		}
+		if n.Options.SingOptions.AnyTLSAuditAccess {
+			t.Fatal("audit must stay disabled")
+		}
+	}
+	var n conf.NodeConfig
+	if err := json.Unmarshal([]byte(`{"Core":"sing","NodeType":"anytls","AnyTLSProxyProtocol":{"Enable":false}}`), &n); err != nil {
+		t.Fatal(err)
+	}
+	if o, err := anyTLSProxyOptions(n.Options.SingOptions.AnyTLSProxyProtocol); err != nil || o != nil {
+		t.Fatal("explicit disable ignored", o, err)
+	}
+	a, b := conf.NewSingOptions(), conf.NewSingOptions()
+	a.AnyTLSProxyProtocol.Enable = false
+	if !b.AnyTLSProxyProtocol.Enable {
+		t.Fatal("default settings shared between nodes")
 	}
 }
