@@ -30,7 +30,14 @@ type UserListBody struct {
 }
 
 type AliveMap struct {
-	Alive map[int]int `json:"alive"`
+	Alive    map[int]int     `json:"alive"`
+	Snapshot *DeviceSnapshot `json:"device_snapshot"`
+}
+
+type DeviceSnapshot struct {
+	Version int                    `json:"version"`
+	TTL     int                    `json:"ttl"`
+	IPs     map[int]map[string]int `json:"ips"`
 }
 
 // GetUserList will pull user from v2board
@@ -95,27 +102,24 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 
 // GetUserAlive will fetch the alive_ip count for users
 func (c *Client) GetUserAlive() (map[int]int, error) {
-	c.AliveMap = &AliveMap{}
 	const path = "/api/v1/server/UniProxy/alivelist"
-	r, err := c.client.R().
-		ForceContentType("application/json").
-		Get(path)
-	if err != nil || r.StatusCode() >= 399 {
-		c.AliveMap.Alive = make(map[int]int)
-		return c.AliveMap.Alive, nil
+	r, err := c.client.R().SetHeader("X-Device-IP-Snapshot", "1").ForceContentType("application/json").Get(path)
+	// Do not include request URLs or response bodies: node credentials are in the URL.
+	if err != nil || r == nil {
+		return nil, fmt.Errorf("online state request failed")
 	}
-	if r == nil || r.RawResponse == nil {
-		fmt.Printf("received nil response or raw response")
-		c.AliveMap.Alive = make(map[int]int)
-		return c.AliveMap.Alive, nil
+	if r.StatusCode() != 200 {
+		return nil, fmt.Errorf("online state status %d", r.StatusCode())
 	}
-	defer r.RawResponse.Body.Close()
-	if err := json.Unmarshal(r.Body(), c.AliveMap); err != nil {
-		fmt.Printf("unmarshal user alive list error: %s", err)
-		c.AliveMap.Alive = make(map[int]int)
+	next := &AliveMap{}
+	if err := json.Unmarshal(r.Body(), next); err != nil || next.Alive == nil {
+		return nil, fmt.Errorf("invalid online state response")
 	}
-
-	return c.AliveMap.Alive, nil
+	if next.Snapshot != nil && (next.Snapshot.Version != 1 || next.Snapshot.TTL < 1 || next.Snapshot.TTL > 86400 || next.Snapshot.IPs == nil) {
+		return nil, fmt.Errorf("invalid online IP snapshot")
+	}
+	c.AliveMap = next
+	return next.Alive, nil
 }
 
 type UserTraffic struct {

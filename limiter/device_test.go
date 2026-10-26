@@ -132,3 +132,64 @@ func TestDeviceEventsSeparateFromOnlineCounts(t *testing.T) {
 		t.Fatal("aggregation/drain failed")
 	}
 }
+
+func TestDeviceSnapshotCrossNodeRestartAndExpiry(t *testing.T) {
+	l, u := deviceFixture(2)
+	snapshot := &panel.DeviceSnapshot{Version: 1, TTL: 180, IPs: map[int]map[string]int{1: {"192.0.2.1": 180, "::ffff:192.0.2.2": 180}}}
+	l.UpdateAliveSnapshot(map[int]int{1: 2}, snapshot)
+	for _, ip := range []string{"192.0.2.1", "192.0.2.2"} {
+		if _, r := l.CheckLimit(u, ip, true, true); r {
+			t.Fatal("known source rejected", ip)
+		}
+	}
+	if _, r := l.CheckLimit(u, "192.0.2.3", true, true); !r {
+		t.Fatal("third source admitted")
+	}
+	// A leaves while B remains. An updated snapshot and expired local A lease
+	// must release exactly one slot, without disconnecting B.
+	l.stateMu.Lock()
+	l.deviceLeases[u]["192.0.2.1"].expires = time.Now().Add(-time.Second)
+	l.stateMu.Unlock()
+	l.UpdateAliveSnapshot(map[int]int{1: 1}, &panel.DeviceSnapshot{Version: 1, TTL: 180, IPs: map[int]map[string]int{1: {"192.0.2.2": 180}}})
+	if _, r := l.CheckLimit(u, "192.0.2.3", true, true); r {
+		t.Fatal("released slot unavailable")
+	}
+	if _, r := l.CheckLimit(u, "192.0.2.2", true, true); r {
+		t.Fatal("B interrupted")
+	}
+	if _, r := l.CheckLimit(u, "192.0.2.4", true, true); !r {
+		t.Fatal("union not enforced")
+	}
+}
+func TestDeviceExpiredSnapshotFailsClosedForNewSource(t *testing.T) {
+	l, u := deviceFixture(2)
+	l.UpdateAliveSnapshot(map[int]int{}, &panel.DeviceSnapshot{Version: 1, TTL: 180, IPs: map[int]map[string]int{}})
+	if _, r := l.CheckLimit(u, "192.0.2.1", true, true); r {
+		t.Fatal("initial source")
+	}
+	l.stateMu.Lock()
+	l.snapshotUntil = time.Now().Add(-time.Second)
+	l.stateMu.Unlock()
+	if _, r := l.CheckLimit(u, "192.0.2.2", true, true); !r {
+		t.Fatal("outage opened new slot")
+	}
+	if _, r := l.CheckLimit(u, "192.0.2.1", true, true); r {
+		t.Fatal("outage interrupted local lease")
+	}
+}
+func TestDeviceActiveLeaseContinuesReporting(t *testing.T) {
+	l, u := deviceFixture(2)
+	l.CheckLimit(u, "192.0.2.1", true, true)
+	release := l.TrackDevice(u, "192.0.2.1")
+	for i := 0; i < 3; i++ {
+		rows, _ := l.GetOnlineDevice()
+		if len(*rows) != 1 {
+			t.Fatal("active stream disappeared")
+		}
+	}
+	release()
+	rows, _ := l.GetOnlineDevice()
+	if len(*rows) != 0 {
+		t.Fatal("idle source kept alive indefinitely")
+	}
+}

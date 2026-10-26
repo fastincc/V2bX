@@ -22,6 +22,9 @@ func Init() {
 
 type Limiter struct {
 	deviceEvents  map[string]panel.DeviceEvent
+	globalIPs     map[int]map[string]time.Time
+	snapshotUntil time.Time
+	hasSnapshot   bool
 	stateMu       sync.Mutex
 	deviceLeases  map[string]map[string]*deviceLease
 	DomainRules   []*regexp.Regexp
@@ -199,6 +202,21 @@ func (l *Limiter) GetOnlineDevice() (*[]panel.OnlineUser, error) {
 		}
 		if len(leases) == 0 {
 			delete(l.deviceLeases, user)
+		}
+	}
+	// Active streams must continue to appear in panel snapshots even when the
+	// client reuses one transport and creates no new streams between reports.
+	for user, leases := range l.deviceLeases {
+		value, ok := l.UserLimitInfo.Load(user)
+		if !ok {
+			continue
+		}
+		uid := value.(*UserLimitInfo).UID
+		for ip, lease := range leases {
+			if lease.active > 0 {
+				addresses, _ := l.UserOnlineIP.LoadOrStore(user, new(sync.Map))
+				addresses.(*sync.Map).Store(ip, uid)
+			}
 		}
 	}
 	var onlineUser []panel.OnlineUser

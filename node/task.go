@@ -50,6 +50,17 @@ func (c *Controller) startTasks(node *panel.NodeInfo) {
 }
 
 func (c *Controller) nodeInfoMonitor() (err error) {
+	// Fetch admission state before consuming node/user ETags; a failed snapshot
+	// must not discard a pending config or user update.
+	// get user alive
+	newA, err := c.apiClient.GetUserAlive()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"tag": c.tag,
+			"err": err,
+		}).Error("Get alive list failed")
+		return nil
+	}
 	// get node info
 	newN, err := c.apiClient.GetNodeInfo()
 	if err != nil {
@@ -68,18 +79,11 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		}).Error("Get user list failed")
 		return nil
 	}
-	// get user alive
-	newA, err := c.apiClient.GetUserAlive()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"tag": c.tag,
-			"err": err,
-		}).Error("Get alive list failed")
-		return nil
-	}
 	if newN != nil {
 		c.info = newN
 		// nodeInfo changed
+		oldUsers := c.userList
+		oldTag := c.tag
 		if newU != nil {
 			c.userList = newU
 		}
@@ -95,18 +99,21 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			return nil
 		}
 
-		// Update limiter
+		// Preserve leases for unchanged users when reloading the same node.
 		if len(c.Options.Name) == 0 {
 			c.tag = c.buildNodeTag(newN)
-			// Remove Old limiter
-			limiter.DeleteLimiter(c.tag)
-			// Add new Limiter
-			l := limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList, newA)
-			c.limiter = l
+		}
+		if c.tag != oldTag {
+			limiter.DeleteLimiter(oldTag)
+			c.limiter = limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList, newA)
+		} else {
+			deleted, added := compareUserList(oldUsers, c.userList)
+			c.limiter.UpdateUser(c.tag, added, deleted)
+			c.limiter.UpdateDeviceLimits(c.tag, c.userList)
 		}
 		// update alive list
 		if newA != nil {
-			c.limiter.UpdateAliveList(newA)
+			c.limiter.UpdateAliveSnapshot(newA, c.apiClient.AliveMap.Snapshot)
 		}
 		// Update rule
 		err = c.limiter.UpdateRule(&newN.Rules)
@@ -169,7 +176,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	}
 	// update alive list
 	if newA != nil {
-		c.limiter.UpdateAliveList(newA)
+		c.limiter.UpdateAliveSnapshot(newA, c.apiClient.AliveMap.Snapshot)
 	}
 	// node no changed, check users
 	if len(newU) == 0 {
