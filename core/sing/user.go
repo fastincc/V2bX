@@ -3,6 +3,7 @@ package sing
 import (
 	"encoding/base64"
 	"errors"
+	"strconv"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/counter"
@@ -109,6 +110,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 		us := make([]option.AnyTLSUser, len(p.Users))
 		for i := range p.Users {
 			us[i] = option.AnyTLSUser{
+				AuditID:  strconv.Itoa(p.Users[i].Id),
 				Name:     p.Users[i].Uuid,
 				Password: p.Users[i].Uuid,
 			}

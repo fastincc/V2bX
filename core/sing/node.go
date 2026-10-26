@@ -347,10 +347,16 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 			},
 		}
 	case "anytls":
+		proxyOptions, err := anyTLSProxyOptions(c.SingOptions.AnyTLSProxyProtocol)
+		if err != nil {
+			return in, err
+		}
 		in.Type = "anytls"
 		in.Options = &option.AnyTLSInboundOptions{
-			ListenOptions: listen,
-			PaddingScheme: info.AnyTls.PaddingScheme,
+			AuditAccess:          c.SingOptions.AnyTLSAuditAccess,
+			TrustedProxyProtocol: proxyOptions,
+			ListenOptions:        listen,
+			PaddingScheme:        info.AnyTls.PaddingScheme,
 			InboundTLSOptionsContainer: option.InboundTLSOptionsContainer{
 				TLS: &tls,
 			},

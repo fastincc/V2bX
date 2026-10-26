@@ -14,6 +14,7 @@ import (
 	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/log"
+	"github.com/sagernet/sing-box/protocol/anytls"
 	N "github.com/sagernet/sing/common/network"
 )
 
@@ -27,17 +28,19 @@ func (h *HookServer) ModeList() []string {
 	return nil
 }
 
-func (h *HookServer) RoutedConnection(_ context.Context, conn net.Conn, m adapter.InboundContext, _ adapter.Rule, _ adapter.Outbound) net.Conn {
+func (h *HookServer) RoutedConnection(ctx context.Context, conn net.Conn, m adapter.InboundContext, _ adapter.Rule, _ adapter.Outbound) net.Conn {
 	l, err := limiter.GetLimiter(m.Inbound)
 	if err != nil {
 		log.Warn("get limiter for ", m.Inbound, " error: ", err)
 		return conn
 	}
+	logUser := anytls.AuditUserLabel(ctx, m.User)
 	taguuid := format.UserTag(m.Inbound, m.User)
 	ip := m.Source.Addr.String()
 	if b, r := l.CheckLimit(taguuid, ip, true, true); r {
+		anytls.AuditPolicyDenied(ctx, "policy_limit_denied")
 		conn.Close()
-		log.Error("[", m.Inbound, "] ", "Limited ", m.User, " by ip or conn")
+		log.Error("[", m.Inbound, "] ", "Limited ", logUser, " by ip or conn")
 		return conn
 	} else if b != nil {
 		conn = rate.NewConnRateLimiter(conn, b)
@@ -46,18 +49,20 @@ func (h *HookServer) RoutedConnection(_ context.Context, conn net.Conn, m adapte
 		destStr := m.Destination.AddrString()
 		protocol := m.Protocol
 		if l.CheckDomainRule(destStr) {
+			anytls.AuditPolicyDenied(ctx, "policy_domain_denied")
 			log.Error(fmt.Sprintf(
 				"User %s access domain %s reject by rule",
-				m.User,
+				logUser,
 				destStr))
 			conn.Close()
 			return conn
 		}
 		if len(protocol) != 0 {
 			if l.CheckProtocolRule(protocol) {
+				anytls.AuditPolicyDenied(ctx, "policy_protocol_denied")
 				log.Error(fmt.Sprintf(
 					"User %s access protocol %s reject by rule",
-					m.User,
+					logUser,
 					protocol))
 				conn.Close()
 				return conn
@@ -75,17 +80,19 @@ func (h *HookServer) RoutedConnection(_ context.Context, conn net.Conn, m adapte
 	return conn
 }
 
-func (h *HookServer) RoutedPacketConnection(_ context.Context, conn N.PacketConn, m adapter.InboundContext, _ adapter.Rule, _ adapter.Outbound) N.PacketConn {
+func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, m adapter.InboundContext, _ adapter.Rule, _ adapter.Outbound) N.PacketConn {
 	l, err := limiter.GetLimiter(m.Inbound)
 	if err != nil {
 		log.Warn("get limiter for ", m.Inbound, " error: ", err)
 		return conn
 	}
 	ip := m.Source.Addr.String()
+	logUser := anytls.AuditUserLabel(ctx, m.User)
 	taguuid := format.UserTag(m.Inbound, m.User)
 	if b, r := l.CheckLimit(taguuid, ip, false, false); r {
+		anytls.AuditPolicyDenied(ctx, "policy_limit_denied")
 		conn.Close()
-		log.Error("[", m.Inbound, "] ", "Limited ", m.User, " by ip or conn")
+		log.Error("[", m.Inbound, "] ", "Limited ", logUser, " by ip or conn")
 		return conn
 	} else if b != nil {
 		//conn = rate.NewPacketConnCounter(conn, b)
@@ -94,18 +101,20 @@ func (h *HookServer) RoutedPacketConnection(_ context.Context, conn N.PacketConn
 		destStr := m.Destination.AddrString()
 		protocol := m.Destination.Network()
 		if l.CheckDomainRule(destStr) {
+			anytls.AuditPolicyDenied(ctx, "policy_domain_denied")
 			log.Error(fmt.Sprintf(
 				"User %s access domain %s reject by rule",
-				m.User,
+				logUser,
 				destStr))
 			conn.Close()
 			return conn
 		}
 		if len(protocol) != 0 {
 			if l.CheckProtocolRule(protocol) {
+				anytls.AuditPolicyDenied(ctx, "policy_protocol_denied")
 				log.Error(fmt.Sprintf(
 					"User %s access protocol %s reject by rule",
-					m.User,
+					logUser,
 					protocol))
 				conn.Close()
 				return conn

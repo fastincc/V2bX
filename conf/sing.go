@@ -32,13 +32,25 @@ func NewSingConfig() *SingConfig {
 }
 
 type SingOptions struct {
-	TCPFastOpen              bool                   `json:"EnableTFO"`
-	SniffEnabled             bool                   `json:"EnableSniff"`
-	SniffOverrideDestination bool                   `json:"SniffOverrideDestination"`
-	EnableDNS                bool                   `json:"EnableDNS"`
-	DomainStrategy           option.DomainStrategy  `json:"DomainStrategy"`
-	FallBackConfigs          *FallBackConfigForSing `json:"FallBackConfigs"`
-	Multiplex                *MultiplexConfig       `json:"MultiplexConfig"`
+	AnyTLSAuditAccess        bool                       `json:"AnyTLSAuditAccess"`
+	AnyTLSProxyProtocol      *AnyTLSProxyProtocolConfig `json:"AnyTLSProxyProtocol"`
+	TCPFastOpen              bool                       `json:"EnableTFO"`
+	SniffEnabled             bool                       `json:"EnableSniff"`
+	SniffOverrideDestination bool                       `json:"SniffOverrideDestination"`
+	EnableDNS                bool                       `json:"EnableDNS"`
+	DomainStrategy           option.DomainStrategy      `json:"DomainStrategy"`
+	FallBackConfigs          *FallBackConfigForSing     `json:"FallBackConfigs"`
+	Multiplex                *MultiplexConfig           `json:"MultiplexConfig"`
+}
+
+// Local node setting; never obtained from an untrusted connection or panel tag.
+// Enabling requires a header. Peer allowlisting is optional unless configured.
+type AnyTLSProxyProtocolConfig struct {
+	RequireTrustedProxy  bool     `json:"RequireTrustedProxy"`
+	Enable               bool     `json:"Enable"`
+	TrustedProxies       []string `json:"TrustedProxies"`
+	HeaderTimeoutSeconds int      `json:"HeaderTimeoutSeconds"`
+	Version              int      `json:"Version"`
 }
 
 type SingNtpConfig struct {
