@@ -32,6 +32,7 @@ func main() {
 	proxyVersion := flag.Int("proxy-version", 0, "PROXY protocol version (0, 1, 2)")
 	sourceIP := flag.String("source-ip", "198.51.100.10", "declared fixture client address")
 	duration := flag.Duration("duration", 20*time.Second, "hold/revocation duration")
+	blockSize := flag.Int("block-size", 10240, "bytes in a single Write")
 	blocks := flag.Int("blocks", 12, "echo block count")
 	wrongPassword := flag.Bool("wrong-password", false, "use a synthetic invalid password")
 	uid := flag.Int("uid", 0, "explicit isolated user ID")
@@ -127,15 +128,24 @@ func main() {
 		panic("proxy stream failed")
 	}
 	defer stream.Close()
-	block := bytes.Repeat([]byte("accepted-byte-count-"), 512)
+	if *blockSize <= 0 || *blockSize > 8<<20 {
+		panic("invalid test block size")
+	}
+	block := bytes.Repeat([]byte{0x53}, *blockSize)
 	transfer := func() error {
 		stream.SetDeadline(time.Now().Add(3 * time.Second))
-		if _, e := stream.Write(block); e != nil {
-			return e
-		}
+
 		back := make([]byte, len(block))
-		if _, e := io.ReadFull(stream, back); e != nil {
-			return e
+		done := make(chan error, 1)
+		go func() { _, err := io.ReadFull(stream, back); done <- err }()
+		n, err := stream.Write(block)
+		if err != nil || n != len(block) {
+			stream.Close()
+			<-done
+			return fmt.Errorf("test write failed")
+		}
+		if err := <-done; err != nil {
+			return err
 		}
 		if !bytes.Equal(block, back) {
 			return fmt.Errorf("corruption")

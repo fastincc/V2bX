@@ -19,6 +19,7 @@ type Stream struct {
 	pipeR         *pipe.PipeReader
 	pipeW         *pipe.PipeWriter
 	writeDeadline pipe.PipeDeadline
+	writeMu       sync.Mutex
 
 	dieOnce sync.Once
 	dieHook func()
@@ -49,16 +50,26 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 
 // Write implements net.Conn
 func (s *Stream) Write(b []byte) (n int, err error) {
-	select {
-	case <-s.writeDeadline.Wait():
-		return 0, os.ErrDeadlineExceeded
-	default:
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	for len(b) > 0 {
+		select {
+		case <-s.writeDeadline.Wait():
+			return n, os.ErrDeadlineExceeded
+		default:
+		}
+		if closeErr := s.closeError(); closeErr != nil {
+			return n, closeErr
+		}
+		size := min(len(b), 65535)
+		written, err := s.sess.writeDataFrame(s.id, b[:size])
+		n += written
+		if err != nil {
+			return n, err
+		}
+		b = b[size:]
 	}
-	if closeErr := s.closeError(); closeErr != nil {
-		return 0, closeErr
-	}
-	n, err = s.sess.writeDataFrame(s.id, b)
-	return
+	return n, nil
 }
 
 // Close implements net.Conn

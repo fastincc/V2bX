@@ -371,6 +371,9 @@ func (s *Session) streamClosed(sid uint32) error {
 
 func (s *Session) writeDataFrame(sid uint32, data []byte) (int, error) {
 	dataLen := len(data)
+	if dataLen > 65535 {
+		return 0, io.ErrShortBuffer
+	}
 
 	buffer := buf.NewSize(dataLen + headerOverHeadSize)
 	buffer.WriteByte(cmdPSH)
@@ -411,7 +414,15 @@ func (s *Session) writeControlFrame(frame frame) (int, error) {
 
 func (s *Session) writeConn(b []byte) (n int, err error) {
 	s.connLock.Lock()
-	defer s.connLock.Unlock()
+	defer func() {
+		s.connLock.Unlock()
+		if err != nil {
+			s.Close()
+		}
+	}()
+	if s.IsClosed() {
+		return 0, io.ErrClosedPipe
+	}
 
 	if s.buffering {
 		s.buffer = slices.Concat(s.buffer, b)
@@ -437,7 +448,7 @@ func (s *Session) writeConn(b []byte) (n int, err error) {
 					}
 				}
 				if remainPayloadLen > l { // this packet is all payload
-					_, err = s.conn.Write(b[:l])
+					_, err = s.writeWire(b[:l])
 					if err != nil {
 						return 0, err
 					}
@@ -452,7 +463,7 @@ func (s *Session) writeConn(b []byte) (n int, err error) {
 						binary.BigEndian.PutUint16(padding[5:7], uint16(paddingLen))
 						b = slices.Concat(b, padding)
 					}
-					_, err = s.conn.Write(b)
+					_, err = s.writeWire(b)
 					if err != nil {
 						return 0, err
 					}
@@ -463,7 +474,7 @@ func (s *Session) writeConn(b []byte) (n int, err error) {
 					padding[0] = cmdWaste
 					binary.BigEndian.PutUint32(padding[1:5], 0)
 					binary.BigEndian.PutUint16(padding[5:7], uint16(l))
-					_, err = s.conn.Write(padding)
+					_, err = s.writeWire(padding)
 					if err != nil {
 						return 0, err
 					}
@@ -474,7 +485,7 @@ func (s *Session) writeConn(b []byte) (n int, err error) {
 			if len(b) == 0 {
 				return
 			} else {
-				n2, err := s.conn.Write(b)
+				n2, err := s.writeWire(b)
 				return n + n2, err
 			}
 		} else {
@@ -482,5 +493,14 @@ func (s *Session) writeConn(b []byte) (n int, err error) {
 		}
 	}
 
-	return s.conn.Write(b)
+	return s.writeWire(b)
+}
+
+// A partial frame cannot be resumed by a later stream write.
+func (s *Session) writeWire(b []byte) (int, error) {
+	n, err := s.conn.Write(b)
+	if err == nil && n != len(b) {
+		err = io.ErrShortWrite
+	}
+	return n, err
 }
