@@ -1,6 +1,7 @@
 package hy2
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -11,6 +12,7 @@ import (
 )
 
 type Hysteria2node struct {
+	Auth          *V2bX
 	Hy2server     server.Server
 	Tag           string
 	Logger        *zap.Logger
@@ -19,6 +21,11 @@ type Hysteria2node struct {
 }
 
 func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
+	h.nodesMu.Lock()
+	defer h.nodesMu.Unlock()
+	if _, exists := h.Hy2nodes[tag]; exists {
+		return fmt.Errorf("node already exists")
+	}
 	var err error
 	hyconfig := &server.Config{}
 	var c serverConfig
@@ -32,7 +39,9 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 			h.Logger.Fatal("failed to parse server config", zap.Error(err))
 		}
 	}
+	auth := &V2bX{usersMap: make(map[string]int)}
 	n := Hysteria2node{
+		Auth:   auth,
 		Tag:    tag,
 		Logger: h.Logger,
 		EventLogger: &serverLogger{
@@ -40,6 +49,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 			logger: h.Logger,
 		},
 		TrafficLogger: &HookServer{
+			Auth:                  auth,
 			Tag:                   tag,
 			logger:                h.Logger,
 			ReportMinTrafficBytes: config.ReportMinTraffic * 1024,
@@ -50,7 +60,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 	if err != nil {
 		return err
 	}
-	hyconfig.Authenticator = h.Auth
+	hyconfig.Authenticator = auth
 	s, err := server.NewServer(hyconfig)
 	if err != nil {
 		return err
@@ -68,7 +78,13 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 }
 
 func (h *Hysteria2) DelNode(tag string) error {
-	err := h.Hy2nodes[tag].Hy2server.Close()
+	h.nodesMu.Lock()
+	defer h.nodesMu.Unlock()
+	n, ok := h.Hy2nodes[tag]
+	if !ok {
+		return nil
+	}
+	err := n.Hy2server.Close()
 	if err != nil {
 		return err
 	}

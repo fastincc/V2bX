@@ -13,6 +13,7 @@ import (
 var _ server.TrafficLogger = (*HookServer)(nil)
 
 type HookServer struct {
+	Auth                  *V2bX
 	Tag                   string
 	logger                *zap.Logger
 	Counter               sync.Map
@@ -26,6 +27,13 @@ func (h *HookServer) UntraceStream(stream server.HyStream) {
 }
 
 func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
+	// Deny stale sessions after revocation as well as cross-node identities.
+	if h.Auth == nil {
+		return false
+	}
+	if ok, _ := h.Auth.Authenticate(nil, id, 0); !ok {
+		return false
+	}
 	var c interface{}
 	var exists bool
 
@@ -36,6 +44,9 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	}
 
 	userLimit, ok := limiterinfo.UserLimitInfo.Load(format.UserTag(h.Tag, id))
+	if !ok {
+		return false
+	}
 	if ok {
 		userlimitInfo := userLimit.(*limiter.UserLimitInfo)
 		if userlimitInfo.OverLimit {
