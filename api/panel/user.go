@@ -136,7 +136,13 @@ type UserTraffic struct {
 func (c *Client) ReportUserTraffic(userTraffic []UserTraffic) error {
 	data := make(map[int][]int64, len(userTraffic))
 	for i := range userTraffic {
-		data[userTraffic[i].UID] = []int64{userTraffic[i].Upload, userTraffic[i].Download}
+		row := data[userTraffic[i].UID]
+		if row == nil {
+			row = make([]int64, 2)
+		}
+		row[0] += userTraffic[i].Upload
+		row[1] += userTraffic[i].Download
+		data[userTraffic[i].UID] = row
 	}
 	const path = "/api/v1/server/UniProxy/push"
 	r, err := c.client.R().

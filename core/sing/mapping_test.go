@@ -29,8 +29,16 @@ func TestDeletingOneNodePreservesOtherNodeBilling(t *testing.T) {
 	tc := counter.NewTrafficCounter()
 	tc.Tx("synthetic", 1234)
 	b.hookServer.counter.Store("B", tc)
+	aCounter := counter.NewTrafficCounter()
+	aCounter.Tx("synthetic", 10)
+	b.hookServer.counter.Store("A", aCounter)
 	if e = b.DelUsers(users, "A", info); e != nil {
 		t.Fatal(e)
+	}
+	aCounter.Tx("synthetic", 20) // final bytes from asynchronous stream cleanup
+	retired, err := b.GetUserTrafficSlice("A", true)
+	if err != nil || len(retired) != 1 || retired[0].UID != 1 || retired[0].Upload != 30 {
+		t.Fatal("revocation discarded final traffic")
 	}
 	rows, e := b.GetUserTrafficSlice("B", true)
 	if e != nil {

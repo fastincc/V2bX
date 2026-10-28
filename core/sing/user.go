@@ -28,6 +28,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 	defer b.users.mapLock.Unlock()
 	for i := range p.Users {
 		b.users.uidMap[userKey{p.Tag, p.Users[i].Uuid}] = p.Users[i].Id
+		delete(b.users.retired, userKey{p.Tag, p.Users[i].Uuid})
 	}
 	switch p.NodeInfo.Type {
 	case "vless":
@@ -124,6 +125,8 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 }
 
 func (b *Sing) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int64) {
+	b.users.mapLock.RLock()
+	defer b.users.mapLock.RUnlock()
 	if v, ok := b.hookServer.counter.Load(tag); ok {
 		c := v.(*counter.TrafficCounter)
 		if value, ok := c.Counters.Load(uuid); ok {
@@ -144,7 +147,11 @@ func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 		c.Counters.Range(func(key, value interface{}) bool {
 			uuid := key.(string)
 			traffic := value.(*counter.TrafficStorage)
-			up, down, ready := traffic.Sample(b.reportMinTraffic(tag), reset)
+			minimum := b.reportMinTraffic(tag)
+			if b.users.retired[userKey{tag, uuid}] {
+				minimum = 0
+			}
+			up, down, ready := traffic.Sample(minimum, reset)
 			if ready {
 				if b.users.uidMap[userKey{tag, uuid}] == 0 {
 					c.Delete(uuid)
@@ -197,17 +204,23 @@ func (b *Sing) DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo
 	uuids := make([]string, len(users))
 	b.users.mapLock.Lock()
 	defer b.users.mapLock.Unlock()
+	// Revocation belongs to the inbound. Keep the accounting identity and
+	// counter for the lifetime of this core: closing a multiplexed transport
+	// asynchronously can still account its final bytes after DelUsers returns.
+	// These entries never authorize a connection; they only identify old traffic.
 	for i := range users {
-		if v, ok := b.hookServer.counter.Load(tag); ok {
-			c := v.(*counter.TrafficCounter)
-			c.Delete(users[i].Uuid)
-		}
-		delete(b.users.uidMap, userKey{tag, users[i].Uuid})
 		uuids[i] = users[i].Uuid
 	}
+
 	err := del.DelUsers(uuids)
 	if err != nil {
 		return err
+	}
+	if b.users.retired == nil {
+		b.users.retired = make(map[userKey]bool)
+	}
+	for _, user := range users {
+		b.users.retired[userKey{tag, user.Uuid}] = true
 	}
 	return nil
 }

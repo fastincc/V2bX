@@ -39,6 +39,7 @@ type userKey struct{ tag, uuid string }
 
 type UserMap struct {
 	uidMap  map[userKey]int
+	retired map[userKey]bool
 	mapLock sync.RWMutex
 }
 
