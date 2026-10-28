@@ -1,6 +1,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -17,15 +18,15 @@ func New() *Node {
 }
 
 func (n *Node) Start(nodes []conf.NodeConfig, core vCore.Core) error {
-	n.controllers = make([]*Controller, len(nodes))
+	n.controllers = make([]*Controller, 0, len(nodes))
 	for i := range nodes {
 		p, err := panel.New(&nodes[i].ApiConfig)
 		if err != nil {
 			return err
 		}
 		// Register controller service
-		n.controllers[i] = NewController(core, p, &nodes[i].Options)
-		err = n.controllers[i].Start()
+		controller := NewController(core, p, &nodes[i].Options)
+		err = controller.Start()
 		if err != nil {
 			return fmt.Errorf("start node controller [%s-%s-%d] error: %s",
 				nodes[i].ApiConfig.APIHost,
@@ -33,16 +34,23 @@ func (n *Node) Start(nodes []conf.NodeConfig, core vCore.Core) error {
 				nodes[i].ApiConfig.NodeID,
 				err)
 		}
+		n.controllers = append(n.controllers, controller)
 	}
 	return nil
 }
 
-func (n *Node) Close() {
+func (n *Node) Close() error {
+	var result error
+	var failed []*Controller
 	for _, c := range n.controllers {
-		err := c.Close()
-		if err != nil {
-			panic(err)
+		if c == nil {
+			continue
+		}
+		if err := c.Close(); err != nil {
+			result = errors.Join(result, err)
+			failed = append(failed, c)
 		}
 	}
-	n.controllers = nil
+	n.controllers = failed
+	return result
 }

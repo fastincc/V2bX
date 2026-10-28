@@ -8,12 +8,15 @@ import (
 )
 
 var command = &cobra.Command{
-	Use: "V2bX",
+	Use:           "V2bX",
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
-func Run() {
+func Run() error {
 	err := command.Execute()
 	if err != nil {
 		log.WithField("err", err).Error("Execute command failed")
 	}
+	return err
 }

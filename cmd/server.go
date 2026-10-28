@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 
 	"github.com/InazumaV/V2bX/conf"
@@ -22,7 +24,7 @@ var (
 var serverCommand = cobra.Command{
 	Use:   "server",
 	Short: "Run V2bX server",
-	Run:   serverHandle,
+	RunE:  serverHandle,
 	Args:  cobra.NoArgs,
 }
 
@@ -36,13 +38,13 @@ func init() {
 	command.AddCommand(&serverCommand)
 }
 
-func serverHandle(_ *cobra.Command, _ []string) {
+func serverHandle(_ *cobra.Command, _ []string) (result error) {
 	showVersion()
 	c := conf.New()
 	err := c.LoadFromPath(config)
 	if err != nil {
 		log.WithField("err", err).Error("Load config file failed")
-		return
+		return errors.New("server startup failed; inspect protected log")
 	}
 	switch c.LogConfig.Level {
 	case "debug":
@@ -59,34 +61,49 @@ func serverHandle(_ *cobra.Command, _ []string) {
 		if err != nil {
 			log.WithField("err", err).Error("Open log file failed, using stdout instead")
 		}
-		log.SetOutput(f)
+		if err == nil {
+			log.SetOutput(f)
+		}
 	}
 	limiter.Init()
 	log.Info("Start V2bX...")
 	vc, err := vCore.NewCore(c.CoresConfig)
 	if err != nil {
 		log.WithField("err", err).Error("new core failed")
-		return
+		return errors.New("server startup failed; inspect protected log")
 	}
+	var lifecycle sync.Mutex
+	nodes := node.New()
+	defer func() {
+		lifecycle.Lock()
+		defer lifecycle.Unlock()
+		result = errors.Join(result, nodes.Close())
+		if vc != nil {
+			result = errors.Join(result, vc.Close())
+		}
+	}()
 	err = vc.Start()
 	if err != nil {
 		log.WithField("err", err).Error("Start core failed")
-		return
+		return errors.New("server startup failed; inspect protected log")
 	}
-	defer vc.Close()
 	log.Info("Core ", vc.Type(), " started")
-	nodes := node.New()
 	err = nodes.Start(c.NodeConfig, vc)
 	if err != nil {
 		log.WithField("err", err).Error("Run nodes failed")
-		return
+		return errors.New("server startup failed; inspect protected log")
 	}
 	log.Info("Nodes started")
 	xdns := os.Getenv("XRAY_DNS_PATH")
 	sdns := os.Getenv("SING_DNS_PATH")
 	if watch {
 		err = c.Watch(config, xdns, sdns, func() {
-			nodes.Close()
+			lifecycle.Lock()
+			defer lifecycle.Unlock()
+			if closeErr := nodes.Close(); closeErr != nil {
+				log.WithError(closeErr).Error("Traffic drain failed; reload cancelled")
+				return
+			}
 			err = vc.Close()
 			if err != nil {
 				log.WithField("err", err).Error("Restart node failed")
@@ -113,7 +130,7 @@ func serverHandle(_ *cobra.Command, _ []string) {
 		})
 		if err != nil {
 			log.WithField("err", err).Error("start watch failed")
-			return
+			return errors.New("configuration watch failed")
 		}
 	}
 	// clear memory
@@ -122,6 +139,8 @@ func serverHandle(_ *cobra.Command, _ []string) {
 	{
 		osSignals := make(chan os.Signal, 1)
 		signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(osSignals)
 		<-osSignals
 	}
+	return nil
 }
