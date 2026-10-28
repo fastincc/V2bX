@@ -38,8 +38,13 @@ type Inbound struct {
 	logger            logger.ContextLogger
 	listener          *listener.Listener
 	service           *anytls.Service
-	userconns         sync.Map
-	uuidlist          []string
+	usersMu           sync.Mutex
+	users             map[string]option.AnyTLSUser
+	epochs            map[string]uint64
+	nextEpoch         uint64
+	sessions          map[net.Conn]*sessionState
+	paddingScheme     []byte
+	closed            bool
 	proxyPolicy       *trustedproxy.Policy
 	auditEnabled      bool
 	auditProxyTrusted bool
@@ -87,18 +92,14 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		paddingScheme = []byte(strings.Join(options.PaddingScheme, "\n"))
 	}
 
-	service, err := anytls.NewService(anytls.ServiceConfig{
-		Users: common.Map(options.Users, func(it option.AnyTLSUser) anytls.User {
-			return anytls.User{Name: it.Name, Password: it.Password}
-		}),
-		PaddingScheme: paddingScheme,
-		Handler:       (*inboundHandler)(inbound),
-		Logger:        logger,
-	})
-	if err != nil {
+	inbound.paddingScheme = paddingScheme
+	inbound.users = make(map[string]option.AnyTLSUser)
+	inbound.epochs = make(map[string]uint64)
+	inbound.sessions = make(map[net.Conn]*sessionState)
+	if err := inbound.AddUsers(options.Users); err != nil {
 		return nil, err
 	}
-	inbound.service = service
+
 	inbound.listener = listener.New(listener.Options{
 		Context:           ctx,
 		Logger:            logger,
@@ -106,12 +107,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		Listen:            options.ListenOptions,
 		ConnectionHandler: inbound,
 	})
-	uuidlist := make([]string, 0, len(options.Users))
-	for _, user := range options.Users {
-		uuidlist = append(uuidlist, user.Name)
-	}
-	inbound.userconns = sync.Map{}
-	inbound.uuidlist = uuidlist
+
 	return inbound, nil
 }
 
@@ -129,6 +125,16 @@ func (h *Inbound) Start(stage adapter.StartStage) error {
 }
 
 func (h *Inbound) Close() error {
+	h.usersMu.Lock()
+	h.closed = true
+	var connections []net.Conn
+	for conn := range h.sessions {
+		connections = append(connections, conn)
+	}
+	h.usersMu.Unlock()
+	for _, conn := range connections {
+		_ = conn.Close()
+	}
 	return common.Close(h.listener, h.tlsConfig)
 }
 
@@ -169,11 +175,22 @@ func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata a
 	if audit != nil {
 		ctx = context.WithValue(ctx, auditTransportKey{}, audit)
 	}
-	h.userconns.Store(conn, metadata.User)
-	onClose = N.AppendClose(onClose, func(err error) {
-		h.userconns.Delete(conn)
-	})
-	err := h.service.NewConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, onClose)
+
+	h.usersMu.Lock()
+	if h.closed {
+		h.usersMu.Unlock()
+		N.CloseOnHandshakeFailure(conn, onClose, net.ErrClosed)
+		return
+	}
+	state := &sessionState{conn: conn, epochs: h.epochs}
+	h.sessions[conn] = state
+	service := h.service
+	h.usersMu.Unlock()
+	// A logical stream closing must not unregister the multiplexed transport.
+	defer func() { h.usersMu.Lock(); delete(h.sessions, conn); h.usersMu.Unlock(); _ = conn.Close() }()
+	ctx = context.WithValue(ctx, sessionStateKey{}, state)
+	err := service.NewConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, onClose)
+
 	if err != nil {
 		N.CloseOnHandshakeFailure(conn, onClose, err)
 		h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source))
@@ -193,6 +210,22 @@ func (h *inboundHandler) NewConnectionEx(ctx context.Context, conn net.Conn, sou
 	metadata.Source = source
 	metadata.Destination = destination.Unwrap()
 	if userName, _ := auth.UserFromContext[string](ctx); userName != "" {
+		inbound := (*Inbound)(h)
+		state, _ := ctx.Value(sessionStateKey{}).(*sessionState)
+		inbound.usersMu.Lock()
+		epoch, exists := inbound.epochs[userName]
+		allowed := state != nil && !inbound.closed && exists && state.epochs[userName] == epoch
+		if allowed {
+			state.user = userName
+		}
+		inbound.usersMu.Unlock()
+		if !allowed {
+			N.CloseOnHandshakeFailure(conn, onClose, net.ErrClosed)
+			if state != nil {
+				_ = state.conn.Close()
+			}
+			return
+		}
 		metadata.User = userName
 		if h.auditEnabled {
 			ctx = (*Inbound)(h).newAuditStream(ctx, userName)
