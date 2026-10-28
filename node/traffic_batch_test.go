@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 type batchCore struct {
@@ -106,5 +107,43 @@ func TestBatchOutageLostAckAndRestart(t *testing.T) {
 	}
 	if c.trafficSpool.Pending() != nil || charged != 579 || requests < 6 {
 		t.Fatal("recovery failed")
+	}
+}
+
+func TestCheckpointWhileAcknowledgementBlocked(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(entered); <-release; w.WriteHeader(503) }))
+	defer srv.Close()
+	client, _ := panel.New(&conf.ApiConfig{APIHost: srv.URL, Key: "synthetic", NodeType: "anytls", NodeID: 1, Timeout: 10})
+	source := &batchCore{counter: counter.NewTrafficCounter()}
+	source.counter.Tx("user", 100)
+	c := &Controller{server: source, apiClient: client, info: &panel.NodeInfo{PushInterval: time.Hour}, lastTrafficSeal: time.Now(), Options: &conf.Options{TrafficBatchMode: true, TrafficSpoolDirectory: filepath.Join(t.TempDir(), "spool")}}
+	if e := c.openTrafficSpool(); e != nil {
+		t.Fatal(e)
+	}
+	defer c.trafficSpool.Close()
+	done := make(chan struct{})
+	go func() { defer close(done); c.collectAndReportTraffic() }()
+	<-entered
+	source.counter.Tx("user", 71)
+	if e := c.checkpointTrafficTask(); e != nil {
+		t.Fatal(e)
+	}
+	if source.counter.GetUpCount("user") != 0 {
+		t.Fatal("network ack blocked checkpoint")
+	}
+	n, active := c.trafficSpool.Counts()
+	if n != 1 || !active {
+		t.Fatal("new traffic not journaled")
+	}
+	close(release)
+	<-done
+	if e := c.trafficSpool.Seal(); e != nil {
+		t.Fatal(e)
+	}
+	c.trafficSpool.Acknowledge(c.trafficSpool.Pending().ID)
+	if c.trafficSpool.Pending().Traffic[0].Upload != 71 {
+		t.Fatal("wrong journal increment")
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/InazumaV/V2bX/common/trafficbatch"
 	"sync"
+	"time"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/task"
@@ -16,6 +17,9 @@ import (
 
 type Controller struct {
 	operationMu               sync.Mutex
+	trafficLifeMu             sync.RWMutex
+	checkpointPeriodic        *task.Task
+	lastTrafficSeal           time.Time
 	closed                    bool
 	trafficSpool              *trafficbatch.Store
 	server                    vCore.Core
@@ -119,7 +123,22 @@ func (c *Controller) Start() error {
 func (c *Controller) Close() error {
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
+	c.trafficLifeMu.Lock()
+	defer c.trafficLifeMu.Unlock()
 	c.closed = true
+	if c.checkpointPeriodic != nil {
+		c.checkpointPeriodic.Close()
+	}
+	if c.TrafficBatchMode && c.trafficSpool != nil {
+		if err := c.captureTraffic(); err != nil {
+			c.closed = false
+			return fmt.Errorf("cannot close with unsaved traffic: %w", err)
+		}
+		if err := c.trafficSpool.Seal(); err != nil {
+			c.closed = false
+			return fmt.Errorf("cannot seal closing traffic: %w", err)
+		}
+	}
 	if c.trafficSpool != nil {
 		defer c.trafficSpool.Close()
 	}

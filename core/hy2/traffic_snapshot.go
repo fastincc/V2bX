@@ -17,7 +17,7 @@ func (h *Hysteria2) PersistTrafficSnapshot(tag string, persist func([]panel.User
 	defer node.Auth.mutex.Unlock()
 	hook := node.TrafficLogger.(*HookServer)
 	if value, ok := hook.Counter.Load(tag); ok {
-		return counter.PersistSnapshot(value.(*counter.TrafficCounter), func(uuid string) int { return node.Auth.usersMap[uuid] }, func(string) int64 { return hook.ReportMinTrafficBytes }, persist)
+		return counter.PersistSnapshot(value.(*counter.TrafficCounter), func(uuid string) int { return node.Auth.usersMap[uuid] }, func(string) int64 { return 0 }, persist)
 	}
 	return nil
 }

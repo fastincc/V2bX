@@ -11,6 +11,15 @@ import (
 )
 
 func (c *Controller) startTasks(node *panel.NodeInfo) {
+	if c.TrafficBatchMode {
+		seconds := c.TrafficCheckpointSeconds
+		if seconds == 0 {
+			seconds = 1
+		}
+		c.lastTrafficSeal = time.Now()
+		c.checkpointPeriodic = &task.Task{Interval: time.Duration(seconds) * time.Second, Execute: c.checkpointTrafficTask}
+		_ = c.checkpointPeriodic.Start(false)
+	}
 	// fetch node info task
 	c.nodeInfoMonitorPeriodic = &task.Task{
 		Interval: node.PullInterval,
@@ -87,6 +96,18 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		return nil
 	}
 	if newN != nil {
+		c.trafficLifeMu.Lock()
+		defer c.trafficLifeMu.Unlock()
+		if c.TrafficBatchMode {
+			if err = c.captureTraffic(); err != nil {
+				c.logTrafficStorageError(err)
+				return nil
+			}
+			if err = c.trafficSpool.Seal(); err != nil {
+				c.logTrafficStorageError(err)
+				return nil
+			}
+		}
 		c.info = newN
 		// nodeInfo changed
 		oldUsers := c.userList

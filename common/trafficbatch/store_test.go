@@ -20,6 +20,9 @@ func TestStoreRestartLockAndAcknowledgement(t *testing.T) {
 	if e = s.Save(rows); e != nil {
 		t.Fatal(e)
 	}
+	if e = s.Seal(); e != nil {
+		t.Fatal(e)
+	}
 	id := s.Pending().ID
 	rows[0].Upload = 999
 	if s.Pending().Traffic[0].Upload != 123 {
@@ -40,8 +43,11 @@ func TestStoreRestartLockAndAcknowledgement(t *testing.T) {
 	if e = s.Acknowledge(id); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = os.Stat(filepath.Join(dir, "pending.json")); !os.IsNotExist(e) {
+	if n, active := s.Counts(); n != 0 || active {
 		t.Fatal("acknowledged batch retained")
+	}
+	if _, e = os.Stat(filepath.Join(dir, "pending.json")); e != nil {
+		t.Fatal("downgrade protection missing")
 	}
 }
 func TestStoreRejectsWrongBindingAndCorruption(t *testing.T) {
@@ -68,13 +74,13 @@ func TestStoreWriteFailureRequiresRestart(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.Close()
-	if e = os.Mkdir(filepath.Join(dir, "pending.json"), 0700); e != nil {
+	if e = os.Mkdir(filepath.Join(dir, "active.json"), 0700); e != nil {
 		t.Fatal(e)
 	}
 	if e = s.Save([]panel.UserTraffic{{UID: 1, Upload: 1}}); e == nil {
 		t.Fatal("failed rename ignored")
 	}
-	os.Remove(filepath.Join(dir, "pending.json"))
+	os.Remove(filepath.Join(dir, "active.json"))
 	if e = s.Save([]panel.UserTraffic{{UID: 1, Upload: 1}}); e == nil {
 		t.Fatal("ambiguous store failure reused")
 	}

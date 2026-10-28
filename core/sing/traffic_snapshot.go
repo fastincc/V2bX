@@ -13,7 +13,7 @@ func (b *Sing) PersistTrafficSnapshot(tag string, persist func([]panel.UserTraff
 			if b.users.retired[userKey{tag, uuid}] {
 				return 0
 			}
-			return b.reportMinTraffic(tag)
+			return 0
 		}, persist)
 	}
 	return nil

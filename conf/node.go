@@ -105,21 +105,24 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) (err error) {
 }
 
 type Options struct {
-	TrafficBatchMode       bool            `json:"TrafficBatchMode"`
-	TrafficSpoolDirectory  string          `json:"TrafficSpoolDirectory"`
-	Name                   string          `json:"Name"`
-	Core                   string          `json:"Core"`
-	CoreName               string          `json:"CoreName"`
-	ListenIP               string          `json:"ListenIP"`
-	SendIP                 string          `json:"SendIP"`
-	DeviceOnlineMinTraffic int64           `json:"DeviceOnlineMinTraffic"`
-	ReportMinTraffic       int64           `json:"ReportMinTraffic"`
-	LimitConfig            LimitConfig     `json:"LimitConfig"`
-	RawOptions             json.RawMessage `json:"RawOptions"`
-	XrayOptions            *XrayOptions    `json:"XrayOptions"`
-	SingOptions            *SingOptions    `json:"SingOptions"`
-	Hysteria2ConfigPath    string          `json:"Hysteria2ConfigPath"`
-	CertConfig             *CertConfig     `json:"CertConfig"`
+	TrafficCheckpointSeconds int             `json:"TrafficCheckpointSeconds"`
+	TrafficSpoolMaxBytes     int64           `json:"TrafficSpoolMaxBytes"`
+	TrafficSpoolMaxBatches   int             `json:"TrafficSpoolMaxBatches"`
+	TrafficBatchMode         bool            `json:"TrafficBatchMode"`
+	TrafficSpoolDirectory    string          `json:"TrafficSpoolDirectory"`
+	Name                     string          `json:"Name"`
+	Core                     string          `json:"Core"`
+	CoreName                 string          `json:"CoreName"`
+	ListenIP                 string          `json:"ListenIP"`
+	SendIP                   string          `json:"SendIP"`
+	DeviceOnlineMinTraffic   int64           `json:"DeviceOnlineMinTraffic"`
+	ReportMinTraffic         int64           `json:"ReportMinTraffic"`
+	LimitConfig              LimitConfig     `json:"LimitConfig"`
+	RawOptions               json.RawMessage `json:"RawOptions"`
+	XrayOptions              *XrayOptions    `json:"XrayOptions"`
+	SingOptions              *SingOptions    `json:"SingOptions"`
+	Hysteria2ConfigPath      string          `json:"Hysteria2ConfigPath"`
+	CertConfig               *CertConfig     `json:"CertConfig"`
 }
 
 func (o *Options) UnmarshalJSON(data []byte) error {

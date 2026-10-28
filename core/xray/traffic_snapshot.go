@@ -9,7 +9,7 @@ func (x *Xray) PersistTrafficSnapshot(tag string, persist func([]panel.UserTraff
 	x.users.mapLock.Lock()
 	defer x.users.mapLock.Unlock()
 	if value, ok := x.dispatcher.Counter.Load(tag); ok {
-		return counter.PersistSnapshot(value.(*counter.TrafficCounter), func(email string) int { return x.users.uidMap[email] }, func(string) int64 { return x.reportMinTraffic(tag) }, persist)
+		return counter.PersistSnapshot(value.(*counter.TrafficCounter), func(email string) int { return x.users.uidMap[email] }, func(string) int64 { return 0 }, persist)
 	}
 	return nil
 }

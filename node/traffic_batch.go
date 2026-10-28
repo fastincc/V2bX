@@ -6,8 +6,10 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/trafficbatch"
 	vcore "github.com/InazumaV/V2bX/core"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func (c *Controller) openTrafficSpool() error {
@@ -26,12 +28,23 @@ func (c *Controller) openTrafficSpool() error {
 	if _, ok := c.server.(vcore.TrafficSnapshotter); !ok {
 		return fmt.Errorf("core does not support traffic batch snapshots")
 	}
+	if c.TrafficCheckpointSeconds < 0 || c.TrafficCheckpointSeconds > 60 {
+		return fmt.Errorf("checkpoint seconds must be 1..60, or zero for default")
+	}
 	root := c.TrafficSpoolDirectory
 	if root == "" {
 		return fmt.Errorf("TrafficSpoolDirectory is required for batch mode")
 	}
 	binding := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%d", c.apiClient.APIHost, c.apiClient.NodeType, c.apiClient.NodeId))))
-	spool, err := trafficbatch.Open(filepath.Join(root, binding), binding)
+	maxBytes := c.TrafficSpoolMaxBytes
+	if maxBytes == 0 {
+		maxBytes = 64 << 20
+	}
+	maxBatches := c.TrafficSpoolMaxBatches
+	if maxBatches == 0 {
+		maxBatches = 4096
+	}
+	spool, err := trafficbatch.OpenWithLimits(filepath.Join(root, binding), binding, maxBytes, maxBatches)
 	if err != nil {
 		return err
 	}
@@ -52,18 +65,50 @@ func (c *Controller) collectAndReportTraffic() ([]panel.UserTraffic, error) {
 	if c.trafficSpool == nil {
 		return nil, fmt.Errorf("traffic spool not initialized")
 	}
-	if c.trafficSpool.Pending() == nil {
-		err := c.server.(vcore.TrafficSnapshotter).PersistTrafficSnapshot(c.tag, c.trafficSpool.Save)
-		if err != nil {
-			return nil, err
-		}
+	storageErr := c.captureTraffic()
+	if storageErr == nil {
+		storageErr = c.trafficSpool.Seal()
 	}
 	batch := c.trafficSpool.Pending()
 	if batch == nil {
-		return nil, nil
+		return nil, storageErr
+	}
+	if storageErr != nil {
+		c.logTrafficStorageError(storageErr)
 	}
 	if err := c.apiClient.ReportTrafficBatch(batch.ID, batch.Traffic); err != nil {
 		return batch.Traffic, err
 	}
 	return batch.Traffic, c.trafficSpool.Acknowledge(batch.ID)
+}
+
+func (c *Controller) captureTraffic() error {
+	return c.server.(vcore.TrafficSnapshotter).PersistTrafficSnapshot(c.tag, c.trafficSpool.Save)
+}
+func (c *Controller) checkpointTrafficTask() error {
+	c.trafficLifeMu.RLock()
+	defer c.trafficLifeMu.RUnlock()
+	if c.closed {
+		return nil
+	}
+	if err := c.captureTraffic(); err != nil {
+		c.logTrafficStorageError(err)
+		return nil
+	}
+	interval := c.info.PushInterval
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	if time.Since(c.lastTrafficSeal) >= interval {
+		if err := c.trafficSpool.Seal(); err != nil {
+			c.logTrafficStorageError(err)
+		} else {
+			c.lastTrafficSeal = time.Now()
+		}
+	}
+	return nil
+}
+
+func (c *Controller) logTrafficStorageError(err error) {
+	log.WithFields(log.Fields{"tag": c.tag, "error": err}).Error("Traffic checkpoint unavailable; existing journal retained, unsaved counters remain in memory")
 }
