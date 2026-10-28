@@ -10,6 +10,9 @@ import (
 	"github.com/anytls/sing-anytls/pipe"
 )
 
+// Leave room for the 7-byte header inside the reusable buffer size limit.
+const maxDataPayload = 65535 - headerOverHeadSize
+
 // Stream implements net.Conn
 type Stream struct {
 	id uint32
@@ -61,7 +64,7 @@ func (s *Stream) Write(b []byte) (n int, err error) {
 		if closeErr := s.closeError(); closeErr != nil {
 			return n, closeErr
 		}
-		size := min(len(b), 65535)
+		size := min(len(b), maxDataPayload)
 		written, err := s.sess.writeDataFrame(s.id, b[:size])
 		n += written
 		if err != nil {

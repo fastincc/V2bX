@@ -64,7 +64,7 @@ func TestShortWireWriteClosesSession(t *testing.T) {
 	s := NewServerSession(c, nil, nil, nil)
 	stream := newStream(1, s)
 	n, e := stream.Write(make([]byte, 81920))
-	if n != 65535 || e != io.ErrShortWrite || !c.closed || !s.IsClosed() {
+	if n != maxDataPayload || e != io.ErrShortWrite || !c.closed || !s.IsClosed() {
 		t.Fatal(n, e, c.closed)
 	}
 	if _, e = stream.Write([]byte("later")); e == nil {
@@ -91,7 +91,7 @@ func TestConcurrentWritesDoNotInterleaveLogicalWrites(t *testing.T) {
 		x := c.Next(int(binary.BigEndian.Uint16(a[5:7])))
 		b := c.Next(7)
 		y := c.Next(int(binary.BigEndian.Uint16(b[5:7])))
-		if len(x) != 65535 || len(y) != 34465 || x[0] != y[0] {
+		if len(x) != maxDataPayload || len(y) != 100000-maxDataPayload || x[0] != y[0] {
 			t.Fatal("interleaved")
 		}
 	}
