@@ -32,6 +32,7 @@ type Sing struct {
 	logFactory                log.Factory
 	users                     *UserMap
 	nodeReportMinTrafficBytes map[string]int64
+	reportMinMu               sync.RWMutex
 }
 
 type UserMap struct {

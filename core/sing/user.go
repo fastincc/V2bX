@@ -148,7 +148,7 @@ func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 			traffic := value.(*counter.TrafficStorage)
 			up := traffic.UpCounter.Load()
 			down := traffic.DownCounter.Load()
-			if up+down > b.nodeReportMinTrafficBytes[tag] {
+			if up+down > b.reportMinTraffic(tag) {
 				if reset {
 					traffic.UpCounter.Store(0)
 					traffic.DownCounter.Store(0)

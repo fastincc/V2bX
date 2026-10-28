@@ -37,6 +37,7 @@ type Xray struct {
 	dispatcher                *dispatcher.DefaultDispatcher
 	users                     *UserMap
 	nodeReportMinTrafficBytes map[string]int64
+	reportMinMu               sync.RWMutex
 }
 
 type UserMap struct {
