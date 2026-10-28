@@ -10,6 +10,7 @@ type TrafficCounter struct {
 }
 
 type TrafficStorage struct {
+	sampleMu    sync.Mutex
 	UpCounter   atomic.Int64
 	DownCounter atomic.Int64
 }
@@ -71,4 +72,19 @@ func (c *TrafficCounter) Rx(uuid string, n int) {
 func (c *TrafficCounter) Tx(uuid string, n int) {
 	cts := c.GetCounter(uuid)
 	cts.UpCounter.Add(int64(n))
+}
+
+// Sample serializes samplers; atomic swaps retain data-plane increments that
+// arrive during draining. Each direction has its own boundary, as on the wire.
+func (s *TrafficStorage) Sample(minimum int64, reset bool) (up, down int64, ready bool) {
+	s.sampleMu.Lock()
+	defer s.sampleMu.Unlock()
+	up, down = s.UpCounter.Load(), s.DownCounter.Load()
+	if up+down <= minimum {
+		return 0, 0, false
+	}
+	if reset {
+		up, down = s.UpCounter.Swap(0), s.DownCounter.Swap(0)
+	}
+	return up, down, true
 }

@@ -126,10 +126,8 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 func (b *Sing) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int64) {
 	if v, ok := b.hookServer.counter.Load(tag); ok {
 		c := v.(*counter.TrafficCounter)
-		up = c.GetUpCount(uuid)
-		down = c.GetDownCount(uuid)
-		if reset {
-			c.Reset(uuid)
+		if value, ok := c.Counters.Load(uuid); ok {
+			up, down, _ = value.(*counter.TrafficStorage).Sample(-1, reset)
 		}
 		return
 	}
@@ -146,13 +144,8 @@ func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 		c.Counters.Range(func(key, value interface{}) bool {
 			uuid := key.(string)
 			traffic := value.(*counter.TrafficStorage)
-			up := traffic.UpCounter.Load()
-			down := traffic.DownCounter.Load()
-			if up+down > b.reportMinTraffic(tag) {
-				if reset {
-					traffic.UpCounter.Store(0)
-					traffic.DownCounter.Store(0)
-				}
+			up, down, ready := traffic.Sample(b.reportMinTraffic(tag), reset)
+			if ready {
 				if b.users.uidMap[uuid] == 0 {
 					c.Delete(uuid)
 					return true

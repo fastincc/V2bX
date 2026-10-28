@@ -66,13 +66,8 @@ func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 		c.Counters.Range(func(key, value interface{}) bool {
 			email := key.(string)
 			traffic := value.(*counter.TrafficStorage)
-			up := traffic.UpCounter.Load()
-			down := traffic.DownCounter.Load()
-			if up+down > x.reportMinTraffic(tag) {
-				if reset {
-					traffic.UpCounter.Store(0)
-					traffic.DownCounter.Store(0)
-				}
+			up, down, ready := traffic.Sample(x.reportMinTraffic(tag), reset)
+			if ready {
 				if x.users.uidMap[email] == 0 {
 					c.Delete(email)
 					return true
