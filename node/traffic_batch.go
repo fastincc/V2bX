@@ -6,11 +6,21 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/trafficbatch"
 	vcore "github.com/InazumaV/V2bX/core"
+	"os"
 	"path/filepath"
 )
 
 func (c *Controller) openTrafficSpool() error {
 	if !c.TrafficBatchMode {
+		if c.TrafficSpoolDirectory != "" {
+			files, err := filepath.Glob(filepath.Join(c.TrafficSpoolDirectory, "*", "pending.json"))
+			if err != nil || len(files) != 0 {
+				return fmt.Errorf("cannot disable batches with pending traffic")
+			}
+			if _, err := os.Stat(filepath.Join(c.TrafficSpoolDirectory, "queue-v2")); err == nil {
+				return fmt.Errorf("queue migration requires an explicit drain")
+			}
+		}
 		return nil
 	}
 	if _, ok := c.server.(vcore.TrafficSnapshotter); !ok {

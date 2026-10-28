@@ -52,6 +52,13 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return fmt.Errorf("get node info error: %s", err)
 	}
+	if c.TrafficBatchMode {
+		if err = c.apiClient.CheckTrafficCapabilities(); err != nil {
+			return fmt.Errorf("traffic batch preflight: %w", err)
+		}
+	} else {
+		log.WithField("tag", c.Options.Name).Warn("Legacy traffic reporting cannot safely replay failed requests; enable batch mode only after panel preflight")
+	}
 	// Update user
 	c.userList, err = c.apiClient.GetUserList()
 	if err != nil {
