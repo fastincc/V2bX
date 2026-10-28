@@ -1,14 +1,11 @@
 package panel
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/go-resty/resty/v2"
@@ -36,7 +33,7 @@ func New(c *conf.ApiConfig) (*Client, error) {
 		client = resty.NewWithLocalAddr(&net.TCPAddr{
 			IP: net.ParseIP(c.APISendIP),
 		})
-	} else {	
+	} else {
 		client = resty.New()
 	}
 	client.SetRetryCount(3)
@@ -45,14 +42,9 @@ func New(c *conf.ApiConfig) (*Client, error) {
 	} else {
 		client.SetTimeout(5 * time.Second)
 	}
-	client.OnError(func(req *resty.Request, err error) {
-		var v *resty.ResponseError
-		if errors.As(err, &v) {
-			// v.Response contains the last response from the server
-			// v.Err contains the original error
-			logrus.Error(v.Err)
-		}
-	})
+	// Resty retry/debug output contains credential-bearing URLs and payloads.
+	client.SetLogger(discardRequestLogger{})
+
 	client.SetBaseURL(c.APIHost)
 	// Check node type
 	c.NodeType = strings.ToLower(c.NodeType)

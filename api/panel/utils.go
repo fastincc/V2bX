@@ -1,26 +1,36 @@
 package panel
 
 import (
+	"errors"
 	"fmt"
 	"github.com/go-resty/resty/v2"
-	path2 "path"
+	"net"
 )
 
-// Debug set the client debug for client
-func (c *Client) Debug() {
-	c.client.SetDebug(true)
-}
+// Raw request debugging is deliberately disabled: URLs and payloads contain secrets.
+func (c *Client) Debug() { c.client.SetDebug(false) }
 
-func (c *Client) assembleURL(path string) string {
-	return path2.Join(c.APIHost + path)
-}
+type discardRequestLogger struct{}
+
+func (discardRequestLogger) Errorf(string, ...interface{}) {}
+func (discardRequestLogger) Warnf(string, ...interface{})  {}
+func (discardRequestLogger) Debugf(string, ...interface{}) {}
+
 func (c *Client) checkResponse(res *resty.Response, path string, err error) error {
 	if err != nil {
-		return fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
+		kind := "transport failure"
+		var timeout net.Error
+		if errors.As(err, &timeout) && timeout.Timeout() {
+			kind = "timeout"
+		}
+		// path is an internal constant. Never format or wrap the underlying error.
+		return fmt.Errorf("panel %s: %s", path, kind)
+	}
+	if res == nil {
+		return fmt.Errorf("panel %s: missing response", path)
 	}
 	if res.StatusCode() >= 400 {
-		body := res.Body()
-		return fmt.Errorf("request %s failed: %s", c.assembleURL(path), string(body))
+		return fmt.Errorf("panel %s: HTTP %d", path, res.StatusCode())
 	}
 	return nil
 }

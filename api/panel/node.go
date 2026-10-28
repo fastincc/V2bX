@@ -195,7 +195,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		rsp := &VAllssNode{}
 		err = json.Unmarshal(r.Body(), rsp)
 		if err != nil {
-			return nil, fmt.Errorf("decode v2ray params error: %s", err)
+			return nil, fmt.Errorf("decode v2ray params error")
 		}
 		if len(rsp.NetworkSettingsBack) > 0 {
 			rsp.NetworkSettings = rsp.NetworkSettingsBack
@@ -212,7 +212,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		rsp := &ShadowsocksNode{}
 		err = json.Unmarshal(r.Body(), rsp)
 		if err != nil {
-			return nil, fmt.Errorf("decode shadowsocks params error: %s", err)
+			return nil, fmt.Errorf("decode shadowsocks params error")
 		}
 		cm = &rsp.CommonNode
 		node.Shadowsocks = rsp
@@ -221,7 +221,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		rsp := &TrojanNode{}
 		err = json.Unmarshal(r.Body(), rsp)
 		if err != nil {
-			return nil, fmt.Errorf("decode trojan params error: %s", err)
+			return nil, fmt.Errorf("decode trojan params error")
 		}
 		cm = &rsp.CommonNode
 		node.Trojan = rsp
@@ -230,7 +230,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		rsp := &TuicNode{}
 		err = json.Unmarshal(r.Body(), rsp)
 		if err != nil {
-			return nil, fmt.Errorf("decode tuic params error: %s", err)
+			return nil, fmt.Errorf("decode tuic params error")
 		}
 		cm = &rsp.CommonNode
 		node.Tuic = rsp
@@ -239,7 +239,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		rsp := &AnyTlsNode{}
 		err = json.Unmarshal(r.Body(), rsp)
 		if err != nil {
-			return nil, fmt.Errorf("decode anytls params error: %s", err)
+			return nil, fmt.Errorf("decode anytls params error")
 		}
 		cm = &rsp.CommonNode
 		node.AnyTls = rsp
@@ -248,7 +248,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		rsp := &HysteriaNode{}
 		err = json.Unmarshal(r.Body(), rsp)
 		if err != nil {
-			return nil, fmt.Errorf("decode hysteria params error: %s", err)
+			return nil, fmt.Errorf("decode hysteria params error")
 		}
 		cm = &rsp.CommonNode
 		node.Hysteria = rsp
@@ -257,7 +257,7 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		rsp := &Hysteria2Node{}
 		err = json.Unmarshal(r.Body(), rsp)
 		if err != nil {
-			return nil, fmt.Errorf("decode hysteria2 params error: %s", err)
+			return nil, fmt.Errorf("decode hysteria2 params error")
 		}
 		cm = &rsp.CommonNode
 		node.Hysteria2 = rsp

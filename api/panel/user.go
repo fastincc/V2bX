@@ -64,14 +64,14 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 	if strings.Contains(r.Header().Get("Content-Type"), "application/x-msgpack") {
 		decoder := msgpack.NewDecoder(r.RawResponse.Body)
 		if err := decoder.Decode(userlist); err != nil {
-			return nil, fmt.Errorf("decode user list error: %w", err)
+			return nil, fmt.Errorf("decode user list error")
 		}
 	} else {
 		dec := jsontext.NewDecoder(r.RawResponse.Body)
 		for {
 			tok, err := dec.ReadToken()
 			if err != nil {
-				return nil, fmt.Errorf("decode user list error: %w", err)
+				return nil, fmt.Errorf("decode user list error")
 			}
 			if tok.Kind() == '"' && tok.String() == "users" {
 				break
@@ -79,7 +79,7 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 		}
 		tok, err := dec.ReadToken()
 		if err != nil {
-			return nil, fmt.Errorf("decode user list error: %w", err)
+			return nil, fmt.Errorf("decode user list error")
 		}
 		if tok.Kind() != '[' {
 			return nil, fmt.Errorf(`decode user list error: expected "users" array`)
@@ -87,11 +87,11 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 		for dec.PeekKind() != ']' {
 			val, err := dec.ReadValue()
 			if err != nil {
-				return nil, fmt.Errorf("decode user list error: read user object: %w", err)
+				return nil, fmt.Errorf("decode user list error: read user object")
 			}
 			var u UserInfo
 			if err := json.Unmarshal(val, &u); err != nil {
-				return nil, fmt.Errorf("decode user list error: unmarshal user error: %w", err)
+				return nil, fmt.Errorf("decode user list error: unmarshal user error")
 			}
 			userlist.Users = append(userlist.Users, u)
 		}
