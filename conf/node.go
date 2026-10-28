@@ -105,6 +105,8 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) (err error) {
 }
 
 type Options struct {
+	TrafficBatchMode       bool            `json:"TrafficBatchMode"`
+	TrafficSpoolDirectory  string          `json:"TrafficSpoolDirectory"`
 	Name                   string          `json:"Name"`
 	Core                   string          `json:"Core"`
 	CoreName               string          `json:"CoreName"`

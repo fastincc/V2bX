@@ -3,6 +3,8 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/InazumaV/V2bX/common/trafficbatch"
+	"sync"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/task"
@@ -13,6 +15,9 @@ import (
 )
 
 type Controller struct {
+	operationMu               sync.Mutex
+	closed                    bool
+	trafficSpool              *trafficbatch.Store
 	server                    vCore.Core
 	apiClient                 *panel.Client
 	tag                       string
@@ -94,12 +99,23 @@ func (c *Controller) Start() error {
 	}
 	log.WithField("tag", c.tag).Infof("Added %d new users", added)
 	c.info = node
+	if err = c.openTrafficSpool(); err != nil {
+		_ = c.server.DelNode(c.tag)
+		limiter.DeleteLimiter(c.tag)
+		return err
+	}
 	c.startTasks(node)
 	return nil
 }
 
 // Close implement the Close() function of the service interface
 func (c *Controller) Close() error {
+	c.operationMu.Lock()
+	defer c.operationMu.Unlock()
+	c.closed = true
+	if c.trafficSpool != nil {
+		defer c.trafficSpool.Close()
+	}
 	limiter.DeleteLimiter(c.tag)
 	if c.nodeInfoMonitorPeriodic != nil {
 		c.nodeInfoMonitorPeriodic.Close()

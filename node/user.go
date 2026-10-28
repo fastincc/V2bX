@@ -8,9 +8,14 @@ import (
 )
 
 func (c *Controller) reportUserTrafficTask() (err error) {
-	userTraffic, _ := c.server.GetUserTrafficSlice(c.tag, true)
-	if len(userTraffic) > 0 {
-		err = c.apiClient.ReportUserTraffic(userTraffic)
+	c.operationMu.Lock()
+	defer c.operationMu.Unlock()
+	if c.closed {
+		return nil
+	}
+	userTraffic, reportErr := c.collectAndReportTraffic()
+	if len(userTraffic) > 0 || reportErr != nil {
+		err = reportErr
 		if err != nil {
 			log.WithFields(log.Fields{
 				"tag": c.tag,

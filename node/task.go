@@ -50,6 +50,11 @@ func (c *Controller) startTasks(node *panel.NodeInfo) {
 }
 
 func (c *Controller) nodeInfoMonitor() (err error) {
+	c.operationMu.Lock()
+	defer c.operationMu.Unlock()
+	if c.closed {
+		return nil
+	}
 	// A failed admission snapshot must not block revocation, or enable new users.
 	// get user alive
 	newA, err := c.apiClient.GetUserAlive()
