@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -25,14 +27,24 @@ func main() {
 	addr := flag.String("node", "127.0.0.1:25443", "isolated AnyTLS address")
 	ca := flag.String("ca", "", "test certificate")
 	target := flag.String("target", "127.0.0.1:25444", "isolated echo target")
-	phase := flag.String("phase", "echo", "echo or await-revoke")
+	phase := flag.String("phase", "echo", "echo, hold, or await-revoke")
+	apiNode := flag.Int("api-node", 0, "isolated panel node ID")
+	proxyVersion := flag.Int("proxy-version", 0, "PROXY protocol version (0, 1, 2)")
+	sourceIP := flag.String("source-ip", "198.51.100.10", "declared fixture client address")
+	duration := flag.Duration("duration", 20*time.Second, "hold/revocation duration")
+	blocks := flag.Int("blocks", 12, "echo block count")
+	wrongPassword := flag.Bool("wrong-password", false, "use a synthetic invalid password")
 	uid := flag.Int("uid", 0, "explicit isolated user ID")
 	flag.Parse()
 	if *api == "" || *ca == "" || *uid <= 0 {
 		panic("explicit test panel and CA required")
 	}
 	httpClient := &http.Client{Timeout: 10 * time.Second}
-	response, e := httpClient.Get(*api + "/api/v1/server/UniProxy/user")
+	userURL := *api + "/api/v1/server/UniProxy/user"
+	if *apiNode > 0 {
+		userURL += "?node_id=" + strconv.Itoa(*apiNode)
+	}
+	response, e := httpClient.Get(userURL)
 	if e != nil {
 		panic("test panel unavailable")
 	}
@@ -55,10 +67,47 @@ func main() {
 	if !roots.AppendCertsFromPEM(pem) {
 		panic("invalid CA")
 	}
-	c, e := anytls.NewClient(context.Background(), anytls.ClientConfig{Password: users.Users[0].Password, Logger: log.NewNOPFactory().Logger(), IdleSessionCheckInterval: time.Minute, IdleSessionTimeout: time.Minute, MinIdleSession: 1, DialOut: func(ctx context.Context) (net.Conn, error) {
+	password := users.Users[0].Password
+	if *wrongPassword {
+		password = "synthetic-wrong-test-password"
+	}
+	c, e := anytls.NewClient(context.Background(), anytls.ClientConfig{Password: password, Logger: log.NewNOPFactory().Logger(), IdleSessionCheckInterval: time.Minute, IdleSessionTimeout: time.Minute, MinIdleSession: 1, DialOut: func(ctx context.Context) (net.Conn, error) {
 		raw, e := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", *addr)
 		if e != nil {
 			return nil, e
+		}
+		if *proxyVersion != 0 {
+			ip := net.ParseIP(*sourceIP)
+			if ip == nil {
+				raw.Close()
+				return nil, fmt.Errorf("invalid fixture IP")
+			}
+			var header []byte
+			if *proxyVersion == 1 {
+				family, dst := "TCP6", "::1"
+				if ip.To4() != nil {
+					family, dst = "TCP4", "127.0.0.1"
+				}
+				header = []byte(fmt.Sprintf("PROXY %s %s %s 42345 26443\r\n", family, ip.String(), dst))
+			} else if *proxyVersion == 2 {
+				family := byte(0x21)
+				address := append(ip.To16(), net.ParseIP("::1").To16()...)
+				if ip.To4() != nil {
+					family = 0x11
+					address = append(ip.To4(), net.IPv4(127, 0, 0, 1).To4()...)
+				}
+				header = append([]byte("\r\n\r\n\x00\r\nQUIT\n"), 0x21, family, 0, 0)
+				binary.BigEndian.PutUint16(header[14:16], uint16(len(address)+4))
+				header = append(header, address...)
+				header = append(header, 0xa5, 0x69, 0x67, 0x4b)
+			} else {
+				raw.Close()
+				return nil, fmt.Errorf("unsupported fixture PROXY version")
+			}
+			if _, err := raw.Write(header); err != nil {
+				raw.Close()
+				return nil, err
+			}
 		}
 		conn := tls.Client(raw, &tls.Config{RootCAs: roots, ServerName: "test.invalid"})
 		if e = conn.HandshakeContext(ctx); e != nil {
@@ -71,7 +120,7 @@ func main() {
 		panic("client initialization failed")
 	}
 	defer c.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), *duration+30*time.Second)
 	defer cancel()
 	stream, e := c.CreateProxy(ctx, M.ParseSocksaddr(*target))
 	if e != nil {
@@ -94,22 +143,25 @@ func main() {
 		return nil
 	}
 	if *phase == "echo" {
-		for i := 0; i < 12; i++ {
+		for i := 0; i < *blocks; i++ {
 			if e = transfer(); e != nil {
 				panic("echo failed")
 			}
 		}
-		fmt.Printf("{\"phase\":\"echo\",\"bytes_each_direction\":%d,\"verified\":true}\n", 12*len(block))
+		fmt.Printf("{\"phase\":\"echo\",\"bytes_each_direction\":%d,\"verified\":true}\n", *blocks*len(block))
 		return
 	}
 	if e = transfer(); e != nil {
 		panic("initial stream failed")
 	}
 	fmt.Println(`{"phase":"long-stream-ready"}`)
-	until := time.Now().Add(20 * time.Second)
+	until := time.Now().Add(*duration)
 	for time.Now().Before(until) {
 		time.Sleep(100 * time.Millisecond)
 		if e = transfer(); e != nil {
+			if *phase == "hold" {
+				panic("unrelated live stream interrupted")
+			}
 			denied := false
 			retryCtx, retryCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			fresh, retryErr := c.CreateProxy(retryCtx, M.ParseSocksaddr(*target))
@@ -129,6 +181,10 @@ func main() {
 			fmt.Println(`{"phase":"revocation","blocked":true,"new_connection_denied":true}`)
 			return
 		}
+	}
+	if *phase == "hold" {
+		fmt.Println(`{"phase":"hold","uninterrupted":true}`)
+		return
 	}
 	panic("revoked stream remained usable")
 }
