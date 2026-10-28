@@ -1,5 +1,10 @@
 # Four boundary fixes: implementation and acceptance
 
+Later panel update (2026-10-29): capability endpoint implemented and deployed only
+to blue-green in separate panel commit `3cff0a3`, with formal HTTP CPU/memory and
+client compatibility tests. The historical acceptance below predates that change.
+Global batch mode is still disabled and the fractional-rounding gate remains.
+
 2026-10-29. Code under test: `0ac1b3d`, based on the prior nine-fix branch
 at `ff04720`. New changes are local only; this is not a release or production
 validation. The installer and panel application source were not changed.

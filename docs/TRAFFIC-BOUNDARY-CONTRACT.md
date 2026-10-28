@@ -1,6 +1,10 @@
 # Pending panel integration: reliable traffic deployment
 
-This is an interface request, not an implemented or deployed panel change.
+Update 2026-10-29: the endpoint was implemented in separate local panel commit
+`3cff0a3` and deployed only to blue-green. Formal HTTP disabled-state tests and
+process-isolated enabled-state tests use the real route/controller. Global batch
+mode remains off; fractional rounding remains a separate deployment gate.
+The following contract still applies to panel integration outside that test host.
 Existing legacy configurations remain readable and log a warning. They cannot
 acquire exactly-once retry semantics without panel deduplication. Batch mode now
 requires an authenticated capability check before starting an inbound.
