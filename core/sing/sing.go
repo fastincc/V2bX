@@ -20,8 +20,8 @@ import (
 var _ vCore.Core = (*Sing)(nil)
 
 type DNSConfig struct {
-	Servers []map[string]interface{} `json:"servers"`
-	Rules   []map[string]interface{} `json:"rules"`
+	Servers []map[userKey]interface{} `json:"servers"`
+	Rules   []map[userKey]interface{} `json:"rules"`
 }
 
 type Sing struct {
@@ -35,8 +35,10 @@ type Sing struct {
 	reportMinMu               sync.RWMutex
 }
 
+type userKey struct{ tag, uuid string }
+
 type UserMap struct {
-	uidMap  map[string]int
+	uidMap  map[userKey]int
 	mapLock sync.RWMutex
 }
 
@@ -91,7 +93,7 @@ func New(c *conf.CoreConfig) (vCore.Core, error) {
 		router:     b.Router(),
 		logFactory: b.LogFactory(),
 		users: &UserMap{
-			uidMap: make(map[string]int),
+			uidMap: make(map[userKey]int),
 		},
 		nodeReportMinTrafficBytes: make(map[string]int64),
 	}, nil
