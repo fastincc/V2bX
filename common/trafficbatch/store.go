@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/InazumaV/V2bX/api/panel"
 )
@@ -31,6 +32,7 @@ type queued struct {
 	size  int64
 }
 type Store struct {
+	lastSeal     time.Time
 	mu           sync.Mutex
 	dir, binding string
 	lock         *os.File
@@ -62,7 +64,7 @@ func OpenWithLimits(dir, binding string, maxBytes int64, maxBatches int) (s *Sto
 		f.Close()
 		return nil, fmt.Errorf("traffic spool is locked or unsupported")
 	}
-	s = &Store{dir: dir, binding: binding, lock: f, maxBytes: maxBytes, maxBatches: maxBatches}
+	s = &Store{dir: dir, binding: binding, lock: f, maxBytes: maxBytes, maxBatches: maxBatches, lastSeal: time.Now()}
 	defer func() {
 		if err != nil {
 			f.Close()
@@ -324,6 +326,17 @@ func (s *Store) enqueue(b *Batch) error {
 func (s *Store) Seal() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.sealLocked()
+}
+func (s *Store) SealIfDue(interval time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if interval > 0 && time.Since(s.lastSeal) < interval {
+		return nil
+	}
+	return s.sealLocked()
+}
+func (s *Store) sealLocked() error {
 	if e := s.usable(); e != nil {
 		return e
 	}
@@ -342,6 +355,7 @@ func (s *Store) Seal() error {
 		return fmt.Errorf("journal retirement sync failed; restart required")
 	}
 	s.active = nil
+	s.lastSeal = time.Now()
 	return nil
 }
 func (s *Store) write(name string, data []byte) error {

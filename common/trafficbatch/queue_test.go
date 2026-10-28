@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestJournalContinuesDuringPendingAndRestarts(t *testing.T) {
@@ -120,5 +121,24 @@ func BenchmarkJournalCheckpoint(b *testing.B) {
 		if e = s.Save(rows); e != nil {
 			b.Fatal(e)
 		}
+	}
+}
+
+func TestReportAndCheckpointShareSealWindow(t *testing.T) {
+	s, e := Open(filepath.Join(t.TempDir(), "spool"), "node")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	s.Save([]panel.UserTraffic{{UID: 1, Upload: 1}})
+	s.lastSeal = time.Now().Add(-2 * time.Hour)
+	if e = s.SealIfDue(time.Hour); e != nil {
+		t.Fatal(e)
+	}
+	first := s.Pending().ID
+	s.Save([]panel.UserTraffic{{UID: 1, Upload: 3}})
+	s.SealIfDue(time.Hour)
+	if n, a := s.Counts(); n != 1 || !a || s.Pending().ID != first {
+		t.Fatal("double sealed reporting window")
 	}
 }

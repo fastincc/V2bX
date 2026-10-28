@@ -73,7 +73,11 @@ func (c *Controller) collectAndReportTraffic() ([]panel.UserTraffic, error) {
 	}
 	storageErr := c.captureTraffic()
 	if storageErr == nil {
-		storageErr = c.trafficSpool.Seal()
+		interval := time.Duration(0)
+		if c.info != nil {
+			interval = c.info.PushInterval
+		}
+		storageErr = c.trafficSpool.SealIfDue(interval)
 	}
 	batch := c.trafficSpool.Pending()
 	if batch == nil {
@@ -105,12 +109,8 @@ func (c *Controller) checkpointTrafficTask() error {
 	if interval <= 0 {
 		interval = time.Minute
 	}
-	if time.Since(c.lastTrafficSeal) >= interval {
-		if err := c.trafficSpool.Seal(); err != nil {
-			c.logTrafficStorageError(err)
-		} else {
-			c.lastTrafficSeal = time.Now()
-		}
+	if err := c.trafficSpool.SealIfDue(interval); err != nil {
+		c.logTrafficStorageError(err)
 	}
 	return nil
 }
