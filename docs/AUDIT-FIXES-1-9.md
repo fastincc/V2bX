@@ -33,3 +33,28 @@ Tests cover actual TLS/PROXY and QUIC loopback transport, cross-node identity is
 The batch spool deliberately holds one pending batch at a time. While it awaits confirmation, **new unsampled traffic remains in memory**. A crash, forced kill or node/core teardown can still lose unsampled bytes. This is not a claim of zero loss under power failure, nor a durable journal for every packet. Dynamic topology replacement, high-churn retained accounting metadata, long-running disk failures, full-platform coverage and high-load production behavior require further acceptance. The older scheduler/configuration risks outside issues 1–9 are not all addressed here.
 
 Panel production enablement and any necessary API changes must be coordinated with the panel maintainer. Remote acceptance details, internal addresses, account identifiers, private configuration and raw logs belong outside the public repository.
+
+## Recorded acceptance (2026-10-29)
+
+Code commit: `7a63645`. Unreleased Linux amd64 binary SHA256:
+`2c60f7a10207a9317cd6401d7442918da5fb007daad04ff760e8ad5d466c90f3`.
+
+A dedicated Linux VPS and an isolated bluegreen PHP 8.3.36 fixture exercised real
+AnyTLS traffic, control-plane revocation and database accounting. Seven unique
+batches were durably accepted fifteen times across HTTP failures and restarts;
+independent target traffic and billed deltas matched at 978,944 upload and
+978,944 download bytes. No pending node batches or panel receipts remained.
+The fixture used a fake queue and direct job execution; this is not acceptance
+of production queue throughput. Test account fields were restored, temporary
+processes stopped, and the installed baseline binary/configuration and global
+panel flags remained unchanged. No push, release or production rollout occurred.
+
+Targeted race tests, Linux builds, go vet, actual QUIC isolation, and bounded
+AnyTLS load tests passed. Five fixture cleanup rounds settled from two baseline
+goroutines back to two. This does not replace long-running production testing.
+
+Additional finding outside these nine fixes: the pinned AnyTLS transport encodes
+data-frame lengths as uint16 without splitting a single Write above 65,535 bytes.
+An initial oversized acceptance-client write exposed this; bounded legal frames
+passed. The oversized-write behavior is recorded for a separate fix, not claimed
+as supported by this acceptance.
