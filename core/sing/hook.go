@@ -70,13 +70,7 @@ func (h *HookServer) RoutedConnection(ctx context.Context, conn net.Conn, m adap
 			}
 		}
 	}
-	var t *counter.TrafficCounter
-	if c, ok := h.counter.Load(m.Inbound); !ok {
-		t = counter.NewTrafficCounter()
-		h.counter.Store(m.Inbound, t)
-	} else {
-		t = c.(*counter.TrafficCounter)
-	}
+	t := counter.LoadOrCreate(&h.counter, m.Inbound)
 	conn = counter.NewConnCounter(conn, t.GetCounter(m.User))
 	return conn
 }
@@ -125,13 +119,7 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 			}
 		}
 	}
-	var t *counter.TrafficCounter
-	if c, ok := h.counter.Load(m.Inbound); !ok {
-		t = counter.NewTrafficCounter()
-		h.counter.Store(m.Inbound, t)
-	} else {
-		t = c.(*counter.TrafficCounter)
-	}
+	t := counter.LoadOrCreate(&h.counter, m.Inbound)
 	conn = counter.NewPacketConnCounter(conn, t.GetCounter(m.User))
 	return conn
 }

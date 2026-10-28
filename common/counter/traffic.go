@@ -88,3 +88,12 @@ func (s *TrafficStorage) Sample(minimum int64, reset bool) (up, down int64, read
 	}
 	return up, down, true
 }
+
+// LoadOrCreate prevents competing first streams from replacing a node counter.
+func LoadOrCreate(counters *sync.Map, tag string) *TrafficCounter {
+	if v, ok := counters.Load(tag); ok {
+		return v.(*TrafficCounter)
+	}
+	value, _ := counters.LoadOrStore(tag, NewTrafficCounter())
+	return value.(*TrafficCounter)
+}

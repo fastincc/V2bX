@@ -72,3 +72,16 @@ func TestSampleThresholdAndPeek(t *testing.T) {
 		t.Fatal("duplicate drain")
 	}
 }
+
+func TestConcurrentNodeCounterInitialization(t *testing.T) {
+	var counters sync.Map
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); LoadOrCreate(&counters, "node").Tx("user", 1) }()
+	}
+	wg.Wait()
+	if LoadOrCreate(&counters, "node").GetUpCount("user") != 100 {
+		t.Fatal("first stream counters replaced")
+	}
+}

@@ -34,8 +34,6 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	if ok, _ := h.Auth.Authenticate(nil, id, 0); !ok {
 		return false
 	}
-	var c interface{}
-	var exists bool
 
 	limiterinfo, err := limiter.GetLimiter(h.Tag)
 	if err != nil {
@@ -55,19 +53,10 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 		}
 	}
 
-	if c, exists = h.Counter.Load(h.Tag); !exists {
-		c = counter.NewTrafficCounter()
-		h.Counter.Store(h.Tag, c)
-	}
-
-	if tc, ok := c.(*counter.TrafficCounter); ok {
-		tc.Rx(id, int(rx))
-		tc.Tx(id, int(tx))
-		return true
-	}
-
-	return false
+	tc := counter.LoadOrCreate(&h.Counter, h.Tag)
+	tc.Rx(id, int(rx))
+	tc.Tx(id, int(tx))
+	return true
 }
-
 func (s *HookServer) LogOnlineState(id string, online bool) {
 }
