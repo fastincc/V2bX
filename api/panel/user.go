@@ -96,6 +96,10 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 			userlist.Users = append(userlist.Users, u)
 		}
 	}
+	// A successful empty list is distinct from a 304 (nil).
+	if userlist.Users == nil {
+		userlist.Users = []UserInfo{}
+	}
 	c.userEtag = r.Header().Get("ETag")
 	return userlist.Users, nil
 }
@@ -172,3 +176,6 @@ func (c *Client) ReportNodeOnlineUsers(data *map[int][]string, events ...DeviceE
 
 	return nil
 }
+
+// InvalidateUserCache retries a response that was not fully applied.
+func (c *Client) InvalidateUserCache() { c.userEtag = "" }

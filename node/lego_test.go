@@ -1,3 +1,5 @@
+//go:build acme_live_test
+
 package node
 
 import (

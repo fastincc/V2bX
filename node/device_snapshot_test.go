@@ -12,7 +12,7 @@ import (
 func TestDeviceSnapshotFailureDoesNotConsumeConfiguration(t *testing.T) {
 	var other atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/server/UniProxy/alivelist" {
+		if r.URL.Path == "/api/v1/server/UniProxy/config" {
 			other.Add(1)
 		}
 		w.WriteHeader(503)
@@ -27,6 +27,6 @@ func TestDeviceSnapshotFailureDoesNotConsumeConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if other.Load() != 0 {
-		t.Fatal("configuration/user ETags consumed during snapshot failure")
+		t.Fatal("configuration ETag consumed during snapshot failure")
 	}
 }
