@@ -65,3 +65,24 @@ Do not remove that marker to bypass rollback checks; export/drain and preserve a
 backup first. Abrupt termination can lose bytes since the last successful
 checkpoint. Normal teardown attempts a final checkpoint and seal; asynchronous
 protocol-specific close tails must also be accounted for by lifecycle tracking.
+
+## Accounting record lifetime
+
+sing assigns an internal accounting generation when an identity is reauthorized
+or its numeric user changes. Existing streams retain the old storage; new streams
+use the new generation. Both are aggregated by numeric user ID at reporting.
+Revoked generations are reclaimed only with zero connection owners, zero
+in-flight I/O and zero unsaved bytes. Successful durable checkpointing permits
+reclamation without waiting for network acknowledgement. Legacy mode only requests
+reclamation after a successful report; its existing ambiguous-failure limitation
+remains. Reclamation scans at most 256 matching retired records per call.
+
+Counted connections keep their owner through asynchronous Close tails. They do
+not expose unwrapping callbacks that could count after retirement. Half-close is
+forwarded without releasing the owner. This deliberately changes the optimized
+copy path; benchmark and real protocol load results must accompany rollout.
+
+For sing, graceful close/reload disables new accounting leases, closes tracked
+writers, waits up to five seconds for their final I/O, then checkpoints/seals.
+Other cores still use their existing teardown and need separate drain-lifecycle
+acceptance; this is not a claim of lossless graceful teardown for every core.

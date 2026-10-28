@@ -10,6 +10,9 @@ type TrafficCounter struct {
 }
 
 type TrafficStorage struct {
+	Owners      atomic.Int64
+	membersMu   sync.Mutex
+	members     map[*lease]func() error
 	sampleMu    sync.Mutex
 	UpCounter   atomic.Int64
 	DownCounter atomic.Int64
@@ -96,4 +99,29 @@ func LoadOrCreate(counters *sync.Map, tag string) *TrafficCounter {
 	}
 	value, _ := counters.LoadOrStore(tag, NewTrafficCounter())
 	return value.(*TrafficCounter)
+}
+
+func (s *TrafficStorage) register(l *lease, close func() error) {
+	s.membersMu.Lock()
+	defer s.membersMu.Unlock()
+	if s.members == nil {
+		s.members = make(map[*lease]func() error)
+	}
+	s.members[l] = close
+}
+func (s *TrafficStorage) unregister(l *lease) {
+	s.membersMu.Lock()
+	defer s.membersMu.Unlock()
+	delete(s.members, l)
+}
+func (s *TrafficStorage) CloseWriters() {
+	s.membersMu.Lock()
+	closers := make([]func() error, 0, len(s.members))
+	for _, close := range s.members {
+		closers = append(closers, close)
+	}
+	s.membersMu.Unlock()
+	for _, close := range closers {
+		_ = close()
+	}
 }

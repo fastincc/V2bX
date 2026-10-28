@@ -21,6 +21,7 @@ import (
 var _ adapter.ConnectionTracker = (*HookServer)(nil)
 
 type HookServer struct {
+	users   *UserMap
 	counter sync.Map //map[string]*counter.TrafficCounter
 }
 
@@ -70,8 +71,21 @@ func (h *HookServer) RoutedConnection(ctx context.Context, conn net.Conn, m adap
 			}
 		}
 	}
+	if h.users != nil {
+		h.users.mapLock.RLock()
+		defer h.users.mapLock.RUnlock()
+	}
+	key := m.User
+	if h.users != nil {
+		var ok bool
+		key, ok = h.users.active[userKey{m.Inbound, m.User}]
+		if !ok {
+			conn.Close()
+			return conn
+		}
+	}
 	t := counter.LoadOrCreate(&h.counter, m.Inbound)
-	conn = counter.NewConnCounter(conn, t.GetCounter(m.User))
+	conn = counter.NewLeasedConn(conn, t.GetCounter(key))
 	return conn
 }
 
@@ -119,8 +133,21 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 			}
 		}
 	}
+	if h.users != nil {
+		h.users.mapLock.RLock()
+		defer h.users.mapLock.RUnlock()
+	}
+	key := m.User
+	if h.users != nil {
+		var ok bool
+		key, ok = h.users.active[userKey{m.Inbound, m.User}]
+		if !ok {
+			conn.Close()
+			return conn
+		}
+	}
 	t := counter.LoadOrCreate(&h.counter, m.Inbound)
-	conn = counter.NewPacketConnCounter(conn, t.GetCounter(m.User))
+	conn = counter.NewLeasedPacketConn(conn, t.GetCounter(key))
 	return conn
 }
 

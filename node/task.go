@@ -99,6 +99,12 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		c.trafficLifeMu.Lock()
 		defer c.trafficLifeMu.Unlock()
 		if c.TrafficBatchMode {
+			if drainer, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
+				if err = drainer.DrainTraffic(c.tag); err != nil {
+					c.logTrafficStorageError(err)
+					return nil
+				}
+			}
 			if err = c.captureTraffic(); err != nil {
 				c.logTrafficStorageError(err)
 				return nil

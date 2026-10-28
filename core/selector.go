@@ -167,3 +167,20 @@ func (s *Selector) Type() string {
 	t += ")"
 	return t
 }
+
+func (s *Selector) ReclaimTraffic(tag string) {
+	if value, ok := s.nodes.Load(tag); ok {
+		if c, ok := value.(interface{ ReclaimTraffic(string) }); ok {
+			c.ReclaimTraffic(tag)
+		}
+	}
+}
+func (s *Selector) DrainTraffic(tag string) error {
+	if value, ok := s.nodes.Load(tag); ok {
+		if c, ok := value.(interface{ DrainTraffic(string) error }); ok {
+			return c.DrainTraffic(tag)
+		}
+		return nil
+	}
+	return errors.New("traffic node not found")
+}

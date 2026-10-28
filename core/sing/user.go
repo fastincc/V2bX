@@ -26,10 +26,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 	}
 	b.users.mapLock.Lock()
 	defer b.users.mapLock.Unlock()
-	for i := range p.Users {
-		b.users.uidMap[userKey{p.Tag, p.Users[i].Uuid}] = p.Users[i].Id
-		delete(b.users.retired, userKey{p.Tag, p.Users[i].Uuid})
-	}
+
 	switch p.NodeInfo.Type {
 	case "vless":
 		us := make([]option.VLESSUser, len(p.Users))
@@ -121,6 +118,29 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 	if err != nil {
 		return 0, err
 	}
+	if b.users.active == nil {
+		b.users.active = make(map[userKey]string)
+	}
+	if b.users.retired == nil {
+		b.users.retired = make(map[userKey]bool)
+	}
+	for _, user := range p.Users {
+		raw := userKey{p.Tag, user.Uuid}
+		key, ok := b.users.active[raw]
+		if ok && b.users.uidMap[userKey{p.Tag, key}] == user.Id {
+			continue
+		}
+		if ok {
+			b.users.retired[userKey{p.Tag, key}] = true
+		}
+		key = user.Uuid
+		if _, exists := b.users.uidMap[userKey{p.Tag, key}]; exists {
+			b.users.sequence++
+			key = user.Uuid + "\x00" + strconv.FormatUint(b.users.sequence, 10)
+		}
+		b.users.active[raw] = key
+		b.users.uidMap[userKey{p.Tag, key}] = user.Id
+	}
 	return len(p.Users), err
 }
 
@@ -139,6 +159,7 @@ func (b *Sing) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int6
 
 func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
 	trafficSlice := make([]panel.UserTraffic, 0)
+	indexes := make(map[int]int)
 	hook := b.hookServer
 	b.users.mapLock.RLock()
 	defer b.users.mapLock.RUnlock()
@@ -157,11 +178,14 @@ func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 					c.Delete(uuid)
 					return true
 				}
-				trafficSlice = append(trafficSlice, panel.UserTraffic{
-					UID:      b.users.uidMap[userKey{tag, uuid}],
-					Upload:   up,
-					Download: down,
-				})
+				uid := b.users.uidMap[userKey{tag, uuid}]
+				if i, ok := indexes[uid]; ok {
+					trafficSlice[i].Upload += up
+					trafficSlice[i].Download += down
+				} else {
+					indexes[uid] = len(trafficSlice)
+					trafficSlice = append(trafficSlice, panel.UserTraffic{UID: uid, Upload: up, Download: down})
+				}
 			}
 			return true
 		})
@@ -220,7 +244,13 @@ func (b *Sing) DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo
 		b.users.retired = make(map[userKey]bool)
 	}
 	for _, user := range users {
-		b.users.retired[userKey{tag, user.Uuid}] = true
+		raw := userKey{tag, user.Uuid}
+		key, ok := b.users.active[raw]
+		if !ok {
+			key = user.Uuid
+		}
+		b.users.retired[userKey{tag, key}] = true
+		delete(b.users.active, raw)
 	}
 	return nil
 }

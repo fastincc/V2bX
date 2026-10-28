@@ -130,6 +130,11 @@ func (c *Controller) Close() error {
 		c.checkpointPeriodic.Close()
 	}
 	if c.TrafficBatchMode && c.trafficSpool != nil {
+		if drainer, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
+			if err := drainer.DrainTraffic(c.tag); err != nil {
+				return err
+			}
+		}
 		if err := c.captureTraffic(); err != nil {
 			c.closed = false
 			return fmt.Errorf("cannot close with unsaved traffic: %w", err)

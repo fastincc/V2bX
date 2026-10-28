@@ -60,7 +60,13 @@ func (c *Controller) collectAndReportTraffic() ([]panel.UserTraffic, error) {
 		if len(rows) == 0 {
 			return nil, nil
 		}
-		return rows, c.apiClient.ReportUserTraffic(rows)
+		err = c.apiClient.ReportUserTraffic(rows)
+		if err == nil {
+			if reclaimer, ok := c.server.(interface{ ReclaimTraffic(string) }); ok {
+				reclaimer.ReclaimTraffic(c.tag)
+			}
+		}
+		return rows, err
 	}
 	if c.trafficSpool == nil {
 		return nil, fmt.Errorf("traffic spool not initialized")

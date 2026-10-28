@@ -38,9 +38,11 @@ type Sing struct {
 type userKey struct{ tag, uuid string }
 
 type UserMap struct {
-	uidMap  map[userKey]int
-	retired map[userKey]bool
-	mapLock sync.RWMutex
+	active   map[userKey]string
+	sequence uint64
+	uidMap   map[userKey]int
+	retired  map[userKey]bool
+	mapLock  sync.RWMutex
 }
 
 func init() {
@@ -83,19 +85,16 @@ func New(c *conf.CoreConfig) (vCore.Core, error) {
 	if err != nil {
 		return nil, err
 	}
-	hs := &HookServer{
-		counter: sync.Map{},
-	}
+	users := &UserMap{uidMap: make(map[userKey]int), active: make(map[userKey]string), retired: make(map[userKey]bool)}
+	hs := &HookServer{counter: sync.Map{}, users: users}
 	b.Router().AppendTracker(hs)
 	return &Sing{
-		ctx:        b.Router().GetCtx(),
-		box:        b,
-		hookServer: hs,
-		router:     b.Router(),
-		logFactory: b.LogFactory(),
-		users: &UserMap{
-			uidMap: make(map[userKey]int),
-		},
+		ctx:                       b.Router().GetCtx(),
+		box:                       b,
+		hookServer:                hs,
+		router:                    b.Router(),
+		logFactory:                b.LogFactory(),
+		users:                     users,
 		nodeReportMinTrafficBytes: make(map[string]int64),
 	}, nil
 }
