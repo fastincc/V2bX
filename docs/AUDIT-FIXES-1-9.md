@@ -58,3 +58,36 @@ data-frame lengths as uint16 without splitting a single Write above 65,535 bytes
 An initial oversized acceptance-client write exposed this; bounded legal frames
 passed. The oversized-write behavior is recorded for a separate fix, not claimed
 as supported by this acceptance.
+
+## Second isolated acceptance (2026-10-29)
+
+The product binary and code commit above remained unchanged. One sing core on a
+dedicated test VPS served three AnyTLS nodes. A client on a separate bluegreen
+host exercised PROXY v2 IPv4, PROXY v1 IPv6 and explicit direct TLS. Audit and
+online reports retained the expected client address and relay/source semantics.
+Synthetic PROXY addresses were not treated as independently verified identities;
+optional-trust mode continued to report `proxy_trusted: false`.
+
+Revoking the shared user only on node A during an alivelist outage terminated A's
+existing stream and rejected fresh connections. The same user's B/C streams
+continued for eighteen seconds and remained correctly accounted. Reauthorization
+restored A. Six wrong-password/header cases were rejected. Eighteen clients with
+concurrency six completed verified payload transfers across all three nodes.
+
+Independent echo byte counts matched each node's unique batches. With node rates
+1, 2 and 0.5, upload and download accounting each totaled 27,617,280 bytes.
+Twenty-seven unique batches were durably received thirty-eight times. Independent
+HTTP failures, lost confirmations and a process restart retained identical spool
+files and did not double-charge. Pending files and unapplied receipts were zero
+at completion. Test account fields were restored and temporary nodes deleted;
+applied receipts were retained. Global panel settings and installed baseline
+binary/configuration were unchanged.
+
+Linux real-QUIC two-node isolation, credential-safe errors, seven disposable
+chroot uninstall cases, concurrent counter conservation, persistence failure,
+revocation and device-state regressions passed. Targeted local race tests passed.
+A thirty-second eight-user test produced 4,392 streams and matching audit events;
+a thirty-second single stream transferred 6,735,872 bytes in each direction.
+Five cleanup rounds settled below that test's initial goroutine count. These are
+bounded isolated tests, not production throughput or long-term leak guarantees.
+The default legacy-mode and unsampled-byte limitations above still apply.
