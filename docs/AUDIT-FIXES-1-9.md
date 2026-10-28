@@ -1,5 +1,10 @@
 # Audit fixes 1–9 (unreleased)
 
+Historical scope: the nine-fix baseline through `ff04720`. Subsequent local
+boundary fixes supersede the single-pending-batch and lifetime-retention limits
+described below; see [the later acceptance report](BOUNDARY-FIXES-ACCEPTANCE.md).
+Those later changes have separate panel integration gates and are not released.
+
 Base: fastincc-v0.4.1-6, da97bc8. This branch does not merge the archived hardening candidate. No automatic publication or production rollout is implied.
 
 ## Changes

@@ -46,6 +46,11 @@ batch does not block checkpointing or sealing. A slow network acknowledgement
 holds no checkpoint lifecycle lock. Current report request rate stays bounded by
 the configured reporting task; the backlog therefore drains gradually.
 
+All-positive snapshots intentionally bypass `ReportMinTraffic` suppression in
+batch mode, including small retired tails. Legacy threshold behavior is unchanged.
+See `BOUNDARY-FIXES-ACCEPTANCE.md` for measured costs and the discovered panel
+fractional-rounding deployment gate; a capability response does not resolve it.
+
 `TrafficSpoolMaxBytes` defaults to 64 MiB and `TrafficSpoolMaxBatches` to 4096.
 Capacity includes durable payloads, not filesystem metadata or temporary atomic
 replacement space. Provision additional free space for replacements. At capacity,
