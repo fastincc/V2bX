@@ -26,18 +26,25 @@ func (c *Xray) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) e
 	if err != nil {
 		return fmt.Errorf("build inbound error: %s", err)
 	}
-	err = c.addInbound(inboundConfig)
-	if err != nil {
-		return fmt.Errorf("add inbound error: %s", err)
-	}
 	outBoundConfig, err := buildOutbound(config, tag)
 	if err != nil {
 		return fmt.Errorf("build outbound error: %s", err)
 	}
+	err = c.addInbound(inboundConfig)
+	if err != nil {
+		return fmt.Errorf("add inbound error: %s", err)
+	}
+	ready := false
+	defer func() {
+		if !ready {
+			_ = c.removeInbound(tag)
+		}
+	}()
 	err = c.addOutbound(outBoundConfig)
 	if err != nil {
 		return fmt.Errorf("add outbound error: %s", err)
 	}
+	ready = true
 	return nil
 }
 
@@ -51,6 +58,7 @@ func (c *Xray) addInbound(config *core.InboundHandlerConfig) error {
 		return fmt.Errorf("not an InboundHandler: %s", err)
 	}
 	if err := c.ihm.AddHandler(context.Background(), handler); err != nil {
+		_ = handler.Close()
 		return err
 	}
 	return nil
@@ -66,6 +74,7 @@ func (c *Xray) addOutbound(config *core.OutboundHandlerConfig) error {
 		return fmt.Errorf("not an InboundHandler: %s", err)
 	}
 	if err := c.ohm.AddHandler(context.Background(), handler); err != nil {
+		_ = handler.Close()
 		return err
 	}
 	return nil

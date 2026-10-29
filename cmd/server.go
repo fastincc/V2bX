@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/InazumaV/V2bX/conf"
-	vCore "github.com/InazumaV/V2bX/core"
 	"github.com/InazumaV/V2bX/limiter"
 	"github.com/InazumaV/V2bX/node"
 	log "github.com/sirupsen/logrus"
@@ -65,9 +64,17 @@ func serverHandle(_ *cobra.Command, _ []string) (result error) {
 			log.SetOutput(f)
 		}
 	}
+	if err = c.Validate(); err != nil {
+		return errors.New("configuration validation failed")
+	}
+	backup, err := backupConfig(c)
+	if err != nil {
+		return err
+	}
+	defer func() { backup.Close() }()
 	limiter.Init()
 	log.Info("Start V2bX...")
-	vc, err := vCore.NewCore(c.CoresConfig)
+	vc, err := newCoreSafely(c)
 	if err != nil {
 		log.WithField("err", err).Error("new core failed")
 		return errors.New("server startup failed; inspect protected log")
@@ -96,37 +103,30 @@ func serverHandle(_ *cobra.Command, _ []string) (result error) {
 	log.Info("Nodes started")
 	xdns := os.Getenv("XRAY_DNS_PATH")
 	sdns := os.Getenv("SING_DNS_PATH")
+	reloadBlocked := false
 	if watch {
 		err = c.Watch(config, xdns, sdns, func(candidate *conf.Conf) error {
 			lifecycle.Lock()
 			defer lifecycle.Unlock()
-			if closeErr := nodes.Close(); closeErr != nil {
-				log.WithError(closeErr).Error("Traffic drain failed; reload cancelled")
-				return errors.New("configuration apply failed")
+			if reloadBlocked {
+				return errRecoveryIncomplete
 			}
-			err = vc.Close()
-			if err != nil {
-				log.WithField("err", err).Error("Restart node failed")
-				return errors.New("configuration apply failed")
+			candidateBackup, e := backupConfig(candidate)
+			if e != nil {
+				return e
 			}
-			vc, err = vCore.NewCore(candidate.CoresConfig)
-			if err != nil {
-				log.WithField("err", err).Error("New core failed")
-				return errors.New("configuration apply failed")
+			if e = replaceRuntime(&vc, &nodes, backup, candidate); e != nil {
+				candidateBackup.Close()
+				if errors.Is(e, errRecoveryIncomplete) {
+					reloadBlocked = true
+				}
+				log.Error("Reload failed; inspect per-node status")
+				return e
 			}
-			err = vc.Start()
-			if err != nil {
-				log.WithField("err", err).Error("Start core failed")
-				return errors.New("configuration apply failed")
-			}
-			log.Info("Core ", vc.Type(), " restarted")
-			err = nodes.Start(candidate.NodeConfig, vc)
-			if err != nil {
-				log.WithField("err", err).Error("Run nodes failed")
-				return errors.New("configuration apply failed")
-			}
+			backup.Close()
+			backup = candidateBackup
 			log.Info("Nodes restarted")
-			runtime.GC()
+
 			return nil
 		})
 		if err != nil {

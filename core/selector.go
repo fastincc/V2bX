@@ -17,6 +17,14 @@ type Selector struct {
 
 func NewSelector(c []conf.CoreConfig) (Core, error) {
 	cs := make(map[string]Core, len(c))
+	success := false
+	defer func() {
+		if !success {
+			for _, built := range cs {
+				_ = built.Close()
+			}
+		}
+	}()
 	for _, t := range c {
 		f, ok := cores[strings.ToLower(t.Type)]
 		if !ok {
@@ -32,6 +40,7 @@ func NewSelector(c []conf.CoreConfig) (Core, error) {
 			cs[t.Name] = core1
 		}
 	}
+	success = true
 	return &Selector{
 		cores: cs,
 	}, nil
@@ -179,6 +188,16 @@ func (s *Selector) DrainTraffic(tag string) error {
 	if value, ok := s.nodes.Load(tag); ok {
 		if c, ok := value.(interface{ DrainTraffic(string) error }); ok {
 			return c.DrainTraffic(tag)
+		}
+		return nil
+	}
+	return errors.New("traffic node not found")
+}
+
+func (s *Selector) ResumeTraffic(tag string) error {
+	if v, ok := s.nodes.Load(tag); ok {
+		if c, ok := v.(interface{ ResumeTraffic(string) error }); ok {
+			return c.ResumeTraffic(tag)
 		}
 		return nil
 	}

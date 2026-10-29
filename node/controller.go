@@ -23,6 +23,7 @@ type Controller struct {
 	checkpointPeriodic        *task.Task
 	lastTrafficSeal           time.Time
 	closed                    bool
+	nodeRemoved               bool
 	trafficSpool              *trafficbatch.Store
 	server                    vCore.Core
 	apiClient                 *panel.Client
@@ -43,9 +44,10 @@ type Controller struct {
 // NewController return a Node controller with default parameters.
 func NewController(server vCore.Core, api *panel.Client, config *conf.Options) *Controller {
 	controller := &Controller{
-		server:    server,
-		Options:   config,
-		apiClient: api,
+		server:      server,
+		nodeRemoved: true,
+		Options:     config,
+		apiClient:   api,
 	}
 	return controller
 }
@@ -68,7 +70,7 @@ func (c *Controller) Start() (err error) {
 		return err
 	}
 	defer func() {
-		if err != nil && c.trafficSpool != nil {
+		if err != nil && c.nodeRemoved && c.trafficSpool != nil {
 			_ = c.trafficSpool.Close()
 			c.trafficSpool = nil
 		}
@@ -106,10 +108,12 @@ func (c *Controller) Start() (err error) {
 		}
 	}
 	// Add new tag
+	c.info = node
 	err = c.server.AddNode(c.tag, node, c.Options)
 	if err != nil {
 		return fmt.Errorf("add new node error: %s", err)
 	}
+	c.nodeRemoved = false
 	added, err := c.server.AddUsers(&vCore.AddUsersParams{
 		Tag:      c.tag,
 		Users:    c.userList,
@@ -132,54 +136,96 @@ func (c *Controller) Start() (err error) {
 }
 
 // Close implement the Close() function of the service interface
+func (c *Controller) tasks() []*task.Task {
+	return []*task.Task{c.checkpointPeriodic, c.nodeInfoMonitorPeriodic, c.userReportPeriodic, c.renewCertPeriodic, c.dynamicSpeedLimitPeriodic, c.onlineIpReportPeriodic}
+}
 func (c *Controller) Close() error {
 	c.emitReportingStatus("unknown")
+	c.operationMu.Lock()
+	c.closed = true
+	for _, t := range c.tasks() {
+		if t != nil {
+			t.Close()
+		}
+	}
+	c.operationMu.Unlock()
+	// No controller locks may be held while callbacks finish.
+	for _, t := range c.tasks() {
+		if t != nil {
+			t.Wait()
+		}
+	}
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
 	c.trafficLifeMu.Lock()
 	defer c.trafficLifeMu.Unlock()
-	c.closed = true
-	if c.checkpointPeriodic != nil {
-		c.checkpointPeriodic.Close()
+	if c.nodeRemoved {
+		limiter.DeleteLimiter(c.tag)
+		if c.trafficSpool != nil {
+			err := c.trafficSpool.Close()
+			c.trafficSpool = nil
+			return err
+		}
+		return nil
 	}
 	if c.reliableTrafficEnabled && c.trafficSpool != nil {
-		if drainer, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
-			if err := drainer.DrainTraffic(c.tag); err != nil {
+		if d, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
+			if err := d.DrainTraffic(c.tag); err != nil {
 				return err
 			}
 		}
 		if err := c.captureTraffic(); err != nil {
-			c.closed = false
 			return fmt.Errorf("cannot close with unsaved traffic: %w", err)
 		}
 		if err := c.trafficSpool.Seal(); err != nil {
-			c.closed = false
 			return fmt.Errorf("cannot seal closing traffic: %w", err)
 		}
 	}
-	if c.trafficSpool != nil {
-		defer c.trafficSpool.Close()
+	if err := c.server.DelNode(c.tag); err != nil {
+		return fmt.Errorf("delete node failed: %w", err)
 	}
+	c.nodeRemoved = true
 	limiter.DeleteLimiter(c.tag)
-	if c.nodeInfoMonitorPeriodic != nil {
-		c.nodeInfoMonitorPeriodic.Close()
+	if c.trafficSpool != nil {
+		err := c.trafficSpool.Close()
+		c.trafficSpool = nil
+		return err
 	}
-	if c.userReportPeriodic != nil {
-		c.userReportPeriodic.Close()
+	return nil
+}
+
+// Restore resumes a failed close or recreates a fully closed inbound using the
+// last applied settings. It never refetches possibly-invalid panel configuration.
+func (c *Controller) Restore() error {
+	c.operationMu.Lock()
+	defer c.operationMu.Unlock()
+	c.trafficLifeMu.Lock()
+	defer c.trafficLifeMu.Unlock()
+	if c.nodeRemoved {
+		if err := c.openTrafficSpool(); err != nil {
+			return err
+		}
+		limiter.RestoreLimiter(c.tag, c.limiter)
+		if err := c.server.AddNode(c.tag, c.info, c.Options); err != nil {
+			return err
+		}
+		c.nodeRemoved = false
+		if _, err := c.server.AddUsers(&vCore.AddUsersParams{Tag: c.tag, Users: c.userList, NodeInfo: c.info}); err != nil {
+			return err
+		}
+		c.nodeRemoved = false
+	} else if r, ok := c.server.(interface{ ResumeTraffic(string) error }); ok {
+		if err := r.ResumeTraffic(c.tag); err != nil {
+			return err
+		}
 	}
-	if c.renewCertPeriodic != nil {
-		c.renewCertPeriodic.Close()
+	c.closed = false
+	c.startTasks(c.info)
+	state := "disabled"
+	if c.reliableTrafficEnabled {
+		state = "enabled"
 	}
-	if c.dynamicSpeedLimitPeriodic != nil {
-		c.dynamicSpeedLimitPeriodic.Close()
-	}
-	if c.onlineIpReportPeriodic != nil {
-		c.onlineIpReportPeriodic.Close()
-	}
-	err := c.server.DelNode(c.tag)
-	if err != nil {
-		return fmt.Errorf("del node error: %s", err)
-	}
+	c.emitReportingStatus(state)
 	return nil
 }
 

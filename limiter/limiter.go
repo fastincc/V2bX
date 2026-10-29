@@ -241,3 +241,9 @@ type UserIpList struct {
 	Uid    int      `json:"Uid"`
 	IpList []string `json:"Ips"`
 }
+
+func RestoreLimiter(tag string, l *Limiter) {
+	limitLock.Lock()
+	defer limitLock.Unlock()
+	limiter[tag] = l
+}

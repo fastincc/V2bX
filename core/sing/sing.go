@@ -37,7 +37,12 @@ type Sing struct {
 
 type userKey struct{ tag, uuid string }
 
+type pausedUser struct {
+	key string
+	uid int
+}
 type UserMap struct {
+	paused   map[userKey]pausedUser
 	active   map[userKey]string
 	sequence uint64
 	uidMap   map[userKey]int

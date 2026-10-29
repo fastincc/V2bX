@@ -33,10 +33,10 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 	if len(config.Hysteria2ConfigPath) != 0 {
 		v.SetConfigFile(config.Hysteria2ConfigPath)
 		if err := v.ReadInConfig(); err != nil {
-			h.Logger.Fatal("failed to read server config", zap.Error(err))
+			return fmt.Errorf("failed to read server config: %w", err)
 		}
 		if err := v.Unmarshal(&c); err != nil {
-			h.Logger.Fatal("failed to parse server config", zap.Error(err))
+			return fmt.Errorf("failed to parse server config: %w", err)
 		}
 	}
 	auth := &V2bX{usersMap: make(map[string]int)}
@@ -63,6 +63,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 	hyconfig.Authenticator = auth
 	s, err := server.NewServer(hyconfig)
 	if err != nil {
+		_ = hyconfig.Conn.Close()
 		return err
 	}
 	n.Hy2server = s

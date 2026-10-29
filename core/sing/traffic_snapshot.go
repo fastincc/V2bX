@@ -60,8 +60,12 @@ func (b *Sing) ReclaimTraffic(tag string) {
 // Stop acquisition, close tracked writers, then wait for their in-flight counts.
 func (b *Sing) DrainTraffic(tag string) error {
 	b.users.mapLock.Lock()
+	if b.users.paused == nil {
+		b.users.paused = make(map[userKey]pausedUser)
+	}
 	for raw, key := range b.users.active {
 		if raw.tag == tag {
+			b.users.paused[raw] = pausedUser{key: key, uid: b.users.uidMap[userKey{tag, key}]}
 			b.users.retired[userKey{tag, key}] = true
 			delete(b.users.active, raw)
 		}
@@ -85,4 +89,18 @@ func (b *Sing) DrainTraffic(tag string) error {
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
+}
+
+func (b *Sing) ResumeTraffic(tag string) error {
+	b.users.mapLock.Lock()
+	defer b.users.mapLock.Unlock()
+	for raw, p := range b.users.paused {
+		if raw.tag == tag {
+			b.users.active[raw] = p.key
+			b.users.uidMap[userKey{tag, p.key}] = p.uid
+			delete(b.users.retired, userKey{tag, p.key})
+			delete(b.users.paused, raw)
+		}
+	}
+	return nil
 }

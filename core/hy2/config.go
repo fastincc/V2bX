@@ -393,6 +393,12 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 	if err != nil {
 		return nil, err
 	}
+	ready := false
+	defer func() {
+		if !ready {
+			_ = conn.Close()
+		}
+	}()
 	sniff, err := n.getRequestHook(c)
 	if err != nil {
 		return nil, err
@@ -405,6 +411,7 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 	if err != nil {
 		return nil, err
 	}
+	ready = true
 	return &server.Config{
 		TLSConfig:             *tls,
 		QUICConfig:            *quic,

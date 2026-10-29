@@ -118,6 +118,12 @@ func (m *Manager) Create(ctx context.Context, router adapter.Router, logger log.
 	if err != nil {
 		return err
 	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = inbound.Close()
+		}
+	}()
 	m.access.Lock()
 	defer m.access.Unlock()
 	if m.started {
@@ -145,5 +151,6 @@ func (m *Manager) Create(ctx context.Context, router adapter.Router, logger log.
 	}
 	m.inbounds = append(m.inbounds, inbound)
 	m.inboundByTag[tag] = inbound
+	committed = true
 	return nil
 }

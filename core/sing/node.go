@@ -428,5 +428,12 @@ func (b *Sing) DelNode(tag string) error {
 	if err != nil {
 		return fmt.Errorf("delete inbound error: %s", err)
 	}
+	b.users.mapLock.Lock()
+	for raw := range b.users.paused {
+		if raw.tag == tag {
+			delete(b.users.paused, raw)
+		}
+	}
+	b.users.mapLock.Unlock()
 	return nil
 }
