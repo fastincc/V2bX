@@ -35,7 +35,7 @@ func TestAutomaticTrafficModePersistence(t *testing.T) {
 		return &Controller{apiClient: api, server: &batchCore{counter: counter.NewTrafficCounter()}, Options: &conf.Options{TrafficReportingMode: mode, TrafficSpoolDirectory: root}}
 	}
 	c := makeController("auto", 1)
-	if err := c.configureTrafficMode(); err != nil || !c.TrafficBatchMode {
+	if err := c.configureTrafficMode(); err != nil || !c.reliableTrafficEnabled {
 		t.Fatalf("auto negotiation: %v", err)
 	}
 	if err := c.openTrafficSpool(); err != nil {
@@ -52,7 +52,7 @@ func TestAutomaticTrafficModePersistence(t *testing.T) {
 		}
 	}
 	c = makeController("auto", 2)
-	if err := c.configureTrafficMode(); err != nil || c.TrafficBatchMode {
+	if err := c.configureTrafficMode(); err != nil || c.reliableTrafficEnabled {
 		t.Fatalf("fresh disabled node: %v", err)
 	}
 	status.Store(404)
@@ -111,7 +111,7 @@ func TestTrafficStartupStatusLog(t *testing.T) {
 		mode    string
 		enabled bool
 	}{{"auto", true}, {"auto", false}, {"off", false}, {"on", true}} {
-		c := &Controller{tag: "test-node", Options: &conf.Options{TrafficReportingMode: tc.mode, TrafficBatchMode: tc.enabled}}
+		c := &Controller{reliableTrafficEnabled: tc.enabled, tag: "test-node", Options: &conf.Options{TrafficReportingMode: tc.mode, TrafficBatchMode: tc.enabled}}
 		c.logTrafficMode()
 		e := hook.LastEntry()
 		if e == nil || e.Data["mode"] != tc.mode || e.Data["reliable_reporting"] != tc.enabled {

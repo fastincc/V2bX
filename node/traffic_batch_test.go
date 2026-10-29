@@ -97,7 +97,7 @@ func TestBatchOutageLostAckAndRestart(t *testing.T) {
 	}
 	c.trafficSpool.Close()
 	c.trafficSpool = nil
-	c.TrafficBatchMode = false
+	c.reliableTrafficEnabled = false
 	if e = c.configureTrafficMode(); e != nil {
 		t.Fatal(e)
 	}
@@ -129,7 +129,7 @@ func TestCheckpointWhileAcknowledgementBlocked(t *testing.T) {
 	client, _ := panel.New(&conf.ApiConfig{APIHost: srv.URL, Key: "synthetic", NodeType: "anytls", NodeID: 1, Timeout: 10})
 	source := &batchCore{counter: counter.NewTrafficCounter()}
 	source.counter.Tx("user", 100)
-	c := &Controller{server: source, apiClient: client, info: &panel.NodeInfo{PushInterval: 0}, lastTrafficSeal: time.Now(), Options: &conf.Options{TrafficBatchMode: true, TrafficSpoolDirectory: filepath.Join(t.TempDir(), "spool")}}
+	c := &Controller{reliableTrafficEnabled: true, server: source, apiClient: client, info: &panel.NodeInfo{PushInterval: 0}, lastTrafficSeal: time.Now(), Options: &conf.Options{TrafficBatchMode: true, TrafficSpoolDirectory: filepath.Join(t.TempDir(), "spool")}}
 	if e := c.openTrafficSpool(); e != nil {
 		t.Fatal(e)
 	}

@@ -16,7 +16,7 @@ func (c *Controller) configureTrafficMode() error {
 	mode := c.TrafficReportingMode
 	if mode == "" { // Programmatically constructed options also default to auto.
 		mode = "auto"
-		if c.TrafficBatchMode {
+		if c.Options.TrafficBatchMode {
 			mode = "on"
 		}
 	}
@@ -56,7 +56,7 @@ func (c *Controller) configureTrafficMode() error {
 		if pinned {
 			return fmt.Errorf("reliable traffic state exists; explicit drain and migration required before disabling")
 		}
-		c.TrafficBatchMode = false
+		c.reliableTrafficEnabled = false
 		return nil
 	}
 	available, err := c.apiClient.TrafficBatchAvailable()
@@ -66,15 +66,15 @@ func (c *Controller) configureTrafficMode() error {
 	if !available && (mode == "on" || pinned) {
 		return fmt.Errorf("panel reliable traffic unavailable; refusing forced-mode startup or downgrade")
 	}
-	c.TrafficBatchMode = available
+	c.reliableTrafficEnabled = available
 	return nil
 }
 
 // Log only after successful startup, so a storage or authentication failure is
 // never reported as an enabled, functioning reporter.
 func (c *Controller) logTrafficMode() {
-	fields := log.Fields{"tag": c.tag, "mode": c.TrafficReportingMode, "reliable_reporting": c.TrafficBatchMode}
-	if c.TrafficBatchMode {
+	fields := log.Fields{"tag": c.tag, "mode": c.TrafficReportingMode, "reliable_reporting": c.reliableTrafficEnabled}
+	if c.reliableTrafficEnabled {
 		log.WithFields(fields).Info("Reliable traffic reporting enabled")
 	} else {
 		reason := "explicitly disabled by configuration"

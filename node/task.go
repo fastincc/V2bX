@@ -11,7 +11,7 @@ import (
 )
 
 func (c *Controller) startTasks(node *panel.NodeInfo) {
-	if c.TrafficBatchMode {
+	if c.reliableTrafficEnabled {
 		seconds := c.TrafficCheckpointSeconds
 		if seconds == 0 {
 			seconds = 1
@@ -98,7 +98,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	if newN != nil {
 		c.trafficLifeMu.Lock()
 		defer c.trafficLifeMu.Unlock()
-		if c.TrafficBatchMode {
+		if c.reliableTrafficEnabled {
 			if drainer, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
 				if err = drainer.DrainTraffic(c.tag); err != nil {
 					c.logTrafficStorageError(err)

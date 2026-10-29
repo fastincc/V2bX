@@ -11,7 +11,7 @@ import (
 )
 
 func (c *Controller) openTrafficSpool() error {
-	if !c.TrafficBatchMode {
+	if !c.reliableTrafficEnabled {
 		return nil
 	}
 	if _, ok := c.server.(vcore.TrafficSnapshotter); !ok {
@@ -41,7 +41,7 @@ func (c *Controller) openTrafficSpool() error {
 	return nil
 }
 func (c *Controller) collectAndReportTraffic() ([]panel.UserTraffic, error) {
-	if !c.TrafficBatchMode {
+	if !c.reliableTrafficEnabled {
 		rows, err := c.server.GetUserTrafficSlice(c.tag, true)
 		if err != nil {
 			return nil, err

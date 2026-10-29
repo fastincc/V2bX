@@ -32,3 +32,11 @@ Using Go 1.25.0 and GOEXPERIMENT=jsonv2:
 - The first broad conf invocation included the pre-existing permanently blocking TestConf_Watch; that invocation was stopped, not counted as a pass. The bounded configuration selection above excludes it.
 
 No blue-green/VPS tests, deployment, GitHub push or release were performed for this change.
+
+## Multi-core negotiation state
+
+The negotiated enabled/disabled result belongs to the node Controller, separately from configuration options. Core selection may reparse options when `Core` is omitted (including a node with only `CoreName`); this must not reset the negotiated result. Queue initialization, checkpoint tasks, sending/replay, shutdown draining and status output all use the Controller state.
+
+This fixes an auto-mode regression in -8/-9: such multi-core nodes could send legacy requests after successful negotiation and leave existing batches pending. Existing queue identity and batch IDs are preserved. After the fix, pending batches replay normally; traffic previously sent using the legacy endpoint must not be synthesized and sent again.
+
+Regression coverage includes single/multiple cores, implicit/named/explicit selection, all six configuration forms, lost acknowledgements and reopening a pending queue. This change does not address Windows file locking.

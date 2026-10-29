@@ -16,6 +16,8 @@ import (
 )
 
 type Controller struct {
+	// Negotiated runtime state must survive core-specific Options reparsing.
+	reliableTrafficEnabled    bool
 	operationMu               sync.Mutex
 	trafficLifeMu             sync.RWMutex
 	checkpointPeriodic        *task.Task
@@ -121,7 +123,7 @@ func (c *Controller) Start() (err error) {
 	c.startTasks(node)
 	c.logTrafficMode()
 	state := "disabled"
-	if c.TrafficBatchMode {
+	if c.reliableTrafficEnabled {
 		state = "enabled"
 	}
 	c.emitReportingStatus(state)
@@ -139,7 +141,7 @@ func (c *Controller) Close() error {
 	if c.checkpointPeriodic != nil {
 		c.checkpointPeriodic.Close()
 	}
-	if c.TrafficBatchMode && c.trafficSpool != nil {
+	if c.reliableTrafficEnabled && c.trafficSpool != nil {
 		if drainer, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
 			if err := drainer.DrainTraffic(c.tag); err != nil {
 				return err
