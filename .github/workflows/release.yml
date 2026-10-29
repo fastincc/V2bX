@@ -160,6 +160,7 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/sing-anytls/LICENSE ./build_assets/LICENSE.sing-anytls
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-7.md ./build_assets/RELEASE-NOTES.md
           cp ${GITHUB_WORKSPACE}/docs/TRAFFIC-BOUNDARY-CONTRACT.md ./build_assets/TRAFFIC-BOUNDARY-CONTRACT.md
           cp ${GITHUB_WORKSPACE}/example/*.json ./build_assets/
           LIST=('geoip' 'geosite')
@@ -218,4 +219,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-6.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-7.md
