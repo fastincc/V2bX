@@ -116,3 +116,7 @@ func (c *leasedPacketConn) WritePacket(b *buf.Buffer, a M.Socksaddr) error {
 	return e
 }
 func (c *leasedPacketConn) Close() error { return c.owner.close(c.PacketConn.Close) }
+
+// Forward framing requirements without exposing an I/O-unwrapping escape hatch.
+func (c *leasedPacketConn) FrontHeadroom() int { return N.CalculateFrontHeadroom(c.PacketConn) }
+func (c *leasedPacketConn) RearHeadroom() int  { return N.CalculateRearHeadroom(c.PacketConn) }

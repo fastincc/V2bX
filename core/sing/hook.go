@@ -37,7 +37,7 @@ func (h *HookServer) RoutedConnection(ctx context.Context, conn net.Conn, m adap
 	}
 	logUser := anytls.AuditUserLabel(ctx, m.User)
 	taguuid := format.UserTag(m.Inbound, m.User)
-	ip := m.Source.Addr.String()
+	ip := m.Source.Addr.Unmap().String()
 	if b, r := l.CheckLimit(taguuid, ip, true, true); r {
 		anytls.AuditPolicyDenied(ctx, "policy_limit_denied")
 		conn.Close()
@@ -95,20 +95,18 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 		log.Warn("get limiter for ", m.Inbound, " error: ", err)
 		return conn
 	}
-	ip := m.Source.Addr.String()
+	ip := m.Source.Addr.Unmap().String()
 	logUser := anytls.AuditUserLabel(ctx, m.User)
 	taguuid := format.UserTag(m.Inbound, m.User)
-	if b, r := l.CheckLimit(taguuid, ip, false, m.InboundType == "anytls"); r {
+	if b, r := l.CheckLimit(taguuid, ip, false, true); r {
 		anytls.AuditPolicyDenied(ctx, "policy_limit_denied")
 		conn.Close()
 		log.Error("[", m.Inbound, "] ", "Limited ", logUser, " by ip or conn")
 		return conn
 	} else if b != nil {
-		//conn = rate.NewPacketConnCounter(conn, b)
+		conn = rate.NewPacketConnRateLimiter(conn, b)
 	}
-	if m.InboundType == "anytls" {
-		conn = &devicePacketConn{PacketConn: conn, release: l.TrackDevice(taguuid, ip)}
-	}
+	conn = &devicePacketConn{PacketConn: conn, release: l.TrackDevice(taguuid, ip)}
 	if l != nil {
 		destStr := m.Destination.AddrString()
 		protocol := m.Destination.Network()
@@ -151,10 +149,13 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 	return conn
 }
 
-// Keep a device slot for the lifetime of an AnyTLS UDP-over-TCP logical stream.
+// Keep a device slot for the lifetime of an authenticated UDP logical session.
 type devicePacketConn struct {
 	N.PacketConn
 	release func()
 }
 
 func (c *devicePacketConn) Close() error { err := c.PacketConn.Close(); c.release(); return err }
+
+func (c *devicePacketConn) FrontHeadroom() int { return N.CalculateFrontHeadroom(c.PacketConn) }
+func (c *devicePacketConn) RearHeadroom() int  { return N.CalculateRearHeadroom(c.PacketConn) }
