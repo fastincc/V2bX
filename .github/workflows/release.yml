@@ -37,6 +37,8 @@ jobs:
         run: GOEXPERIMENT=jsonv2 go test ./common/trustedproxy ./protocol/anytls ./common/uot
       - name: Device admission race regression
         run: GOEXPERIMENT=jsonv2 go test -race ./limiter ./api/panel -count=1
+      - name: Automatic reliable mode regression
+        run: GOEXPERIMENT=jsonv2 go test -race ./conf ./api/panel ./common/trafficbatch ./node -run 'Test(Traffic|Automatic|Batch|Queue|Conf_Load)' -count=1 -timeout=120s
       - name: Device limit hot-update regression
         run: GOEXPERIMENT=jsonv2 go test -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./node -run TestDevice -count=1
       - name: V2bX integration
@@ -112,7 +114,8 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/sing-anytls/LICENSE ./build_assets/LICENSE.sing-anytls
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-7.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-8.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/TRAFFIC-AUTO-MODE.md ./build_assets/TRAFFIC-AUTO-MODE.md
           cp ${GITHUB_WORKSPACE}/docs/TRAFFIC-BOUNDARY-CONTRACT.md ./build_assets/TRAFFIC-BOUNDARY-CONTRACT.md
           cp ${GITHUB_WORKSPACE}/example/*.json ./build_assets/
           LIST=('geoip' 'geosite')
@@ -171,4 +174,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-7.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-8.md

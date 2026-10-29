@@ -1,6 +1,6 @@
 # Automatic reliable traffic negotiation
 
-This change is not part of the published fastincc-v0.4.1-7 binaries.
+Introduced in fastincc-v0.4.1-8; the previously published -7 binaries do not include this change.
 
 `TrafficBatchMode` accepts `"auto"` (the new default when omitted), `"on"`, or `"off"`. Existing `true` maps to `on`; existing `false` maps to `off`. An explicit false is never overridden. Both supported node configuration layouts retain this behavior.
 

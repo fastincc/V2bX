@@ -13,4 +13,4 @@ All existing regression gates remain prerequisites. Each archive retains its .dg
 
 For the historical 23-platform matrix, manually run Build and Release on a branch with full_matrix=true. This produces workflow artifacts, not a new Release. The default is false.
 
-Installer compatibility: the current separate V2bX-script installer recognizes amd64/arm64/s390x and falls back to amd64 for unknown architectures. Before publishing the next four-platform release, update its architecture handling: map armv7 explicitly, reject unsupported latest-release targets with a clear message, and preserve explicit installation of older releases where assets exist. Do not imply that availability of an armv7 ZIP makes the existing installer armv7-compatible. No installer or running service is changed by this matrix-only commit.
+Installer compatibility: the companion V2bX-script change maps armv7l/armv7 explicitly and rejects unknown architectures instead of downloading amd64. s390x users must explicitly select an older release containing their asset; automatic latest installation is rejected. No running service is changed by publishing build or installer updates.
