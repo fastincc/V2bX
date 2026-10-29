@@ -57,8 +57,8 @@ func TestAuditIDsAndSafeLabel(t *testing.T) {
 			t.Fatal("invalid ID fallback")
 		}
 	}
-	if AuditUserLabel(context.Background(), "legacy") != "legacy" {
-		t.Fatal("unrelated protocol log changed")
+	if AuditUserLabel(context.Background(), "legacy") != "user_id=unmapped" {
+		t.Fatal("unmapped identity leaked")
 	}
 }
 func TestAuditJSONAddressAndError(t *testing.T) {
@@ -121,5 +121,17 @@ func TestAuditNormalCloseNotError(t *testing.T) {
 		if !auditStreamFailure(e) {
 			t.Fatalf("real failure suppressed: %v", e)
 		}
+	}
+}
+
+func TestSafeIdentityWithoutAccessAudit(t *testing.T) {
+	h := &Inbound{}
+	h.setAuditUser("synthetic-password", "42")
+	ctx := h.withSafeUserLabel(context.Background(), "synthetic-password")
+	if got := AuditUserLabel(ctx, "synthetic-password"); got != "user_id=42" {
+		t.Fatal("safe identity missing")
+	}
+	if strings.Contains(AuditUserLabel(context.Background(), "synthetic-password"), "synthetic-password") {
+		t.Fatal("fallback leaked credential")
 	}
 }

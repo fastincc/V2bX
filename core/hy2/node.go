@@ -45,6 +45,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 		Tag:    tag,
 		Logger: h.Logger,
 		EventLogger: &serverLogger{
+			Auth:   auth,
 			Tag:    tag,
 			logger: h.Logger,
 		},

@@ -52,9 +52,7 @@ func (h *Inbound) AddUsers(users []option.AnyTLSUser) error {
 	}
 	h.epochs = epochs
 	for _, user := range users {
-		if h.auditEnabled {
-			h.setAuditUser(user.Name, user.AuditID)
-		}
+		h.setAuditUser(user.Name, user.AuditID)
 	}
 	h.usersMu.Unlock()
 	for _, conn := range closeConns {

@@ -66,9 +66,9 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		auditUoT := uot.NewRouter(&auditRouter{Router: router, inbound: inbound}, auditUOTLogger{logger})
 		auditUoT.SetRequestErrorHandler(inbound.auditUoTError)
 		inbound.router = auditUoT
-		for _, user := range options.Users {
-			inbound.setAuditUser(user.Name, user.AuditID)
-		}
+	}
+	for _, user := range options.Users {
+		inbound.setAuditUser(user.Name, user.AuditID)
 	}
 	if proxy := options.TrustedProxyProtocol; proxy != nil && proxy.Enabled {
 		policy, err := trustedproxy.NewWithTrust(proxy.TrustedProxies, time.Duration(proxy.HeaderTimeout), proxy.Version, proxy.RequireTrustedProxy)
@@ -227,10 +227,11 @@ func (h *inboundHandler) NewConnectionEx(ctx context.Context, conn net.Conn, sou
 			return
 		}
 		metadata.User = userName
+		ctx = (*Inbound)(h).withSafeUserLabel(ctx, userName)
 		if h.auditEnabled {
 			ctx = (*Inbound)(h).newAuditStream(ctx, userName)
 		} else {
-			h.logger.InfoContext(ctx, "[", userName, "] inbound connection to ", metadata.Destination)
+			h.logger.InfoContext(ctx, "[", AuditUserLabel(ctx, userName), "] inbound connection to ", metadata.Destination)
 		}
 	} else {
 		h.logger.InfoContext(ctx, "inbound connection to ", metadata.Destination)

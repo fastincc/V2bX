@@ -39,8 +39,8 @@ func TestAnyTLSAuditDisabledPreservesAuthAndAccounting(t *testing.T) {
 				t.Fatal("incorrect auth accepted")
 			}
 			text := capture.text()
-			if strings.Contains(text, "AUDIT_ACCESS ") || strings.Contains(text, "AUDIT_ERROR ") || !strings.Contains(text, "[synthetic-secret] inbound connection to") {
-				t.Fatal("disabled logging changed")
+			if strings.Contains(text, "AUDIT_ACCESS ") || strings.Contains(text, "AUDIT_ERROR ") || strings.Contains(text, "synthetic-secret") || !strings.Contains(text, "user_id=1001") {
+				t.Fatal("disabled audit must still redact credential identity")
 			}
 			c, _ := f.router.hook.counter.Load("review")
 			v := c.(*counter.TrafficCounter)

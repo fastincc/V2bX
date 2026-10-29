@@ -87,10 +87,13 @@ func (h *Inbound) newAuditStream(ctx context.Context, user string) context.Conte
 
 // Never replace the internal authentication/limiter/counter key. Only use this
 // helper at log call sites. Unmapped identities never fall back to a password.
-func AuditUserLabel(ctx context.Context, legacy string) string {
+func AuditUserLabel(ctx context.Context, _ string) string {
 	st, _ := ctx.Value(auditStreamKey{}).(*auditStream)
 	if st == nil {
-		return legacy
+		if label, ok := ctx.Value(safeUserLabelKey{}).(string); ok {
+			return label
+		}
+		return "user_id=unmapped"
 	}
 	id := "unmapped"
 	if st.user != nil {
@@ -248,4 +251,14 @@ func auditStreamFailure(err error) bool {
 		return auditStreamFailure(cause)
 	}
 	return !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) && !errors.Is(err, io.ErrClosedPipe) && !errors.Is(err, os.ErrClosed) && !errors.Is(err, context.Canceled)
+}
+
+type safeUserLabelKey struct{}
+
+func (h *Inbound) withSafeUserLabel(ctx context.Context, user string) context.Context {
+	id := "unmapped"
+	if value, ok := h.auditUsers.Load(user); ok {
+		id = value.(string)
+	}
+	return context.WithValue(ctx, safeUserLabelKey{}, "user_id="+id)
 }
