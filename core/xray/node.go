@@ -3,6 +3,7 @@ package xray
 import (
 	"context"
 	"fmt"
+	"github.com/InazumaV/V2bX/core/xray/app/dispatcher"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
@@ -81,6 +82,18 @@ func (c *Xray) addOutbound(config *core.OutboundHandlerConfig) error {
 }
 
 func (c *Xray) DelNode(tag string) error {
+	c.users.mapLock.Lock()
+	for raw, key := range c.users.active {
+		if c.users.node[key] == tag {
+			delete(c.users.active, raw)
+			c.users.retired[key] = tag
+			if v, ok := c.dispatcher.LinkManagers.Load(key); ok {
+				v.(*dispatcher.LinkManager).CloseAll()
+			}
+		}
+	}
+	c.users.mapLock.Unlock()
+
 	err := c.removeInbound(tag)
 	if err != nil {
 		return fmt.Errorf("remove in error: %s", err)

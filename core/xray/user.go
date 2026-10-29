@@ -3,6 +3,7 @@ package xray
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/counter"
@@ -38,35 +39,40 @@ func (c *Xray) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeInfo) e
 	c.users.mapLock.Lock()
 	defer c.users.mapLock.Unlock()
 	for i := range users {
-		user = format.UserTag(tag, users[i].Uuid)
+		raw := format.UserTag(tag, users[i].Uuid)
+		user = c.users.active[raw]
+		if user == "" {
+			continue
+		}
 		err = userManager.RemoveUser(context.Background(), user)
 		if err != nil {
 			return err
 		}
-		delete(c.users.uidMap, user)
-		if v, ok := c.dispatcher.Counter.Load(tag); ok {
-			tc := v.(*counter.TrafficCounter)
-			tc.Delete(user)
-		}
+		delete(c.users.active, raw)
+		c.users.retired[user] = tag
 		if v, ok := c.dispatcher.LinkManagers.Load(user); ok {
-			lm := v.(*dispatcher.LinkManager)
-			lm.CloseAll()
-			c.dispatcher.LinkManagers.Delete(user)
+			v.(*dispatcher.LinkManager).CloseAll()
 		}
+
 	}
 	return nil
 }
 
 func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
 	trafficSlice := make([]panel.UserTraffic, 0)
-	x.users.mapLock.RLock()
-	defer x.users.mapLock.RUnlock()
+	x.users.mapLock.Lock()
+	defer x.users.mapLock.Unlock()
 	if v, ok := x.dispatcher.Counter.Load(tag); ok {
 		c := v.(*counter.TrafficCounter)
 		c.Counters.Range(func(key, value interface{}) bool {
 			email := key.(string)
 			traffic := value.(*counter.TrafficStorage)
-			up, down, ready := traffic.Sample(x.reportMinTraffic(tag), reset)
+			up, down, ready := traffic.Sample(func() int64 {
+				if _, retired := x.users.retired[email]; retired {
+					return 0
+				}
+				return x.reportMinTraffic(tag)
+			}(), reset)
 			if ready {
 				if x.users.uidMap[email] == 0 {
 					c.Delete(email)
@@ -80,6 +86,7 @@ func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 			}
 			return true
 		})
+		x.reapTrafficLocked(tag)
 		if len(trafficSlice) == 0 {
 			return nil, nil
 		}
@@ -91,8 +98,10 @@ func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic,
 func (c *Xray) AddUsers(p *vCore.AddUsersParams) (added int, err error) {
 	c.users.mapLock.Lock()
 	defer c.users.mapLock.Unlock()
-	for i := range p.Users {
-		c.users.uidMap[format.UserTag(p.Tag, p.Users[i].Uuid)] = p.Users[i].Id
+	if c.users.active == nil {
+		c.users.active = map[string]string{}
+		c.users.retired = map[string]string{}
+		c.users.node = map[string]string{}
 	}
 	var users []*protocol.User
 	switch p.NodeInfo.Type {
@@ -114,15 +123,31 @@ func (c *Xray) AddUsers(p *vCore.AddUsersParams) (added int, err error) {
 	if err != nil {
 		return 0, fmt.Errorf("get user manager error: %s", err)
 	}
-	for _, u := range users {
+	for i, u := range users {
+		raw := format.UserTag(p.Tag, p.Users[i].Uuid)
+		if _, exists := c.users.active[raw]; exists {
+			continue
+		}
+		c.users.sequence++
+		key := "accounting-" + strconv.FormatUint(c.users.sequence, 10)
+		u.Email = key
 		mUser, err := u.ToMemoryUser()
 		if err != nil {
 			return 0, err
 		}
+		c.dispatcher.LinkManagers.Store(key, dispatcher.NewLinkManager(raw))
+		c.users.uidMap[key] = p.Users[i].Id
+		c.users.node[key] = p.Tag
 		err = man.AddUser(context.Background(), mUser)
 		if err != nil {
-			return 0, err
+			c.users.retired[key] = p.Tag
+			if v, ok := c.dispatcher.LinkManagers.Load(key); ok {
+				v.(*dispatcher.LinkManager).CloseAll()
+			}
+			return added, err
 		}
+		c.users.active[raw] = key
+		added++
 	}
-	return len(users), nil
+	return added, nil
 }

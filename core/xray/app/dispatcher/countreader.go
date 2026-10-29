@@ -1,6 +1,8 @@
 package dispatcher
 
 import (
+	"github.com/xtls/xray-core/common"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -12,10 +14,25 @@ var _ buf.TimeoutReader = (*CounterReader)(nil)
 type CounterReader struct {
 	Reader  buf.TimeoutReader
 	Counter *atomic.Int64
+	Manager *LinkManager
+	Source  net.Conn
 }
 
-func (c *CounterReader) ReadMultiBufferTimeout(time.Duration) (buf.MultiBuffer, error) {
-	mb, err := c.Reader.ReadMultiBufferTimeout(time.Second)
+func (c *CounterReader) ReadMultiBufferTimeout(timeout time.Duration) (buf.MultiBuffer, error) {
+	if c.Manager != nil {
+		end, ok := c.Manager.beginRead(func() {
+			if c.Source != nil {
+				c.Source.Close()
+			} else {
+				common.Interrupt(c.Reader)
+			}
+		})
+		if !ok {
+			return nil, net.ErrClosed
+		}
+		defer end()
+	}
+	mb, err := c.Reader.ReadMultiBufferTimeout(timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -26,6 +43,19 @@ func (c *CounterReader) ReadMultiBufferTimeout(time.Duration) (buf.MultiBuffer, 
 }
 
 func (c *CounterReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
+	if c.Manager != nil {
+		end, ok := c.Manager.beginRead(func() {
+			if c.Source != nil {
+				c.Source.Close()
+			} else {
+				common.Interrupt(c.Reader)
+			}
+		})
+		if !ok {
+			return nil, net.ErrClosed
+		}
+		defer end()
+	}
 	mb, err := c.Reader.ReadMultiBuffer()
 	if err != nil {
 		return nil, err

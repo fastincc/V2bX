@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
 	vcore "github.com/InazumaV/V2bX/core"
@@ -106,8 +107,51 @@ func TestHysteriaQUICNodeIsolation(t *testing.T) {
 		if _, e = io.ReadFull(stream, data); e != nil || string(data) != "verified" {
 			t.Fatal("QUIC transport failed", e)
 		}
+		if e = h.DelUsers([]panel.UserInfo{{Id: 1, Uuid: tag}}, tag, nil); e != nil {
+			t.Fatal(e)
+		}
+		if _, e = h.AddUsers(&vcore.AddUsersParams{Tag: tag, Users: []panel.UserInfo{{Id: 3, Uuid: tag}}}); e != nil {
+			t.Fatal(e)
+		}
+		// Re-adding the same password must not re-authorize an old QUIC session.
+		stream.SetDeadline(time.Now().Add(time.Second))
+		stream.Write([]byte("stale"))
+		if _, e = io.ReadFull(stream, make([]byte, 5)); e == nil {
+			t.Fatal("old QUIC session reactivated")
+		}
 		stream.Close()
 		c.Close()
+		fresh, e := dial(tag, tag)
+		if e != nil {
+			t.Fatal(e)
+		}
+		next, e := fresh.TCP(echo.Addr().String())
+		if e != nil {
+			t.Fatal(e)
+		}
+		next.SetDeadline(time.Now().Add(3 * time.Second))
+		next.Write([]byte("fresh"))
+		if _, e = io.ReadFull(next, make([]byte, 5)); e != nil {
+			t.Fatal(e)
+		}
+		failure := errors.New("synthetic persist failure")
+		if e = h.PersistTrafficSnapshot(tag, func([]panel.UserTraffic) error { return failure }); e != failure {
+			t.Fatal(e)
+		}
+		got := map[int]panel.UserTraffic{}
+		if e = h.PersistTrafficSnapshot(tag, func(rows []panel.UserTraffic) error {
+			for _, r := range rows {
+				got[r.UID] = r
+			}
+			return nil
+		}); e != nil {
+			t.Fatal(e)
+		}
+		if got[1].Upload != 8 || got[1].Download != 8 || got[3].Upload != 5 || got[3].Download != 5 {
+			t.Fatalf("QUIC tail reconciliation: %+v", got)
+		}
+		next.Close()
+		fresh.Close()
 	}
 	if e = h.DelUsers([]panel.UserInfo{{Id: 2, Uuid: "shared"}}, "quic-A", nil); e != nil {
 		t.Fatal(e)

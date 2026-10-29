@@ -41,8 +41,12 @@ type Xray struct {
 }
 
 type UserMap struct {
-	uidMap  map[string]int
-	mapLock sync.RWMutex
+	uidMap   map[string]int
+	active   map[string]string
+	retired  map[string]string
+	sequence uint64
+	node     map[string]string
+	mapLock  sync.RWMutex
 }
 
 func New(c *conf.CoreConfig) (vCore.Core, error) {

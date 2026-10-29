@@ -33,7 +33,7 @@ func TestNodeAuthorizationIsolation(t *testing.T) {
 		if n.TrafficLogger.(*HookServer).LogTraffic(other, 10, 10) {
 			t.Fatal("cross-node traffic")
 		}
-		if !n.TrafficLogger.(*HookServer).LogTraffic("shared", 10, 10) {
+		if !n.TrafficLogger.(*HookServer).LogTraffic(hyTestID(n.Auth, "shared"), 10, 10) {
 			t.Fatal("allowed user denied")
 		}
 	}
@@ -43,10 +43,12 @@ func TestNodeAuthorizationIsolation(t *testing.T) {
 	if h.Hy2nodes["A"].TrafficLogger.(*HookServer).LogTraffic("shared", 10, 10) {
 		t.Fatal("revoked traffic accepted")
 	}
-	if !h.Hy2nodes["B"].TrafficLogger.(*HookServer).LogTraffic("shared", 10, 10) {
+	if !h.Hy2nodes["B"].TrafficLogger.(*HookServer).LogTraffic(hyTestID(h.Hy2nodes["B"].Auth, "shared"), 10, 10) {
 		t.Fatal("other node revoked")
 	}
 	if _, err := h.AddUsers(&vcore.AddUsersParams{Tag: "missing"}); err == nil {
 		t.Fatal("missing node accepted")
 	}
 }
+
+func hyTestID(a *V2bX, raw string) string { _, id := a.Authenticate(nil, raw, 0); return id }

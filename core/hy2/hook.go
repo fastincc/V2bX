@@ -31,26 +31,18 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	if h.Auth == nil {
 		return false
 	}
-	if ok, _ := h.Auth.Authenticate(nil, id, 0); !ok {
+	h.Auth.mutex.Lock()
+	defer h.Auth.mutex.Unlock()
+	identity, exists := h.Auth.identities[id]
+	if h.Auth.paused || !exists || identity.retired || h.Auth.active[identity.credential] != id || h.Auth.denied[id] {
 		return false
 	}
-
 	limiterinfo, err := limiter.GetLimiter(h.Tag)
 	if err != nil {
-		h.logger.Error("Get limiter error", zap.String("tag", h.Tag), zap.Error(err))
 		return false
 	}
-
-	userLimit, ok := limiterinfo.UserLimitInfo.Load(format.UserTag(h.Tag, id))
-	if !ok {
+	if _, ok := limiterinfo.UserLimitInfo.Load(format.UserTag(h.Tag, identity.credential)); !ok {
 		return false
-	}
-	if ok {
-		userlimitInfo := userLimit.(*limiter.UserLimitInfo)
-		if userlimitInfo.OverLimit {
-			userlimitInfo.OverLimit = false
-			return false
-		}
 	}
 
 	tc := counter.LoadOrCreate(&h.Counter, h.Tag)

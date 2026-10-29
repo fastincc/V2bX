@@ -3,6 +3,7 @@ package hy2
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -14,18 +15,46 @@ import (
 var _ server.Authenticator = &V2bX{}
 
 type V2bX struct {
-	usersMap map[string]int
-	mutex    sync.RWMutex
+	usersMap   map[string]int
+	mutex      sync.RWMutex
+	active     map[string]string
+	identities map[string]hyIdentity
+	denied     map[string]bool
+	sequence   uint64
+	paused     bool
 }
 
-func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (ok bool, id string) {
+type hyIdentity struct {
+	credential string
+	uid        int
+	retired    bool
+}
+
+func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
-	if _, exists := v.usersMap[auth]; exists {
-		return true, auth
+	if v.paused {
+		return false, ""
 	}
-	return false, ""
+	id, ok := v.active[auth]
+	return ok, id
 }
+func (v *V2bX) addLocked(credential string, uid int) {
+	if v.active == nil {
+		v.active = map[string]string{}
+		v.identities = map[string]hyIdentity{}
+		v.denied = map[string]bool{}
+	}
+	if _, ok := v.active[credential]; ok {
+		return
+	}
+	v.sequence++
+	id := "accounting-" + strconv.FormatUint(v.sequence, 10)
+	v.active[credential] = id
+	v.identities[id] = hyIdentity{credential: credential, uid: uid}
+	v.usersMap[credential] = uid
+}
+func (v *V2bX) uidLocked(id string) int { return v.identities[id].uid }
 
 func (h *Hysteria2) AddUsers(p *vCore.AddUsersParams) (int, error) {
 	h.nodesMu.RLock()
@@ -37,7 +66,7 @@ func (h *Hysteria2) AddUsers(p *vCore.AddUsersParams) (int, error) {
 	n.Auth.mutex.Lock()
 	defer n.Auth.mutex.Unlock()
 	for _, u := range p.Users {
-		n.Auth.usersMap[u.Uuid] = u.Id
+		n.Auth.addLocked(u.Uuid, u.Id)
 	}
 	return len(p.Users), nil
 }
@@ -52,10 +81,16 @@ func (h *Hysteria2) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeIn
 	n.Auth.mutex.Lock()
 	defer n.Auth.mutex.Unlock()
 	for _, u := range users {
-		delete(n.Auth.usersMap, u.Uuid)
-		if v, ok := n.TrafficLogger.(*HookServer).Counter.Load(tag); ok {
-			v.(*counter.TrafficCounter).Delete(u.Uuid)
+		id, ok := n.Auth.active[u.Uuid]
+		if !ok {
+			continue
 		}
+		entry := n.Auth.identities[id]
+		entry.retired = true
+		n.Auth.identities[id] = entry
+		delete(n.Auth.active, u.Uuid)
+		delete(n.Auth.usersMap, u.Uuid)
+
 	}
 	return nil
 }
@@ -68,32 +103,59 @@ func (h *Hysteria2) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTra
 		return nil, nil
 	}
 	auth := h.Hy2nodes[tag].Auth
-	auth.mutex.RLock()
-	defer auth.mutex.RUnlock()
+	auth.mutex.Lock()
+	defer auth.mutex.Unlock()
 	hook := h.Hy2nodes[tag].TrafficLogger.(*HookServer)
 	if v, ok := hook.Counter.Load(tag); ok {
 		c := v.(*counter.TrafficCounter)
 		c.Counters.Range(func(key, value interface{}) bool {
 			uuid := key.(string)
 			traffic := value.(*counter.TrafficStorage)
-			up, down, ready := traffic.Sample(hook.ReportMinTrafficBytes, reset)
+			up, down, ready := traffic.Sample(func() int64 {
+				if auth.identities[uuid].retired {
+					return 0
+				}
+				return hook.ReportMinTrafficBytes
+			}(), reset)
 			if ready {
-				if auth.usersMap[uuid] == 0 {
+				if auth.uidLocked(uuid) == 0 {
 					c.Delete(uuid)
 					return true
 				}
 				trafficSlice = append(trafficSlice, panel.UserTraffic{
-					UID:      auth.usersMap[uuid],
+					UID:      auth.uidLocked(uuid),
 					Upload:   up,
 					Download: down,
 				})
 			}
 			return true
 		})
+		auth.reapLocked(c)
 		if len(trafficSlice) == 0 {
 			return nil, nil
 		}
 		return trafficSlice, nil
 	}
 	return nil, nil
+}
+
+// LogTraffic and revocation share this lock. No retired generation can acquire
+// a new counter or append bytes after this check, including after re-addition.
+func (v *V2bX) reapLocked(c *counter.TrafficCounter) {
+	scanned := 0
+	for id, e := range v.identities {
+		if !e.retired {
+			continue
+		}
+		scanned++
+		if scanned > 256 {
+			break
+		}
+		if c.GetUpCount(id) != 0 || c.GetDownCount(id) != 0 {
+			continue
+		}
+		c.Delete(id)
+		delete(v.identities, id)
+		delete(v.denied, id)
+	}
 }

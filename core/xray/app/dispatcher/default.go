@@ -181,8 +181,18 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			common.Interrupt(inboundLink.Reader)
 			return nil, nil, nil, errors.New("get limiter ", sessionInbound.Tag, " error: ", err)
 		}
+		entry, exists := d.LinkManagers.Load(user.Email)
+		if !exists || !entry.(*LinkManager).begin() {
+			common.Close(outboundLink.Writer)
+			common.Close(inboundLink.Writer)
+			common.Interrupt(outboundLink.Reader)
+			common.Interrupt(inboundLink.Reader)
+			return nil, nil, nil, errors.New("authorization revoked")
+		}
+		lm := entry.(*LinkManager)
+		defer lm.end()
 		// Speed Limit and Device Limit
-		w, reject := limit.CheckLimit(user.Email,
+		w, reject := limit.CheckLimit(lm.LimitKey,
 			sessionInbound.Source.Address.IP().String(),
 			network == net.Network_TCP,
 			sessionInbound.Source.Network == net.Network_TCP)
@@ -194,21 +204,7 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			common.Interrupt(inboundLink.Reader)
 			return nil, nil, nil, errors.New("Limited ", user.Email, " by conn or ip")
 		}
-		var lm *LinkManager
-		if lmloaded, ok := d.LinkManagers.Load(user.Email); !ok {
-			lm = &LinkManager{
-				links: make(map[*ManagedWriter]buf.Reader),
-			}
-			d.LinkManagers.Store(user.Email, lm)
-		} else {
-			lm = lmloaded.(*LinkManager)
-		}
-		managedWriter := &ManagedWriter{
-			writer:  uplinkWriter,
-			manager: lm,
-		}
-		lm.AddLink(managedWriter, outboundLink.Reader)
-		inboundLink.Writer = managedWriter
+
 		if w != nil {
 			sessionInbound.CanSpliceCopy = 3
 			inboundLink.Writer = rate.NewRateLimitWriter(inboundLink.Writer, w)
@@ -227,6 +223,8 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			Counter: downcounter,
 			Writer:  outboundLink.Writer,
 		}
+		inboundLink.Writer = lm.wrap(inboundLink.Writer, outboundLink.Reader)
+		outboundLink.Writer = lm.wrap(outboundLink.Writer, inboundLink.Reader)
 	}
 
 	return inboundLink, outboundLink, limit, nil
@@ -371,8 +369,16 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			common.Interrupt(outbound.Reader)
 			return errors.New("get limiter ", sessionInbound.Tag, " error: ", err)
 		}
+		entry, exists := d.LinkManagers.Load(user.Email)
+		if !exists || !entry.(*LinkManager).begin() {
+			common.Close(outbound.Writer)
+			common.Interrupt(outbound.Reader)
+			return errors.New("authorization revoked")
+		}
+		lm := entry.(*LinkManager)
+		defer lm.end()
 		// Speed Limit and Device Limit
-		w, reject := limit.CheckLimit(user.Email,
+		w, reject := limit.CheckLimit(lm.LimitKey,
 			sessionInbound.Source.Address.IP().String(),
 			destination.Network == net.Network_TCP,
 			sessionInbound.Source.Network == net.Network_TCP)
@@ -382,20 +388,8 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			common.Interrupt(outbound.Reader)
 			return errors.New("Limited ", user.Email, " by conn or ip")
 		}
-		var lm *LinkManager
-		if lmloaded, ok := d.LinkManagers.Load(user.Email); !ok {
-			lm = &LinkManager{
-				links: make(map[*ManagedWriter]buf.Reader),
-			}
-			d.LinkManagers.Store(user.Email, lm)
-		} else {
-			lm = lmloaded.(*LinkManager)
-		}
-		managedWriter := &ManagedWriter{
-			writer:  outbound.Writer,
-			manager: lm,
-		}
-		outbound.Writer = managedWriter
+		rawReader := outbound.Reader
+
 		if w != nil {
 			sessionInbound.CanSpliceCopy = 3
 			outbound.Writer = rate.NewRateLimitWriter(outbound.Writer, w)
@@ -407,12 +401,14 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		outbound.Reader = &CounterReader{
 			Reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
 			Counter: &ts.UpCounter,
+			Manager: lm,
+			Source:  sessionInbound.Conn,
 		}
-		lm.AddLink(managedWriter, outbound.Reader)
 		outbound.Writer = &dispatcher.SizeStatWriter{
 			Counter: downcounter,
 			Writer:  outbound.Writer,
 		}
+		outbound.Writer = lm.wrap(outbound.Writer, rawReader)
 	}
 
 	sniffingRequest := content.SniffingRequest
@@ -508,6 +504,7 @@ func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, netw
 }
 
 func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.Link, destination net.Destination, l *limiter.Limiter, protocol string) {
+	ctx = d.routeContext(ctx)
 	outbounds := session.OutboundsFromContext(ctx)
 	ob := outbounds[len(outbounds)-1]
 
@@ -617,4 +614,22 @@ func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.
 	}
 
 	handler.Dispatch(ctx, link)
+}
+
+// Keep custom Xray user-routing rules compatible with the public user tag.
+// Copy context metadata instead of mutating the authenticated MemoryUser.
+func (d *DefaultDispatcher) routeContext(ctx context.Context) context.Context {
+	in := session.InboundFromContext(ctx)
+	if in == nil || in.User == nil {
+		return ctx
+	}
+	v, ok := d.LinkManagers.Load(in.User.Email)
+	if !ok {
+		return ctx
+	}
+	copyIn := *in
+	copyUser := *in.User
+	copyUser.Email = v.(*LinkManager).LimitKey
+	copyIn.User = &copyUser
+	return session.ContextWithInbound(ctx, &copyIn)
 }
