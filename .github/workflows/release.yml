@@ -157,7 +157,10 @@ jobs:
           cp ${GITHUB_WORKSPACE}/README.md ./build_assets/README.md
           cp ${GITHUB_WORKSPACE}/LICENSE ./build_assets/LICENSE
           cp ${GITHUB_WORKSPACE}/third_party/sing-box/LICENSE ./build_assets/LICENSE.sing-box
+          cp ${GITHUB_WORKSPACE}/third_party/sing-anytls/LICENSE ./build_assets/LICENSE.sing-anytls
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
+          cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
+          cp ${GITHUB_WORKSPACE}/docs/TRAFFIC-BOUNDARY-CONTRACT.md ./build_assets/TRAFFIC-BOUNDARY-CONTRACT.md
           cp ${GITHUB_WORKSPACE}/example/*.json ./build_assets/
           LIST=('geoip' 'geosite')
           for i in "${LIST[@]}"
