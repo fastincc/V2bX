@@ -3,6 +3,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
@@ -18,6 +19,12 @@ func New() *Node {
 }
 
 func (n *Node) Start(nodes []conf.NodeConfig, core vCore.Core) error {
+	fmt.Fprintln(os.Stdout, "V2BX_REPORTING_RESET_V1")
+	// Register every configured node first, including nodes whose startup may
+	// never be reached after another node fails.
+	for _, n := range nodes {
+		writeReportingStatus(os.Stdout, n.ApiConfig.APIHost, n.ApiConfig.NodeType, n.ApiConfig.NodeID, "unknown", n.Options.TrafficReportingMode)
+	}
 	n.controllers = make([]*Controller, 0, len(nodes))
 	for i := range nodes {
 		p, err := panel.New(&nodes[i].ApiConfig)

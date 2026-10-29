@@ -50,6 +50,7 @@ func NewController(server vCore.Core, api *panel.Client, config *conf.Options) *
 
 // Start implement the Start() function of the service interface
 func (c *Controller) Start() (err error) {
+	c.emitReportingStatus("unknown")
 	// First fetch Node Info
 	node, err := c.apiClient.GetNodeInfo()
 	if err != nil {
@@ -119,11 +120,17 @@ func (c *Controller) Start() (err error) {
 	c.info = node
 	c.startTasks(node)
 	c.logTrafficMode()
+	state := "disabled"
+	if c.TrafficBatchMode {
+		state = "enabled"
+	}
+	c.emitReportingStatus(state)
 	return nil
 }
 
 // Close implement the Close() function of the service interface
 func (c *Controller) Close() error {
+	c.emitReportingStatus("unknown")
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
 	c.trafficLifeMu.Lock()
