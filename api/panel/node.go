@@ -4,7 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"reflect"
+	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,8 @@ const (
 )
 
 type NodeInfo struct {
+	responseHash string
+	responseETag string
 	Id           int
 	Type         string
 	Security     int
@@ -157,29 +160,21 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		ForceContentType("application/json").
 		Get(path)
 
+	if err = c.checkResponse(r, path, err); err != nil {
+		return nil, err
+	}
 	if r.StatusCode() == 304 {
 		return nil, nil
+	}
+	if r.StatusCode() != 200 {
+		return nil, fmt.Errorf("unexpected node config HTTP status")
 	}
 	hash := sha256.Sum256(r.Body())
 	newBodyHash := hex.EncodeToString(hash[:])
 	if c.responseBodyHash == newBodyHash {
 		return nil, nil
 	}
-	c.responseBodyHash = newBodyHash
-	c.nodeEtag = r.Header().Get("ETag")
-	if err = c.checkResponse(r, path, err); err != nil {
-		return nil, err
-	}
 
-	if r != nil {
-		defer func() {
-			if r.RawBody() != nil {
-				r.RawBody().Close()
-			}
-		}()
-	} else {
-		return nil, fmt.Errorf("received nil response")
-	}
 	node = &NodeInfo{
 		Id:   c.NodeId,
 		Type: c.NodeType,
@@ -264,20 +259,25 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 		node.Security = Tls
 	}
 
+	if cm == nil || cm.BaseConfig == nil {
+		return nil, fmt.Errorf("missing node base_config")
+	}
+	if cm.ServerPort < 1 || cm.ServerPort > 65535 {
+		return nil, fmt.Errorf("invalid server_port")
+	}
 	// parse rules and dns
 	for i := range cm.Routes {
-		var matchs []string
-		if _, ok := cm.Routes[i].Match.(string); ok {
-			matchs = strings.Split(cm.Routes[i].Match.(string), ",")
-		} else if _, ok = cm.Routes[i].Match.([]string); ok {
-			matchs = cm.Routes[i].Match.([]string)
-		} else {
-			temp := cm.Routes[i].Match.([]interface{})
-			matchs = make([]string, len(temp))
-			for i := range temp {
-				matchs[i] = temp[i].(string)
-			}
+		if cm.Routes[i].Action != "block" && cm.Routes[i].Action != "dns" {
+			continue
 		}
+		matchs, matchErr := routeMatches(cm.Routes[i].Match)
+		if matchErr != nil {
+			return nil, fmt.Errorf("invalid route match at index %d", i)
+		}
+		if cm.Routes[i].Action == "dns" && len(matchs) == 0 {
+			return nil, fmt.Errorf("empty DNS match")
+		}
+
 		switch cm.Routes[i].Action {
 		case "block":
 			for _, v := range matchs {
@@ -305,8 +305,20 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 	}
 
 	// set interval
-	node.PushInterval = intervalToTime(cm.BaseConfig.PushInterval)
-	node.PullInterval = intervalToTime(cm.BaseConfig.PullInterval)
+	node.PushInterval, err = intervalToTime(cm.BaseConfig.PushInterval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid push_interval")
+	}
+	node.PullInterval, err = intervalToTime(cm.BaseConfig.PullInterval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid pull_interval")
+	}
+	for _, pattern := range node.Rules.Regexp {
+		if _, e := regexp.Compile(pattern); e != nil {
+			return nil, fmt.Errorf("invalid domain rule")
+		}
+	}
+	node.responseHash, node.responseETag = newBodyHash, r.Header().Get("ETag")
 
 	node.Common = cm
 	// clear
@@ -316,16 +328,51 @@ func (c *Client) GetNodeInfo() (node *NodeInfo, err error) {
 	return node, nil
 }
 
-func intervalToTime(i interface{}) time.Duration {
-	switch reflect.TypeOf(i).Kind() {
-	case reflect.Int:
-		return time.Duration(i.(int)) * time.Second
-	case reflect.String:
-		i, _ := strconv.Atoi(i.(string))
-		return time.Duration(i) * time.Second
-	case reflect.Float64:
-		return time.Duration(i.(float64)) * time.Second
-	default:
-		return time.Duration(reflect.ValueOf(i).Int()) * time.Second
+// CommitNodeInfo acknowledges configuration only after the controller applied it.
+func (c *Client) CommitNodeInfo(n *NodeInfo) {
+	if n != nil {
+		c.responseBodyHash, c.nodeEtag = n.responseHash, n.responseETag
 	}
+}
+func routeMatches(value any) ([]string, error) {
+	switch v := value.(type) {
+	case string:
+		return strings.Split(v, ","), nil
+	case []string:
+		return v, nil
+	case []any:
+		result := make([]string, len(v))
+		for i, x := range v {
+			var ok bool
+			result[i], ok = x.(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid match type")
+			}
+		}
+		return result, nil
+	default:
+		return nil, fmt.Errorf("invalid match type")
+	}
+}
+func intervalToTime(value any) (time.Duration, error) {
+	var seconds float64
+	switch v := value.(type) {
+	case int:
+		seconds = float64(v)
+	case float64:
+		seconds = v
+	case string:
+		n, e := strconv.ParseInt(v, 10, 64)
+		if e != nil {
+			return 0, fmt.Errorf("invalid interval")
+		}
+		seconds = float64(n)
+	default:
+		return 0, fmt.Errorf("invalid interval type")
+	}
+	// Zero is retained for legacy panel compatibility.
+	if math.IsNaN(seconds) || math.IsInf(seconds, 0) || seconds < 0 || seconds >= float64(math.MaxInt64/int64(time.Second)) {
+		return 0, fmt.Errorf("invalid interval range")
+	}
+	return time.Duration(seconds) * time.Second, nil
 }

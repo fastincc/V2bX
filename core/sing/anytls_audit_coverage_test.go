@@ -3,7 +3,7 @@ package sing
 import (
 	"context"
 	"fmt"
-	"regexp"
+	"github.com/InazumaV/V2bX/api/panel"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +28,9 @@ func TestAnyTLSAuditPolicyDenialCoverage(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	limit.DomainRules = []*regexp.Regexp{regexp.MustCompile(`^blocked\.test$`)}
+	if err := limit.UpdateRule(&panel.Rules{Regexp: []string{`^blocked\.test$`}}); err != nil {
+		t.Fatal(err)
+	}
 	cl := f.clientPassword(t, "synthetic-secret")
 	defer cl.Close()
 	c, e := cl.CreateProxy(context.Background(), M.ParseSocksaddr("blocked.test:443"))
@@ -125,7 +127,9 @@ func TestAnyTLSAuditOtherPolicyBranches(t *testing.T) {
 				f := newReviewFixtureAudit(t, false, []option.AnyTLSUser{{Name: "synthetic-secret", Password: "synthetic-secret", AuditID: "1001"}}, logger, enabled)
 				l, _ := limiter.GetLimiter("review")
 				if kind == "protocol" {
-					l.ProtocolRules = []string{"tls"}
+					if err := l.UpdateRule(&panel.Rules{Protocol: []string{"tls"}}); err != nil {
+						t.Fatal(err)
+					}
 					f.router.testProtocol = "tls"
 				} else {
 					v, _ := l.UserLimitInfo.Load(format.UserTag("review", "synthetic-secret"))

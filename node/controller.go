@@ -120,6 +120,7 @@ func (c *Controller) Start() (err error) {
 	}
 	log.WithField("tag", c.tag).Infof("Added %d new users", added)
 	c.info = node
+	c.apiClient.CommitNodeInfo(node)
 	c.startTasks(node)
 	c.logTrafficMode()
 	state := "disabled"

@@ -1,37 +1,52 @@
 package limiter
 
 import (
-	"regexp"
-
+	"fmt"
 	"github.com/InazumaV/V2bX/api/panel"
+	"regexp"
 )
 
-func (l *Limiter) CheckDomainRule(destination string) (reject bool) {
-	// have rule
-	for i := range l.DomainRules {
-		if l.DomainRules[i].MatchString(destination) {
-			reject = true
-			break
-		}
-	}
-	return
+type ruleSnapshot struct {
+	domains   []*regexp.Regexp
+	protocols []string
 }
 
-func (l *Limiter) CheckProtocolRule(protocol string) (reject bool) {
-	for i := range l.ProtocolRules {
-		if l.ProtocolRules[i] == protocol {
-			reject = true
-			break
+func (l *Limiter) CheckDomainRule(destination string) bool {
+	r := l.rules.Load()
+	if r == nil {
+		return false
+	}
+	for _, p := range r.domains {
+		if p.MatchString(destination) {
+			return true
 		}
 	}
-	return
+	return false
 }
-
+func (l *Limiter) CheckProtocolRule(protocol string) bool {
+	r := l.rules.Load()
+	if r == nil {
+		return false
+	}
+	for _, p := range r.protocols {
+		if p == protocol {
+			return true
+		}
+	}
+	return false
+}
 func (l *Limiter) UpdateRule(rule *panel.Rules) error {
-	l.DomainRules = make([]*regexp.Regexp, len(rule.Regexp))
-	for i := range rule.Regexp {
-		l.DomainRules[i] = regexp.MustCompile(rule.Regexp[i])
+	next := &ruleSnapshot{}
+	if rule != nil {
+		next.protocols = append([]string(nil), rule.Protocol...)
+		for i, p := range rule.Regexp {
+			compiled, err := regexp.Compile(p)
+			if err != nil {
+				return fmt.Errorf("invalid domain rule at index %d", i)
+			}
+			next.domains = append(next.domains, compiled)
+		}
 	}
-	l.ProtocolRules = rule.Protocol
+	l.rules.Store(next)
 	return nil
 }

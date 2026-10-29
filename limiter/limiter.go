@@ -3,8 +3,8 @@ package limiter
 import (
 	"errors"
 	"net/netip"
-	"regexp"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -27,8 +27,7 @@ type Limiter struct {
 	hasSnapshot   bool
 	stateMu       sync.Mutex
 	deviceLeases  map[string]map[string]*deviceLease
-	DomainRules   []*regexp.Regexp
-	ProtocolRules []string
+	rules         atomic.Pointer[ruleSnapshot]
 	SpeedLimit    int
 	UserOnlineIP  *sync.Map      // Key: TagUUID, value: {Key: Ip, value: Uid}
 	OldUserOnline *sync.Map      // Key: Ip, value: Uid

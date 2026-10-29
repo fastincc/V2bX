@@ -1,0 +1,3 @@
+package limiter
+import("sync";"testing";"github.com/InazumaV/V2bX/api/panel")
+func TestRuleSnapshotValidationAndRace(t *testing.T){l:=&Limiter{};if e:=l.UpdateRule(&panel.Rules{Regexp:[]string{"blocked"}});e!=nil{t.Fatal(e)};if e:=l.UpdateRule(&panel.Rules{Regexp:[]string{"["}});e==nil{t.Fatal("invalid rule accepted")};if !l.CheckDomainRule("blocked"){t.Fatal("valid rule lost")};var wg sync.WaitGroup;wg.Add(2);go func(){defer wg.Done();for i:=0;i<1000;i++{l.UpdateRule(&panel.Rules{Regexp:[]string{"blocked"},Protocol:[]string{"udp"}})}}();go func(){defer wg.Done();for i:=0;i<1000;i++{l.CheckDomainRule("blocked");l.CheckProtocolRule("udp")}}();wg.Wait()}
