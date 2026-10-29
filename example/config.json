@@ -26,6 +26,7 @@
       "NodeID": 33,
       "NodeType": "shadowsocks",
       "Timeout": 30,
+      "TrafficBatchMode": "auto",
       "ListenIP": "0.0.0.0",
       "SendIP": "0.0.0.0",
       "DeviceOnlineMinTraffic": 200,

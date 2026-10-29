@@ -49,20 +49,27 @@ func NewController(server vCore.Core, api *panel.Client, config *conf.Options) *
 }
 
 // Start implement the Start() function of the service interface
-func (c *Controller) Start() error {
+func (c *Controller) Start() (err error) {
 	// First fetch Node Info
-	var err error
 	node, err := c.apiClient.GetNodeInfo()
 	if err != nil {
 		return fmt.Errorf("get node info error: %s", err)
 	}
-	if c.TrafficBatchMode {
-		if err = c.apiClient.CheckTrafficCapabilities(); err != nil {
-			return fmt.Errorf("traffic batch preflight: %w", err)
-		}
-	} else {
-		log.WithField("tag", c.Options.Name).Warn("Legacy traffic reporting cannot safely replay failed requests; enable batch mode only after panel preflight")
+	if err = c.configureTrafficMode(); err != nil {
+		log.WithFields(log.Fields{"tag": c.Name, "error": err}).Error("Reliable traffic startup negotiation failed")
+		return err
 	}
+	// Prepare and durably pin reliable mode before opening any listener.
+	if err = c.openTrafficSpool(); err != nil {
+		log.WithFields(log.Fields{"tag": c.Name, "error": err}).Error("Reliable traffic storage initialization failed")
+		return err
+	}
+	defer func() {
+		if err != nil && c.trafficSpool != nil {
+			_ = c.trafficSpool.Close()
+			c.trafficSpool = nil
+		}
+	}()
 	// Update user
 	c.userList, err = c.apiClient.GetUserList()
 	if err != nil {
@@ -110,12 +117,8 @@ func (c *Controller) Start() error {
 	}
 	log.WithField("tag", c.tag).Infof("Added %d new users", added)
 	c.info = node
-	if err = c.openTrafficSpool(); err != nil {
-		_ = c.server.DelNode(c.tag)
-		limiter.DeleteLimiter(c.tag)
-		return err
-	}
 	c.startTasks(node)
+	c.logTrafficMode()
 	return nil
 }
 

@@ -108,6 +108,7 @@ type Options struct {
 	TrafficCheckpointSeconds int             `json:"TrafficCheckpointSeconds"`
 	TrafficSpoolMaxBytes     int64           `json:"TrafficSpoolMaxBytes"`
 	TrafficSpoolMaxBatches   int             `json:"TrafficSpoolMaxBatches"`
+	TrafficReportingMode     string          `json:"-"`
 	TrafficBatchMode         bool            `json:"TrafficBatchMode"`
 	TrafficSpoolDirectory    string          `json:"TrafficSpoolDirectory"`
 	Name                     string          `json:"Name"`
@@ -127,9 +128,36 @@ type Options struct {
 
 func (o *Options) UnmarshalJSON(data []byte) error {
 	type opt Options
-	err := json.Unmarshal(data, (*opt)(o))
+	raw := struct {
+		*opt
+		Mode json.RawMessage `json:"TrafficBatchMode"`
+	}{opt: (*opt)(o)}
+	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return err
+	}
+	o.TrafficReportingMode = "auto"
+	o.TrafficBatchMode = false
+	if len(raw.Mode) != 0 {
+		switch strings.TrimSpace(string(raw.Mode)) {
+		case "null":
+			return fmt.Errorf("TrafficBatchMode must not be null")
+		case "true":
+			o.TrafficReportingMode = "on"
+		case "false":
+			o.TrafficReportingMode = "off"
+		default:
+			if json.Unmarshal(raw.Mode, &o.TrafficReportingMode) != nil {
+				return fmt.Errorf("TrafficBatchMode must be auto, on, off, or a boolean")
+			}
+		}
+		switch o.TrafficReportingMode {
+		case "auto", "off":
+		case "on":
+			o.TrafficBatchMode = true
+		default:
+			return fmt.Errorf("TrafficBatchMode must be auto, on, off, or a boolean")
+		}
 	}
 	switch o.Core {
 	case "xray":
@@ -146,4 +174,20 @@ func (o *Options) UnmarshalJSON(data []byte) error {
 		o.RawOptions = data
 	}
 	return nil
+}
+
+// MarshalJSON preserves the requested policy, not the negotiated runtime flag.
+func (o Options) MarshalJSON() ([]byte, error) {
+	type opt Options
+	mode := o.TrafficReportingMode
+	if mode == "" {
+		mode = "auto"
+		if o.TrafficBatchMode {
+			mode = "on"
+		}
+	}
+	return json.Marshal(struct {
+		*opt
+		Mode string `json:"TrafficBatchMode"`
+	}{(*opt)(&o), mode})
 }

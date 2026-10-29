@@ -1,28 +1,17 @@
 package node
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/trafficbatch"
 	vcore "github.com/InazumaV/V2bX/core"
 	log "github.com/sirupsen/logrus"
-	"os"
 	"path/filepath"
 	"time"
 )
 
 func (c *Controller) openTrafficSpool() error {
 	if !c.TrafficBatchMode {
-		if c.TrafficSpoolDirectory != "" {
-			files, err := filepath.Glob(filepath.Join(c.TrafficSpoolDirectory, "*", "pending.json"))
-			if err != nil || len(files) != 0 {
-				return fmt.Errorf("cannot disable batches with pending traffic")
-			}
-			if _, err := os.Stat(filepath.Join(c.TrafficSpoolDirectory, "queue-v2")); err == nil {
-				return fmt.Errorf("queue migration requires an explicit drain")
-			}
-		}
 		return nil
 	}
 	if _, ok := c.server.(vcore.TrafficSnapshotter); !ok {
@@ -35,7 +24,7 @@ func (c *Controller) openTrafficSpool() error {
 	if root == "" {
 		return fmt.Errorf("TrafficSpoolDirectory is required for batch mode")
 	}
-	binding := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%d", c.apiClient.APIHost, c.apiClient.NodeType, c.apiClient.NodeId))))
+	binding := c.trafficBinding()
 	maxBytes := c.TrafficSpoolMaxBytes
 	if maxBytes == 0 {
 		maxBytes = 64 << 20

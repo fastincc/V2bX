@@ -28,6 +28,10 @@ func TestBatchOutageLostAckAndRestart(t *testing.T) {
 	requests := 0
 	seen := map[string]string{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/server/UniProxy/traffic_capabilities" {
+			fmt.Fprint(w, `{"data":{"version":1,"enabled":true,"durable_ack":true,"deduplication":true,"receipt_retention_seconds":0}}`)
+			return
+		}
 		requests++
 		id := r.Header.Get("X-Traffic-Batch-ID")
 		if len(id) != 32 {
@@ -68,7 +72,10 @@ func TestBatchOutageLostAckAndRestart(t *testing.T) {
 	source := &batchCore{counter: counter.NewTrafficCounter()}
 	source.counter.Tx("user", 123)
 	source.counter.Rx("user", 456)
-	c := &Controller{server: source, apiClient: client, Options: &conf.Options{TrafficBatchMode: true, TrafficSpoolDirectory: filepath.Join(t.TempDir(), "spool")}}
+	c := &Controller{server: source, apiClient: client, Options: &conf.Options{TrafficReportingMode: "auto", TrafficSpoolDirectory: filepath.Join(t.TempDir(), "spool")}}
+	if e = c.configureTrafficMode(); e != nil {
+		t.Fatal(e)
+	}
 	if e = c.openTrafficSpool(); e != nil {
 		t.Fatal(e)
 	}
@@ -90,6 +97,10 @@ func TestBatchOutageLostAckAndRestart(t *testing.T) {
 	}
 	c.trafficSpool.Close()
 	c.trafficSpool = nil
+	c.TrafficBatchMode = false
+	if e = c.configureTrafficMode(); e != nil {
+		t.Fatal(e)
+	}
 	if e = c.openTrafficSpool(); e != nil {
 		t.Fatal(e)
 	}
