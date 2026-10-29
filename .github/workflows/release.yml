@@ -2,6 +2,12 @@ name: Build and Release
 
 on:
   workflow_dispatch:
+    inputs:
+      full_matrix:
+        description: 'Build all 23 platforms instead of the default four (artifacts only)'
+        type: boolean
+        required: false
+        default: false
   push:
     tags:
       - 'fastincc-v*'
@@ -40,68 +46,14 @@ jobs:
     needs: test-anytls
     strategy:
       matrix:
-        # Include amd64 on all platforms.
-        goos: [windows, freebsd, linux, darwin]
-        goarch: [amd64, 386]
-        exclude:
-          # Exclude i386 on darwin.
-          - goarch: 386
-            goos: darwin
-        include:
-          # BEIGIN MacOS ARM64
-          - goos: darwin
-            goarch: arm64
-          # END MacOS ARM64
-          # BEGIN Linux ARM 5 6 7
-          - goos: linux
-            goarch: arm
-            goarm: 7
-          - goos: linux
-            goarch: arm
-            goarm: 6
-          - goos: linux
-            goarch: arm
-            goarm: 5
-          # END Linux ARM 5 6 7
-          # BEGIN Android ARM 8
-          - goos: android
-            goarch: arm64
-          # END Android ARM 8
-          # BEGIN Other architectures
-          # BEGIN riscv64 & ARM64
-          - goos: linux
-            goarch: arm64
-          - goos: linux
-            goarch: riscv64
-          # END riscv64 & ARM64
-          # BEGIN MIPS
-          - goos: linux
-            goarch: mips64
-          - goos: linux
-            goarch: mips64le
-          - goos: linux
-            goarch: mipsle
-          - goos: linux
-            goarch: mips
-          # END MIPS
-          # BEGIN PPC
-          - goos: linux
-            goarch: ppc64
-          - goos: linux
-            goarch: ppc64le
-          # END PPC
-          # BEGIN FreeBSD ARM
-          - goos: freebsd
-            goarch: arm64
-          - goos: freebsd
-            goarch: arm
-            goarm: 7
-          # END FreeBSD ARM
-          # BEGIN S390X
-          - goos: linux
-            goarch: s390x
-          # END S390X
-          # END Other architectures
+        # Tags and PRs build four supported release targets. The full matrix is
+        # available only through an explicit manual build; it does not publish.
+        include: >-
+          ${{ fromJSON(
+            github.event_name == 'workflow_dispatch' && inputs.full_matrix &&
+            '[{"goos":"windows","goarch":"amd64"},{"goos":"windows","goarch":"386"},{"goos":"freebsd","goarch":"amd64"},{"goos":"freebsd","goarch":"386"},{"goos":"linux","goarch":"amd64"},{"goos":"linux","goarch":"386"},{"goos":"darwin","goarch":"amd64"},{"goos":"darwin","goarch":"arm64"},{"goos":"linux","goarch":"arm","goarm":7},{"goos":"linux","goarch":"arm","goarm":6},{"goos":"linux","goarch":"arm","goarm":5},{"goos":"android","goarch":"arm64"},{"goos":"linux","goarch":"arm64"},{"goos":"linux","goarch":"riscv64"},{"goos":"linux","goarch":"mips64"},{"goos":"linux","goarch":"mips64le"},{"goos":"linux","goarch":"mipsle"},{"goos":"linux","goarch":"mips"},{"goos":"linux","goarch":"ppc64"},{"goos":"linux","goarch":"ppc64le"},{"goos":"freebsd","goarch":"arm64"},{"goos":"freebsd","goarch":"arm","goarm":7},{"goos":"linux","goarch":"s390x"}]' ||
+            '[{"goos":"linux","goarch":"amd64"},{"goos":"linux","goarch":"arm64"},{"goos":"linux","goarch":"arm","goarm":7},{"goos":"windows","goarch":"amd64"}]'
+          ) }}
       fail-fast: false
 
     runs-on: ubuntu-latest
@@ -201,7 +153,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/fastincc-v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/fastincc-v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
