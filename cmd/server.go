@@ -97,36 +97,37 @@ func serverHandle(_ *cobra.Command, _ []string) (result error) {
 	xdns := os.Getenv("XRAY_DNS_PATH")
 	sdns := os.Getenv("SING_DNS_PATH")
 	if watch {
-		err = c.Watch(config, xdns, sdns, func() {
+		err = c.Watch(config, xdns, sdns, func(candidate *conf.Conf) error {
 			lifecycle.Lock()
 			defer lifecycle.Unlock()
 			if closeErr := nodes.Close(); closeErr != nil {
 				log.WithError(closeErr).Error("Traffic drain failed; reload cancelled")
-				return
+				return errors.New("configuration apply failed")
 			}
 			err = vc.Close()
 			if err != nil {
 				log.WithField("err", err).Error("Restart node failed")
-				return
+				return errors.New("configuration apply failed")
 			}
-			vc, err = vCore.NewCore(c.CoresConfig)
+			vc, err = vCore.NewCore(candidate.CoresConfig)
 			if err != nil {
 				log.WithField("err", err).Error("New core failed")
-				return
+				return errors.New("configuration apply failed")
 			}
 			err = vc.Start()
 			if err != nil {
 				log.WithField("err", err).Error("Start core failed")
-				return
+				return errors.New("configuration apply failed")
 			}
 			log.Info("Core ", vc.Type(), " restarted")
-			err = nodes.Start(c.NodeConfig, vc)
+			err = nodes.Start(candidate.NodeConfig, vc)
 			if err != nil {
 				log.WithField("err", err).Error("Run nodes failed")
-				return
+				return errors.New("configuration apply failed")
 			}
 			log.Info("Nodes restarted")
 			runtime.GC()
+			return nil
 		})
 		if err != nil {
 			log.WithField("err", err).Error("start watch failed")

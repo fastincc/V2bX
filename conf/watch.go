@@ -2,70 +2,98 @@ package conf
 
 import (
 	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"io"
 	"log"
 	"path/filepath"
-	"strings"
 	"time"
-
-	"github.com/fsnotify/fsnotify"
 )
 
-func (p *Conf) Watch(filePath, xDnsPath string, sDnsPath string, reload func()) error {
+// Watch serializes candidate loads. The running configuration is committed only
+// after apply succeeds; parsing or apply errors leave it untouched.
+func (p *Conf) Watch(filePath, xDnsPath, sDnsPath string, apply func(*Conf) error) error {
+	_, err := p.watch(filePath, xDnsPath, sDnsPath, apply, 500*time.Millisecond)
+	return err
+}
+func (p *Conf) watch(filePath, xDnsPath, sDnsPath string, apply func(*Conf) error, delay time.Duration) (io.Closer, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("new watcher error: %s", err)
+		return nil, err
+	}
+	targets := map[string]bool{}
+	parents := map[string]bool{}
+	for _, name := range []string{filePath, xDnsPath, sDnsPath} {
+		if name == "" {
+			continue
+		}
+		abs, e := filepath.Abs(name)
+		if e != nil {
+			watcher.Close()
+			return nil, e
+		}
+		targets[abs] = true
+		parents[filepath.Dir(abs)] = true
+	}
+	for parent := range parents {
+		if err = watcher.Add(parent); err != nil {
+			watcher.Close()
+			return nil, fmt.Errorf("watch config directory failed")
+		}
 	}
 	go func() {
-		var pre time.Time
-		defer watcher.Close()
+		var timer *time.Timer
+		var ready <-chan time.Time
+		defer func() {
+			if timer != nil {
+				timer.Stop()
+			}
+		}()
 		for {
 			select {
-			case e := <-watcher.Events:
-				if e.Has(fsnotify.Chmod) {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				abs, _ := filepath.Abs(event.Name)
+				if !targets[abs] || event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Remove) == 0 {
 					continue
 				}
-				if pre.Add(10 * time.Second).After(time.Now()) {
-					continue
-				}
-				pre = time.Now()
-				go func() {
-					time.Sleep(5 * time.Second)
-					switch filepath.Base(strings.TrimSuffix(e.Name, "~")) {
-					case filepath.Base(xDnsPath), filepath.Base(sDnsPath):
-						log.Println("DNS file changed, reloading...")
+				if timer != nil && !timer.Stop() {
+					select {
+					case <-timer.C:
 					default:
-						log.Println("config file changed, reloading...")
 					}
-					*p = *New()
-					err := p.LoadFromPath(filePath)
-					if err != nil {
-						log.Printf("reload config error: %s", err)
-					}
-					reload()
-					log.Println("reload config success")
-				}()
-			case err := <-watcher.Errors:
-				if err != nil {
-					log.Printf("File watcher error: %s", err)
 				}
+				if timer == nil {
+					timer = time.NewTimer(delay)
+				} else {
+					timer.Reset(delay)
+				}
+				ready = timer.C
+			case <-ready:
+				ready = nil
+				candidate := New()
+				if err := candidate.LoadFromPath(filePath); err != nil {
+					log.Print("configuration reload rejected: invalid candidate")
+					continue
+				}
+				if err := candidate.Validate(); err != nil {
+					log.Print("configuration reload rejected: candidate validation failed")
+					continue
+				}
+				if err := apply(candidate); err != nil {
+					log.Print("configuration reload failed; last committed configuration retained")
+					continue
+				}
+				*p = *candidate
+				log.Print("reload config success")
+			case _, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Print("configuration watcher error")
 			}
 		}
 	}()
-	err = watcher.Add(filePath)
-	if err != nil {
-		return fmt.Errorf("watch file error: %s", err)
-	}
-	if xDnsPath != "" {
-		err = watcher.Add(xDnsPath)
-		if err != nil {
-			return fmt.Errorf("watch dns file error: %s", err)
-		}
-	}
-	if sDnsPath != "" {
-		err = watcher.Add(sDnsPath)
-		if err != nil {
-			return fmt.Errorf("watch dns file error: %s", err)
-		}
-	}
-	return nil
+	return watcher, nil
 }
