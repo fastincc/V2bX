@@ -6,6 +6,7 @@ import (
 	"github.com/InazumaV/V2bX/common/trafficbatch"
 	vcore "github.com/InazumaV/V2bX/core"
 	log "github.com/sirupsen/logrus"
+	"math"
 	"path/filepath"
 	"time"
 )
@@ -82,7 +83,27 @@ func (c *Controller) collectAndReportTraffic() ([]panel.UserTraffic, error) {
 }
 
 func (c *Controller) captureTraffic() error {
-	return c.server.(vcore.TrafficSnapshotter).PersistTrafficSnapshot(c.tag, c.trafficSpool.Save)
+	return c.server.(vcore.TrafficSnapshotter).PersistTrafficSnapshot(c.tag, func(rows []panel.UserTraffic) error {
+		if err := c.trafficSpool.Save(rows); err != nil {
+			return err
+		}
+		// Device activity belongs to the collection window, not the replayed batch.
+		c.onlineTrafficMu.Lock()
+		defer c.onlineTrafficMu.Unlock()
+		if c.onlineTraffic == nil {
+			c.onlineTraffic = make(map[int]int64)
+		}
+		for _, row := range rows {
+			for _, amount := range []int64{row.Upload, row.Download} {
+				if amount > math.MaxInt64-c.onlineTraffic[row.UID] {
+					c.onlineTraffic[row.UID] = math.MaxInt64
+				} else {
+					c.onlineTraffic[row.UID] += amount
+				}
+			}
+		}
+		return nil
+	})
 }
 func (c *Controller) checkpointTrafficTask() error {
 	c.trafficLifeMu.RLock()
@@ -100,10 +121,27 @@ func (c *Controller) checkpointTrafficTask() error {
 	}
 	if err := c.trafficSpool.SealIfDue(interval); err != nil {
 		c.logTrafficStorageError(err)
+	} else if c.trafficDelivery != nil {
+		if n, _ := c.trafficSpool.Counts(); n > 0 {
+			c.trafficDelivery.notify()
+		}
 	}
 	return nil
 }
 
 func (c *Controller) logTrafficStorageError(err error) {
 	log.WithFields(log.Fields{"tag": c.tag, "error": err}).Error("Traffic checkpoint unavailable; existing journal retained, unsaved counters remain in memory")
+}
+
+// Only regular online reporting consumes this snapshot; catch-up never touches it.
+// Values are totals for threshold comparison only, never used for billing.
+func (c *Controller) takeOnlineTraffic() []panel.UserTraffic {
+	c.onlineTrafficMu.Lock()
+	defer c.onlineTrafficMu.Unlock()
+	rows := make([]panel.UserTraffic, 0, len(c.onlineTraffic))
+	for uid, total := range c.onlineTraffic {
+		rows = append(rows, panel.UserTraffic{UID: uid, Upload: total})
+	}
+	c.onlineTraffic = nil
+	return rows
 }

@@ -10,6 +10,9 @@ import (
 
 func (c *Controller) startTasks(node *panel.NodeInfo) {
 	if c.reliableTrafficEnabled {
+		c.takeOnlineTraffic() // discard previous runtime device-window state, never billing data
+		c.trafficDelivery = newTrafficDelivery(c.apiClient, c.trafficSpool, c.tag)
+		go c.trafficDelivery.run()
 		seconds := c.TrafficCheckpointSeconds
 		if seconds == 0 {
 			seconds = 1

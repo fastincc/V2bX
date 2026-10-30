@@ -21,6 +21,10 @@ type Controller struct {
 	// Negotiated runtime state must survive core-specific Options reparsing.
 	reliableTrafficEnabled    bool
 	operationMu               sync.Mutex
+	reportMu                  sync.Mutex
+	onlineTrafficMu           sync.Mutex
+	onlineTraffic             map[int]int64
+	trafficDelivery           *trafficDelivery
 	trafficLifeMu             sync.RWMutex
 	checkpointPeriodic        *task.Task
 	lastTrafficSeal           time.Time
@@ -145,7 +149,13 @@ func (c *Controller) tasks() []*task.Task {
 func (c *Controller) Close() error {
 	c.emitReportingStatus("unknown")
 	c.operationMu.Lock()
+	c.trafficLifeMu.Lock()
 	c.closed = true
+	c.trafficLifeMu.Unlock()
+	delivery := c.trafficDelivery
+	if delivery != nil {
+		delivery.cancel()
+	}
 	for _, t := range c.tasks() {
 		if t != nil {
 			t.Close()
@@ -157,6 +167,9 @@ func (c *Controller) Close() error {
 		if t != nil {
 			t.Wait()
 		}
+	}
+	if delivery != nil {
+		<-delivery.done
 	}
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()

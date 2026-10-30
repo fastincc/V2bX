@@ -15,6 +15,7 @@ import (
 
 type Client struct {
 	client              *resty.Client
+	trafficClient       *resty.Client
 	APIHost             string
 	APISendIP           string
 	Token               string
@@ -72,13 +73,16 @@ func New(c *conf.ApiConfig) (*Client, error) {
 		"token":     c.Key,
 	})
 	return &Client{
-		client:    client,
-		Token:     c.Key,
-		APIHost:   c.APIHost,
-		APISendIP: c.APISendIP,
-		NodeType:  c.NodeType,
-		NodeId:    c.NodeID,
-		UserList:  &UserListBody{},
-		AliveMap:  &AliveMap{},
+		client: client,
+		// Delivery owns retries and pacing. Clone before either client is used;
+		// retain the same transport, timeout, authentication and source address.
+		trafficClient: client.Clone().SetRetryCount(0),
+		Token:         c.Key,
+		APIHost:       c.APIHost,
+		APISendIP:     c.APISendIP,
+		NodeType:      c.NodeType,
+		NodeId:        c.NodeID,
+		UserList:      &UserListBody{},
+		AliveMap:      &AliveMap{},
 	}, nil
 }

@@ -6,12 +6,39 @@ import (
 )
 
 func (c *Controller) reportUserTrafficTask() (err error) {
+	// Serialize callbacks across interval changes without blocking user updates
+	// on reliable HTTP delivery. Lifecycle closes the sender before the spool.
+	c.reportMu.Lock()
+	defer c.reportMu.Unlock()
 	c.operationMu.Lock()
-	defer c.operationMu.Unlock()
 	if c.closed {
+		c.operationMu.Unlock()
 		return nil
 	}
-	userTraffic, reportErr := c.collectAndReportTraffic()
+	var userTraffic, onlineTraffic []panel.UserTraffic
+	var reportErr error
+	if c.reliableTrafficEnabled && c.trafficDelivery != nil {
+		storageErr := c.captureTraffic()
+		if storageErr == nil {
+			storageErr = c.trafficSpool.SealIfDue(c.info.PushInterval)
+		}
+		onlineTraffic = c.takeOnlineTraffic()
+		delivery := c.trafficDelivery
+		c.operationMu.Unlock()
+		if storageErr != nil {
+			c.logTrafficStorageError(storageErr)
+		}
+		userTraffic, reportErr = delivery.report()
+		c.operationMu.Lock()
+		if c.closed {
+			c.operationMu.Unlock()
+			return nil
+		}
+	} else {
+		userTraffic, reportErr = c.collectAndReportTraffic()
+		onlineTraffic = userTraffic
+	}
+	defer c.operationMu.Unlock()
 	if len(userTraffic) > 0 || reportErr != nil {
 		err = reportErr
 		if err != nil {
@@ -31,7 +58,7 @@ func (c *Controller) reportUserTrafficTask() (err error) {
 		// Only report user has traffic > 100kb to allow ping test
 		var result []panel.OnlineUser
 		var nocountUID = make(map[int]struct{})
-		for _, traffic := range userTraffic {
+		for _, traffic := range onlineTraffic {
 			total := traffic.Upload + traffic.Download
 			if total < int64(c.Options.DeviceOnlineMinTraffic*1000) {
 				nocountUID[traffic.UID] = struct{}{}
