@@ -41,6 +41,10 @@ jobs:
         run: GOEXPERIMENT=jsonv2 go test -race ./conf ./api/panel ./common/trafficbatch ./node -run 'Test(Reporting|Traffic|Automatic|Batch|Queue|Conf_Load)' -count=1 -timeout=120s
       - name: Device limit hot-update regression
         run: GOEXPERIMENT=jsonv2 go test -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./node -run TestDevice -count=1
+      - name: Hysteria2 QUIC congestion snapshot race regression
+        run: GOEXPERIMENT=jsonv2 go test -race github.com/apernet/quic-go/internal/ackhandler -count=1
+      - name: Six-fix lifecycle accounting and UDP regression
+        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./api/panel ./conf ./common/rate ./common/task ./limiter ./node ./core/... ./cmd -run 'Test(NodeConfig|NodeIntervals|RuleSnapshot|WatchCandidate|TaskRestart|ReloadDrain|Candidate|LastGood|DrainCanResume|LoggerNever|RevokedTail|HysteriaQUIC|XrayRealRevoked|RetiredManager|GenerationPreserves|PacketRate|UDPAdmission|ShadowsocksUDP)' -count=1 -timeout=180s
       - name: V2bX integration
         run: GOEXPERIMENT=jsonv2 ANYTLS_LONG_STREAM_DURATION=30s ANYTLS_CLEANUP_REVIEW=1 go test -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./core/sing -run TestAnyTLS -count=1
 
@@ -110,11 +114,12 @@ jobs:
         run: |
           cp ${GITHUB_WORKSPACE}/README.md ./build_assets/README.md
           cp ${GITHUB_WORKSPACE}/LICENSE ./build_assets/LICENSE
+          cp ${GITHUB_WORKSPACE}/third_party/apernet-quic-go/LICENSE ./build_assets/LICENSE.apernet-quic-go
           cp ${GITHUB_WORKSPACE}/third_party/sing-box/LICENSE ./build_assets/LICENSE.sing-box
           cp ${GITHUB_WORKSPACE}/third_party/sing-anytls/LICENSE ./build_assets/LICENSE.sing-anytls
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-10.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-11.md ./build_assets/RELEASE-NOTES.md
           cp ${GITHUB_WORKSPACE}/docs/REPORTING-STATUS.md ./build_assets/REPORTING-STATUS.md
           cp ${GITHUB_WORKSPACE}/docs/TRAFFIC-AUTO-MODE.md ./build_assets/TRAFFIC-AUTO-MODE.md
           cp ${GITHUB_WORKSPACE}/docs/TRAFFIC-BOUNDARY-CONTRACT.md ./build_assets/TRAFFIC-BOUNDARY-CONTRACT.md
@@ -175,4 +180,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-10.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-11.md
