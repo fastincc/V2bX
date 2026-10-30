@@ -16,7 +16,8 @@ import (
 )
 
 type Controller struct {
-	rebuildRecovery *nodeRebuildRecovery
+	pendingUserCleanup []panel.UserInfo
+	rebuildRecovery    *nodeRebuildRecovery
 	// Negotiated runtime state must survive core-specific Options reparsing.
 	reliableTrafficEnabled    bool
 	operationMu               sync.Mutex
@@ -126,6 +127,7 @@ func (c *Controller) Start() (err error) {
 	log.WithField("tag", c.tag).Infof("Added %d new users", added)
 	c.info = node
 	c.apiClient.CommitNodeInfo(node)
+	c.apiClient.CommitUserList()
 	c.startTasks(node)
 	c.logTrafficMode()
 	state := "disabled"

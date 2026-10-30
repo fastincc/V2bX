@@ -42,6 +42,8 @@ type DeviceSnapshot struct {
 
 // GetUserList will pull user from v2board
 func (c *Client) GetUserList() ([]UserInfo, error) {
+	c.pendingUserETag = ""
+	c.userResponsePending = false
 	const path = "/api/v1/server/UniProxy/user"
 	r, err := c.client.R().
 		SetHeader("If-None-Match", c.userEtag).
@@ -100,7 +102,8 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 	if userlist.Users == nil {
 		userlist.Users = []UserInfo{}
 	}
-	c.userEtag = r.Header().Get("ETag")
+	c.pendingUserETag = r.Header().Get("ETag")
+	c.userResponsePending = true
 	return userlist.Users, nil
 }
 
@@ -184,4 +187,16 @@ func (c *Client) ReportNodeOnlineUsers(data *map[int][]string, events ...DeviceE
 }
 
 // InvalidateUserCache retries a response that was not fully applied.
-func (c *Client) InvalidateUserCache() { c.userEtag = "" }
+// CommitUserList acknowledges application, not just a successful HTTP decode.
+func (c *Client) CommitUserList() {
+	if c.userResponsePending {
+		c.userEtag = c.pendingUserETag
+		c.userResponsePending = false
+		c.pendingUserETag = ""
+	}
+}
+func (c *Client) InvalidateUserCache() {
+	c.userEtag = ""
+	c.pendingUserETag = ""
+	c.userResponsePending = false
+}

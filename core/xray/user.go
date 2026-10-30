@@ -44,9 +44,11 @@ func (c *Xray) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeInfo) e
 		if user == "" {
 			continue
 		}
-		err = userManager.RemoveUser(context.Background(), user)
-		if err != nil {
-			return err
+		if userManager.GetUser(context.Background(), user) != nil {
+			err = userManager.RemoveUser(context.Background(), user)
+			if err != nil && userManager.GetUser(context.Background(), user) != nil {
+				return err
+			}
 		}
 		delete(c.users.active, raw)
 		c.users.retired[user] = tag
@@ -140,6 +142,11 @@ func (c *Xray) AddUsers(p *vCore.AddUsersParams) (added int, err error) {
 		c.users.node[key] = p.Tag
 		err = man.AddUser(context.Background(), mUser)
 		if err != nil {
+			// A manager may have installed the user before returning an error. Keep a
+			// cleanup handle until the controller's compensating deletion succeeds.
+			if man.GetUser(context.Background(), key) != nil {
+				c.users.active[raw] = key
+			}
 			c.users.retired[key] = p.Tag
 			if v, ok := c.dispatcher.LinkManagers.Load(key); ok {
 				v.(*dispatcher.LinkManager).CloseAll()

@@ -170,6 +170,7 @@ func (c *Controller) rebuildFromPanel(next *panel.NodeInfo, users []panel.UserIn
 	c.traffic = make(map[string]int64)
 	c.rebuildRecovery = nil
 	c.apiClient.CommitNodeInfo(next)
+	c.apiClient.CommitUserList()
 	if t := c.nodeInfoMonitorPeriodic; t != nil && next.PullInterval > 0 && t.Interval != next.PullInterval {
 		t.SetInterval(next.PullInterval)
 	}

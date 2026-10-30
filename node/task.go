@@ -5,7 +5,6 @@ import (
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/task"
-	vCore "github.com/InazumaV/V2bX/core"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -72,6 +71,12 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		}
 		return nil
 	}
+	if len(c.pendingUserCleanup) > 0 {
+		if err := c.cleanupFailedUserAdd(); err != nil {
+			log.WithField("tag", c.tag).WithError(err).Error("Partial user cleanup deferred")
+			return nil
+		}
+	}
 	// A failed admission snapshot must not block revocation, or enable new users.
 	// get user alive
 	newA, err := c.apiClient.GetUserAlive()
@@ -118,56 +123,8 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	if newU == nil {
 		return nil
 	}
-	// Device-only changes must not delete users or close established sessions.
-	c.limiter.UpdateDeviceLimits(c.tag, newU)
-	deleted, added := compareUserList(c.userList, newU)
-	if len(deleted) > 0 {
-		// have deleted users
-		err = c.server.DelUsers(deleted, c.tag, c.info)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Error("Delete users failed")
-			return nil
-		}
-	}
-	if len(added) > 0 {
-		// have added users
-		_, err = c.server.AddUsers(&vCore.AddUsersParams{
-			Tag:      c.tag,
-			NodeInfo: c.info,
-			Users:    added,
-		})
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Error("Add users failed")
-			return nil
-		}
-	}
-	if len(added) > 0 || len(deleted) > 0 {
-		// update Limiter
-		c.limiter.UpdateUser(c.tag, added, deleted)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Error("limiter users failed")
-			return nil
-		}
-		// clear traffic record
-		if c.LimitConfig.EnableDynamicSpeedLimit {
-			for i := range deleted {
-				delete(c.traffic, deleted[i].Uuid)
-			}
-		}
-	}
-	c.userList = newU
-	if len(added)+len(deleted) != 0 {
-		log.WithField("tag", c.tag).
-			Infof("%d user deleted, %d user added", len(deleted), len(added))
+	if err := c.applyUserSnapshot(newU); err != nil {
+		log.WithField("tag", c.tag).WithError(err).Error("User synchronization failed; response will be retried")
 	}
 	return nil
 }
