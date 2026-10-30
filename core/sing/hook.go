@@ -15,6 +15,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/protocol/anytls"
+	"github.com/sagernet/sing-box/protocol/shadowsocks"
 	N "github.com/sagernet/sing/common/network"
 )
 
@@ -75,6 +76,10 @@ func (h *HookServer) RoutedConnection(ctx context.Context, conn net.Conn, m adap
 		h.users.mapLock.RLock()
 		defer h.users.mapLock.RUnlock()
 	}
+	if !shadowsocks.UserAuthorized(ctx) {
+		conn.Close()
+		return conn
+	}
 	key := m.User
 	if h.users != nil {
 		var ok bool
@@ -134,6 +139,10 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 	if h.users != nil {
 		h.users.mapLock.RLock()
 		defer h.users.mapLock.RUnlock()
+	}
+	if !shadowsocks.UserAuthorized(ctx) {
+		conn.Close()
+		return conn
 	}
 	key := m.User
 	if h.users != nil {

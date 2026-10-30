@@ -340,3 +340,6 @@ replace github.com/anytls/sing-anytls => ./third_party/sing-anytls
 
 // Pinned Hysteria2 QUIC fork with synchronized congestion-controller snapshots.
 replace github.com/apernet/quic-go => ./third_party/apernet-quic-go
+
+// Pinned v0.2.8 with atomic multi-user authentication snapshots.
+replace github.com/sagernet/sing-shadowsocks => ./third_party/sing-shadowsocks
