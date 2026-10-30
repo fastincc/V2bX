@@ -9,6 +9,8 @@ Four independently committed fixes follow the -11 baseline:
 - `1b6c75d`: commit user ETags only after successful application. Partial updates are compensated or retried; failed application cannot be hidden by a subsequent 304 response. Healthy unchanged responses retain existing caching.
 - `b5a978d`: drain reliable traffic backlogs through a cancellable, serial sender per node. New sealed batches wake delivery; ordinary reporting takes priority. Extra catch-up attempts are spaced by at least 500ms and share an 8/s budget per panel origin within one process. This budget excludes ordinary periodic reports and is not a fleet-wide limit. Failures back off, valid Retry-After is respected, and ambiguous acknowledgements retain the original batch for replay.
 
+An additional independently committed release-blocker fix (`cc4ad0e`) closes a pre-existing UDP rejection gap. The original -11 also reproduced it: closing a UDP NAT connection could still allow buffered reads and delegated writes. Rejected device/rule/identity paths now return a terminal connection that rejects I/O and exposes no optimized read or unwrapping path. The first -12 CI attempt caught this issue and was not bypassed; the unpublished tag is updated only after the additional fix and acceptance.
+
 ## Compatibility and behavior
 
 Existing configuration, subscriptions, credentials, panel APIs, real-IP sources, device admission limits, upload/download directions and durable batch format remain compatible. TrafficBatchMode still defaults to auto. No new panel endpoint, database migration or fractional-remainder accounting is required. Legacy reporting remains without batch-level idempotency guarantees.
@@ -19,7 +21,9 @@ Failed rebuilds may interrupt existing connections, which clients must reconnect
 
 ## Validation
 
-The four fixes passed local race/vet checks and isolated regression on two Linux amd64 test hosts. Tests include concurrent Shadowsocks/SS2022 user changes, real bind-failure recovery, ETag retries, queue cancellation/reopen, shared pacing, normal-report priority and device reporting thresholds. Release CI includes these regression tests.
+The four originally planned fixes passed local race/vet checks and isolated regression on two Linux amd64 test hosts. Tests include concurrent Shadowsocks/SS2022 user changes, real bind-failure recovery, ETag retries, queue cancellation/reopen, shared pacing, normal-report priority and device reporting thresholds. Release CI includes these regression tests and the additional terminal UDP rejection tests.
+
+The additional UDP rejection fix passed 30 rounds of real Shadowsocks UDP device-limit, rate-limit and exact-accounting regression on each Linux host, plus 3,000 pre-buffered rejection cases per host. The unmodified -11 reproduced the defect on both hosts. Normal admission adds no new wrapper or lock; the terminal connection is created only after rejection.
 
 With identical 16-batch workloads, a 2-second regular reporting interval and 100ms server response delay, median drain time fell from 33.655 to 8.417 seconds on one host and 33.843 to 8.456 seconds on the other (approximately 75% less elapsed time). Catch-up increases requests per unit time; these measurements are not a production capacity guarantee.
 
