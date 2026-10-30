@@ -105,9 +105,8 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 	taguuid := format.UserTag(m.Inbound, m.User)
 	if b, r := l.CheckLimit(taguuid, ip, false, true); r {
 		anytls.AuditPolicyDenied(ctx, "policy_limit_denied")
-		conn.Close()
 		log.Error("[", m.Inbound, "] ", "Limited ", logUser, " by ip or conn")
-		return conn
+		return rejectPacketConnection(conn)
 	} else if b != nil {
 		conn = rate.NewPacketConnRateLimiter(conn, b)
 	}
@@ -121,8 +120,7 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 				"User %s access domain %s reject by rule",
 				logUser,
 				destStr))
-			conn.Close()
-			return conn
+			return rejectPacketConnection(conn)
 		}
 		if len(protocol) != 0 {
 			if l.CheckProtocolRule(protocol) {
@@ -131,8 +129,7 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 					"User %s access protocol %s reject by rule",
 					logUser,
 					protocol))
-				conn.Close()
-				return conn
+				return rejectPacketConnection(conn)
 			}
 		}
 	}
@@ -141,16 +138,14 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 		defer h.users.mapLock.RUnlock()
 	}
 	if !shadowsocks.UserAuthorized(ctx) {
-		conn.Close()
-		return conn
+		return rejectPacketConnection(conn)
 	}
 	key := m.User
 	if h.users != nil {
 		var ok bool
 		key, ok = h.users.active[userKey{m.Inbound, m.User}]
 		if !ok {
-			conn.Close()
-			return conn
+			return rejectPacketConnection(conn)
 		}
 	}
 	t := counter.LoadOrCreate(&h.counter, m.Inbound)
