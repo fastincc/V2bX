@@ -123,7 +123,7 @@ func (s *Selector) DelNode(tag string) error {
 		s.nodes.Delete(tag)
 		return nil
 	}
-	return errors.New("the node is not have")
+	return nil
 }
 
 func (s *Selector) AddUsers(p *AddUsersParams) (added int, err error) {
@@ -202,4 +202,15 @@ func (s *Selector) ResumeTraffic(tag string) error {
 		return nil
 	}
 	return errors.New("traffic node not found")
+}
+
+func (s *Selector) HasNode(tag string) bool {
+	v, ok := s.nodes.Load(tag)
+	if !ok {
+		return false
+	}
+	if core, ok := v.(interface{ HasNode(string) bool }); ok {
+		return core.HasNode(tag)
+	}
+	return true
 }

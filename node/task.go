@@ -6,7 +6,6 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/task"
 	vCore "github.com/InazumaV/V2bX/core"
-	"github.com/InazumaV/V2bX/limiter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -64,6 +63,15 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	if c.closed {
 		return nil
 	}
+	if c.rebuildRecovery != nil {
+		c.trafficLifeMu.Lock()
+		err := c.recoverPanelRebuild()
+		c.trafficLifeMu.Unlock()
+		if err != nil {
+			log.WithField("tag", c.tag).WithError(err).Error("Node recovery deferred")
+		}
+		return nil
+	}
 	// A failed admission snapshot must not block revocation, or enable new users.
 	// get user alive
 	newA, err := c.apiClient.GetUserAlive()
@@ -96,115 +104,12 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		return nil
 	}
 	if newN != nil {
-		c.trafficLifeMu.Lock()
-		defer c.trafficLifeMu.Unlock()
-		if c.reliableTrafficEnabled {
-			if drainer, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
-				if err = drainer.DrainTraffic(c.tag); err != nil {
-					c.logTrafficStorageError(err)
-					return nil
-				}
-			}
-			if err = c.captureTraffic(); err != nil {
-				c.logTrafficStorageError(err)
-				return nil
-			}
-			if err = c.trafficSpool.Seal(); err != nil {
-				c.logTrafficStorageError(err)
-				return nil
-			}
+		if err := c.rebuildFromPanel(newN, newU, newA); err != nil {
+			log.WithField("tag", c.tag).WithError(err).Error("Node update failed; recovery state retained")
 		}
-		c.info = newN
-		// nodeInfo changed
-		oldUsers := c.userList
-		oldTag := c.tag
-		if newU != nil {
-			c.userList = newU
-		}
-		c.traffic = make(map[string]int64)
-		// Remove old node
-		log.WithField("tag", c.tag).Info("Node changed, reload")
-		err = c.server.DelNode(c.tag)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Panic("Delete node failed")
-			return nil
-		}
-
-		// Preserve leases for unchanged users when reloading the same node.
-		if len(c.Options.Name) == 0 {
-			c.tag = c.buildNodeTag(newN)
-		}
-		if c.tag != oldTag {
-			limiter.DeleteLimiter(oldTag)
-			c.limiter = limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList, newA)
-		} else {
-			deleted, added := compareUserList(oldUsers, c.userList)
-			c.limiter.UpdateUser(c.tag, added, deleted)
-			c.limiter.UpdateDeviceLimits(c.tag, c.userList)
-		}
-		// update alive list
-		if newA != nil {
-			c.limiter.UpdateAliveSnapshot(newA, c.apiClient.AliveMap.Snapshot)
-		}
-		// Update rule
-		err = c.limiter.UpdateRule(&newN.Rules)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Error("Update Rule failed")
-			return nil
-		}
-
-		// check cert
-		if newN.Security == panel.Tls {
-			err = c.requestCert()
-			if err != nil {
-				log.WithFields(log.Fields{
-					"tag": c.tag,
-					"err": err,
-				}).Error("Request cert failed")
-				return nil
-			}
-		}
-		// add new node
-		err = c.server.AddNode(c.tag, newN, c.Options)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Panic("Add node failed")
-			return nil
-		}
-		_, err = c.server.AddUsers(&vCore.AddUsersParams{
-			Tag:      c.tag,
-			Users:    c.userList,
-			NodeInfo: newN,
-		})
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Error("Add users failed")
-			return nil
-		}
-		c.apiClient.CommitNodeInfo(newN)
-		// Check interval
-		if c.nodeInfoMonitorPeriodic.Interval != newN.PullInterval &&
-			newN.PullInterval != 0 {
-			c.nodeInfoMonitorPeriodic.SetInterval(newN.PullInterval)
-		}
-		if c.userReportPeriodic.Interval != newN.PushInterval &&
-			newN.PushInterval != 0 {
-			c.userReportPeriodic.SetInterval(newN.PushInterval)
-		}
-		log.WithField("tag", c.tag).Infof("Added %d new users", len(c.userList))
-		// exit
 		return nil
 	}
+
 	// update alive list
 	if newA != nil {
 		c.limiter.UpdateAliveSnapshot(newA, c.apiClient.AliveMap.Snapshot)

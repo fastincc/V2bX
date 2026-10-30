@@ -16,6 +16,7 @@ import (
 )
 
 type Controller struct {
+	rebuildRecovery *nodeRebuildRecovery
 	// Negotiated runtime state must survive core-specific Options reparsing.
 	reliableTrafficEnabled    bool
 	operationMu               sync.Mutex

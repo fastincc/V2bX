@@ -106,10 +106,21 @@ func (c *Xray) DelNode(tag string) error {
 }
 
 func (c *Xray) removeInbound(tag string) error {
+	if _, err := c.ihm.GetHandler(context.Background(), tag); err != nil {
+		return nil
+	}
 	return c.ihm.RemoveHandler(context.Background(), tag)
 }
 
 func (c *Xray) removeOutbound(tag string) error {
+	if c.ohm.GetHandler(tag) == nil {
+		return nil
+	}
 	err := c.ohm.RemoveHandler(context.Background(), tag)
 	return err
+}
+
+func (c *Xray) HasNode(tag string) bool {
+	_, err := c.ihm.GetHandler(context.Background(), tag)
+	return err == nil || c.ohm.GetHandler(tag) != nil
 }

@@ -93,3 +93,10 @@ func (h *Hysteria2) DelNode(tag string) error {
 	delete(h.Hy2nodes, tag)
 	return nil
 }
+
+func (h *Hysteria2) HasNode(tag string) bool {
+	h.nodesMu.RLock()
+	defer h.nodesMu.RUnlock()
+	_, ok := h.Hy2nodes[tag]
+	return ok
+}

@@ -424,7 +424,10 @@ func (b *Sing) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) e
 
 func (b *Sing) DelNode(tag string) error {
 	in := b.box.Inbound()
-	err := in.Remove(tag)
+	var err error
+	if _, exists := in.Get(tag); exists {
+		err = in.Remove(tag)
+	}
 	if err != nil {
 		return fmt.Errorf("delete inbound error: %s", err)
 	}
@@ -437,3 +440,5 @@ func (b *Sing) DelNode(tag string) error {
 	b.users.mapLock.Unlock()
 	return nil
 }
+
+func (b *Sing) HasNode(tag string) bool { _, ok := b.box.Inbound().Get(tag); return ok }
