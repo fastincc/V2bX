@@ -337,3 +337,6 @@ replace github.com/xtls/xray-core v1.251202.0 => github.com/wyx2685/xray-core v0
 
 // Minimal concurrency fixes for the pinned AnyTLS transport.
 replace github.com/anytls/sing-anytls => ./third_party/sing-anytls
+
+// Pinned Hysteria2 QUIC fork with synchronized congestion-controller snapshots.
+replace github.com/apernet/quic-go => ./third_party/apernet-quic-go
