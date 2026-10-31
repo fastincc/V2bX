@@ -49,7 +49,7 @@ func (h *HookServer) UntraceStream(stream server.HyStream) {
 	if s := h.Auth.streams[stream]; s != nil {
 		delete(h.Auth.streams, stream)
 		s.streams--
-		if s.closed && s.streams == 0 {
+		if s.closed && s.streams == 0 && (!s.managed || s.drained) {
 			delete(h.Auth.sessions, s.id)
 		}
 	}
@@ -84,5 +84,23 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	tc.Tx(generation, int(tx))
 	return true
 }
-func (s *HookServer) LogOnlineState(id string, online bool) {
+
+// The bundled Hy2 core calls offline only after all transport callbacks drain.
+// A physical disconnect alone must not discard ingress already read by a worker.
+func (h *HookServer) LogOnlineState(id string, online bool) {
+	if h.Auth == nil {
+		return
+	}
+	h.Auth.mutex.Lock()
+	defer h.Auth.mutex.Unlock()
+	if s := h.Auth.sessions[id]; s != nil {
+		if online {
+			s.managed = true
+		} else {
+			s.drained = true
+			if s.closed && s.streams == 0 {
+				delete(h.Auth.sessions, id)
+			}
+		}
+	}
 }

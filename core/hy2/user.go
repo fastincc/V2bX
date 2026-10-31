@@ -39,10 +39,11 @@ type hyIdentity struct {
 // Connection IDs are opaque runtime handles, never accounting keys or credentials.
 // Multiple connections share their original accounting generation, not admission state.
 type hySession struct {
-	id, generation string
-	uid            int
-	denied, closed bool
-	streams        int
+	id, generation   string
+	uid              int
+	denied, closed   bool
+	managed, drained bool
+	streams          int
 }
 
 func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string) {
@@ -76,14 +77,14 @@ func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string
 }
 
 // Disconnect can precede the last TCP copy callback. Keep the connection handle
-// until traced streams finish; its original counter is still owned by the user
-// generation and is never deleted by disconnect.
+// until the transport drain barrier and traced streams finish. Its original
+// counter is owned by the user generation and is never deleted by disconnect.
 func (v *V2bX) disconnect(id string) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 	if s := v.sessions[id]; s != nil {
 		s.closed = true
-		if s.streams == 0 {
+		if s.streams == 0 && (!s.managed || s.drained) {
 			delete(v.sessions, id)
 		}
 	}

@@ -343,3 +343,6 @@ replace github.com/apernet/quic-go => ./third_party/apernet-quic-go
 
 // Pinned v0.2.8 with atomic multi-user authentication snapshots.
 replace github.com/sagernet/sing-shadowsocks => ./third_party/sing-shadowsocks
+
+// Pinned Hy2 lifecycle completion for delayed TCP/UDP accounting callbacks.
+replace github.com/apernet/hysteria/core/v2 => ./third_party/hysteria-core

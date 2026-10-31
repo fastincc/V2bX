@@ -1,0 +1,9 @@
+# Independent Hy2 tail accounting lifecycle
+
+The -14 per-connection admission fix retained TCP handles only until UntraceStream. Upstream returned from bidirectional copy after either direction exited; the second direction could still have a delayed LogTraffic callback. UDP callbacks also outlived the disconnect event.
+
+The bundled v2.6.4 core now seals worker admission at disconnect and emits offline only after TCP/UDP workers drain. Metered TCP copying closes/unblocks both directions before joining them; it preserves the first-exit close policy and does not reset queued QUIC data. The hook retains accounting handles until this barrier. No per-packet lock, buffer or sleep is added. Revoked identities and denied connections remain denied; retained handles are not new authorization.
+
+No subscription, configuration, panel API, traffic direction, checkpoint or spool format changes. This preserves ingress-read accounting, not a new target-delivered-byte definition. Synthetic delayed TCP/UDP tests must fail on -14 and pass here. Real transport, generation/revocation, device isolation, checkpoint and dependency race suites are included in local acceptance. Tests use only synthetic credentials and local listeners. This is not a deployment or production verification.
+
+Local acceptance (2026-10-31): core/hy2 and the pinned server dependency passed three race repetitions. The same new delayed TCP and bidirectional UDP probes failed against an untouched -14 archive. Twelve alternating 10-second QUIC profiles, 1/8 parallel streams, reconciled every byte. Throughput medians were 210.81→234.48 and 232.33→238.19 MiB/s; total client+server CPU seconds were 38.46→39.75 and 63.27→65.76, and peak RSS approximately 27.11→27.28 and 34.34→34.28 MiB. No throughput decrease observed in this bounded local run; differences are not a WAN capacity or speedup guarantee.
