@@ -8,6 +8,24 @@ import (
 
 var errDisconnect = errors.New("traffic logger requested disconnect")
 
+// Sniffed bytes have already left the stream. Account them once, before target
+// I/O, matching copyBufferLog's ingress accounting even on a failed/short write.
+// Admission and target dialing have already succeeded at this point.
+func writePutback(dst io.Writer, data []byte, id string, l TrafficLogger, stats *StreamStats) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if l != nil && !l.LogTraffic(id, uint64(len(data)), 0) {
+		return errDisconnect
+	}
+	n, err := dst.Write(data)
+	stats.Tx.Add(uint64(n))
+	if err == nil && n != len(data) {
+		return io.ErrShortWrite
+	}
+	return err
+}
+
 func copyBufferLog(dst io.Writer, src io.Reader, log func(n uint64) bool) error {
 	buf := make([]byte, 32*1024)
 	for {

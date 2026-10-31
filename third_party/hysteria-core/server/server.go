@@ -318,20 +318,22 @@ func (h *h3sHandler) handleTCPRequest(stream *utils.QStream) {
 	streamStats.State.Store(StreamStateEstablished)
 	// Put back the data if the hook requested
 	if len(putback) > 0 {
-		n, _ := tConn.Write(putback)
-		streamStats.Tx.Add(uint64(n))
+		err = writePutback(tConn, putback, h.authID, trafficLogger, streamStats)
 	}
-	// Start proxying
-	if trafficLogger != nil {
-		err = copyTwoWayEx(h.authID, stream, tConn, trafficLogger, streamStats, func() {
-			_ = tConn.Close()
-			_ = stream.Close()
-			// Unblock a pending Write without resetting already queued stream data.
-			_ = stream.SetWriteDeadline(time.Now())
-		})
-	} else {
-		// Use the fast path if no traffic logger is set
-		err = copyTwoWay(stream, tConn)
+	// A failed putback follows the same cleanup and denial path as copying.
+	if err == nil {
+		// Start proxying
+		if trafficLogger != nil {
+			err = copyTwoWayEx(h.authID, stream, tConn, trafficLogger, streamStats, func() {
+				_ = tConn.Close()
+				_ = stream.Close()
+				// Unblock a pending Write without resetting already queued stream data.
+				_ = stream.SetWriteDeadline(time.Now())
+			})
+		} else {
+			// Use the fast path if no traffic logger is set
+			err = copyTwoWay(stream, tConn)
+		}
 	}
 	if h.config.EventLogger != nil {
 		h.config.EventLogger.TCPError(h.conn.RemoteAddr(), h.authID, reqAddr, err)

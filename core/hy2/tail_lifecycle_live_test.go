@@ -38,7 +38,7 @@ type tailLifecycleFixture struct {
 	tcp, udp string
 }
 
-func newTailLifecycleFixture(t testing.TB, deviceLimit int, ctl *tailLifecycleControl) *tailLifecycleFixture {
+func newTailLifecycleFixture(t testing.TB, deviceLimit int, ctl *tailLifecycleControl, configure ...func(*server.Config)) *tailLifecycleFixture {
 	t.Helper()
 	limiter.Init()
 	dir := t.TempDir()
@@ -116,6 +116,9 @@ func newTailLifecycleFixture(t testing.TB, deviceLimit int, ctl *tailLifecycleCo
 	if ctl != nil {
 		cfg.TrafficLogger = &tailLifecycleTraffic{TrafficLogger: n.TrafficLogger, c: ctl}
 		cfg.EventLogger = &tailLifecycleEvents{EventLogger: n.EventLogger, c: ctl}
+	}
+	for _, apply := range configure {
+		apply(cfg)
 	}
 	srv, err := server.NewServer(cfg)
 	if err != nil {
