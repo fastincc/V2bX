@@ -51,6 +51,8 @@ jobs:
         run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./common/counter ./core/sing ./core/hy2 ./core/xray ./node -run 'Test(NodeGate|Checkpoint|PanelRebuild)' -count=1 -timeout=180s
       - name: Reliable checkpoint real AnyTLS slow-storage reconciliation
         run: GOEXPERIMENT=jsonv2 CHECKPOINT_PROFILE_DURATION=5s CHECKPOINT_PROFILE_PARALLEL=8 CHECKPOINT_PROFILE_SLOW_MS=300 go test -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./core/sing -run '^TestCheckpointTransportProfile$' -count=1 -timeout=90s
+      - name: Hy2 admission AnyTLS update and rate cancellation regression
+        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./common/rate ./limiter ./core/hy2 ./core/sing ./core/xray/app/dispatcher github.com/sagernet/sing-box/protocol/anytls -run 'Test(Hy2Session|UserBatch|AnyTLSBatchUpdate|TCPRate|CancelledTCP|WriterCancellation|WriterForward|RateQuantum|RateAverage|LimitedLink)' -count=1 -timeout=180s
       - name: V2bX integration
         run: GOEXPERIMENT=jsonv2 ANYTLS_LONG_STREAM_DURATION=30s ANYTLS_CLEANUP_REVIEW=1 go test -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./core/sing -run TestAnyTLS -count=1
 

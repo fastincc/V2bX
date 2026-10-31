@@ -205,11 +205,6 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			return nil, nil, nil, errors.New("Limited ", user.Email, " by conn or ip")
 		}
 
-		if w != nil {
-			sessionInbound.CanSpliceCopy = 3
-			inboundLink.Writer = rate.NewRateLimitWriter(inboundLink.Writer, w)
-			outboundLink.Writer = rate.NewRateLimitWriter(outboundLink.Writer, w)
-		}
 		t := counter.LoadOrCreate(&d.Counter, sessionInbound.Tag)
 
 		ts := t.GetCounter(user.Email)
@@ -222,6 +217,11 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 		outboundLink.Writer = &dispatcher.SizeStatWriter{
 			Counter: downcounter,
 			Writer:  outboundLink.Writer,
+		}
+		if w != nil {
+			sessionInbound.CanSpliceCopy = 3
+			inboundLink.Writer = rate.NewRateLimitWriter(inboundLink.Writer, w)
+			outboundLink.Writer = rate.NewRateLimitWriter(outboundLink.Writer, w)
 		}
 		inboundLink.Writer = lm.wrap(inboundLink.Writer, outboundLink.Reader)
 		outboundLink.Writer = lm.wrap(outboundLink.Writer, inboundLink.Reader)
@@ -390,10 +390,6 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		}
 		rawReader := outbound.Reader
 
-		if w != nil {
-			sessionInbound.CanSpliceCopy = 3
-			outbound.Writer = rate.NewRateLimitWriter(outbound.Writer, w)
-		}
 		t := counter.LoadOrCreate(&d.Counter, sessionInbound.Tag)
 
 		ts := t.GetCounter(user.Email)
@@ -407,6 +403,10 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		outbound.Writer = &dispatcher.SizeStatWriter{
 			Counter: downcounter,
 			Writer:  outbound.Writer,
+		}
+		if w != nil {
+			sessionInbound.CanSpliceCopy = 3
+			outbound.Writer = rate.NewRateLimitWriter(outbound.Writer, w)
 		}
 		outbound.Writer = lm.wrap(outbound.Writer, rawReader)
 	}
