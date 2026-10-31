@@ -85,7 +85,7 @@ func (n *Hysteria2node) getQUICConfig(config *serverConfig) (*server.QUICConfig,
 	} else if config.QUIC.InitStreamReceiveWindow < 16384 {
 		return nil, fmt.Errorf("QUICConfig.InitialStreamReceiveWindowf must be at least 16384")
 	} else {
-		quic.InitialConnectionReceiveWindow = config.QUIC.InitConnectionReceiveWindow
+		quic.InitialStreamReceiveWindow = config.QUIC.InitStreamReceiveWindow
 	}
 	if config.QUIC.MaxStreamReceiveWindow == 0 {
 		quic.MaxStreamReceiveWindow = defaultStreamReceiveWindow
