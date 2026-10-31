@@ -1,19 +1,20 @@
 module github.com/InazumaV/V2bX
 
-go 1.25
-
-toolchain go1.25.0
+go 1.25.0
 
 require (
+	github.com/anytls/sing-anytls v0.0.11
 	github.com/apernet/hysteria/core/v2 v2.6.4
 	github.com/apernet/hysteria/extras/v2 v2.6.4
+	github.com/apernet/quic-go v0.54.1-0.20250907230547-eb32f8aec5e2
 	github.com/beevik/ntp v1.4.4-0.20240716062501-06ef196b89ec
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-acme/lego/v4 v4.25.2
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/juju/ratelimit v1.0.2
-	github.com/sagernet/sing v0.8.0-beta.6
+	github.com/sagernet/sing v0.9.6
 	github.com/sagernet/sing-box v1.13.0
+	github.com/sagernet/sing-shadowsocks v0.2.8
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
@@ -21,7 +22,8 @@ require (
 	github.com/xtls/xray-core v1.251202.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.44.0
-	golang.org/x/sys v0.38.0
+	golang.org/x/sys v0.47.0
+	golang.org/x/time v0.12.0
 	google.golang.org/protobuf v1.36.10
 )
 
@@ -63,8 +65,6 @@ require (
 	github.com/aliyun/credentials-go v1.4.6 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/anthropics/anthropic-sdk-go v1.14.0 // indirect
-	github.com/anytls/sing-anytls v0.0.11 // indirect
-	github.com/apernet/quic-go v0.54.1-0.20250907230547-eb32f8aec5e2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.6 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.29.18 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.71 // indirect
@@ -232,7 +232,6 @@ require (
 	github.com/sagernet/quic-go v0.55.0-sing-box-mod.2 // indirect
 	github.com/sagernet/sing-mux v0.3.3 // indirect
 	github.com/sagernet/sing-quic v0.6.0-beta.4 // indirect
-	github.com/sagernet/sing-shadowsocks v0.2.8 // indirect
 	github.com/sagernet/sing-shadowsocks2 v0.2.1 // indirect
 	github.com/sagernet/sing-shadowtls v0.2.1-0.20250503051639-fcd445d33c11 // indirect
 	github.com/sagernet/sing-tun v0.8.0-beta.11 // indirect
@@ -313,7 +312,6 @@ require (
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
-	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
