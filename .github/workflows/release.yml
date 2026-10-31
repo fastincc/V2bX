@@ -128,7 +128,10 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/sing-shadowsocks/LICENSE ./build_assets/LICENSE.sing-shadowsocks
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-13.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-14.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/HY2-CONNECTION-ADMISSION.md ./build_assets/HY2-CONNECTION-ADMISSION.md
+          cp ${GITHUB_WORKSPACE}/docs/ANYTLS-BATCH-USER-UPDATES.md ./build_assets/ANYTLS-BATCH-USER-UPDATES.md
+          cp ${GITHUB_WORKSPACE}/docs/RATE-WAIT-SMOOTHING.md ./build_assets/RATE-WAIT-SMOOTHING.md
           cp ${GITHUB_WORKSPACE}/docs/CHECKPOINT-LOCK-ISOLATION.md ./build_assets/CHECKPOINT-LOCK-ISOLATION.md
           cp ${GITHUB_WORKSPACE}/docs/BATCH-REBUILD-REVOCATION.md ./build_assets/BATCH-REBUILD-REVOCATION.md
           cp ${GITHUB_WORKSPACE}/docs/REPORTING-STATUS.md ./build_assets/REPORTING-STATUS.md
@@ -192,4 +195,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-13.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-14.md
