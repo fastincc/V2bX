@@ -105,6 +105,24 @@ func TestShadowsocksLiveUserUpdates(t *testing.T) {
 				}
 				return nil
 			}
+			if cipher != "aes-128-gcm" {
+				// A mixed invalid batch must not register its valid prefix, revoke
+				// existing users, or poison retries. The live exchanges below still
+				// use the original subscription key derivation and exact counters.
+				fresh := panel.UserInfo{Id: 4, Uuid: "44444444-4444-4444-8444-444444444444"}
+				limit, _ := limiter.GetLimiter(tag)
+				limit.UpdateUser(tag, []panel.UserInfo{fresh}, nil)
+				added, err := s.AddUsers(&vcore.AddUsersParams{Tag: tag, NodeInfo: info, Users: []panel.UserInfo{fresh, {Id: 5, Uuid: "short"}}})
+				if err == nil || added != 0 {
+					t.Fatal("mixed invalid batch accepted", added, err)
+				}
+				if len(s.users.active) != 3 {
+					t.Fatal("partial identity update")
+				}
+				if err = exchange(fresh); err == nil {
+					t.Fatal("invalid batch partially changed inbound authentication")
+				}
+			}
 			var wg sync.WaitGroup
 			errs := make(chan error, 2)
 			wg.Add(2)

@@ -3,6 +3,7 @@ package sing
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -23,6 +24,13 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 	in, found := b.box.Inbound().Get(p.Tag)
 	if !found {
 		return 0, errors.New("the inbound not found")
+	}
+	// Validate the entire addition before touching the inbound or identity maps.
+	// Keep the existing byte-prefix key derivation for all valid credentials.
+	if p.NodeInfo.Type == "shadowsocks" {
+		if err := validateSS2022Credentials(p.Shadowsocks.Cipher, p.Users); err != nil {
+			return 0, err
+		}
 	}
 	b.users.mapLock.Lock()
 	defer b.users.mapLock.Unlock()
@@ -253,6 +261,24 @@ func (b *Sing) DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo
 		}
 		b.users.retired[userKey{tag, key}] = true
 		delete(b.users.active, raw)
+	}
+	return nil
+}
+
+func validateSS2022Credentials(cipher string, users []panel.UserInfo) error {
+	required := 0
+	switch cipher {
+	case "2022-blake3-aes-128-gcm":
+		required = 16
+	case "2022-blake3-aes-256-gcm":
+		required = 32
+	default:
+		return nil
+	}
+	for _, user := range users {
+		if len(user.Uuid) < required {
+			return fmt.Errorf("SS2022 user %d: credential has %d bytes; %s requires at least %d", user.Id, len(user.Uuid), cipher, required)
+		}
 	}
 	return nil
 }

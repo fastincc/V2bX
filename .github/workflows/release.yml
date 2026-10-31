@@ -46,7 +46,7 @@ jobs:
       - name: Six-fix lifecycle accounting and UDP regression
         run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./api/panel ./conf ./common/rate ./common/task ./limiter ./node ./core/... ./cmd -run 'Test(NodeConfig|NodeIntervals|RuleSnapshot|WatchCandidate|TaskRestart|ReloadDrain|Candidate|LastGood|DrainCanResume|LoggerNever|RevokedTail|HysteriaQUIC|XrayRealRevoked|RetiredManager|GenerationPreserves|PacketRate|UDPAdmission|ShadowsocksUDP)' -count=1 -timeout=180s
       - name: Authentication snapshots rebuild user sync and catch-up regression
-        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./api/panel ./node ./core/sing github.com/sagernet/sing-box/protocol/shadowsocks -run 'Test(UserSnapshot|ShadowsocksLiveUser|PanelRebuild|UserSync|TrafficDelivery|Delivery|UDPReject)' -count=1 -timeout=180s
+        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./api/panel ./node ./core/sing github.com/sagernet/sing-box/protocol/shadowsocks -run 'Test(SS2022|UserSnapshot|ShadowsocksLiveUser|PanelRebuild|UserSync|TrafficDelivery|Delivery|UDPReject)' -count=1 -timeout=180s
       - name: Checkpoint isolation and batched rebuild race regression
         run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./common/counter ./core/sing ./core/hy2 ./core/xray ./node -run 'Test(NodeGate|Checkpoint|PanelRebuild)' -count=1 -timeout=180s
       - name: Reliable checkpoint real AnyTLS slow-storage reconciliation
