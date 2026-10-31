@@ -17,6 +17,9 @@ type nodeRebuildRecovery struct {
 	limiterUsers []panel.UserInfo
 	resumeOnly   bool
 	cleanup      bool
+	// A failed batch may have partially revoked users. Quarantine every target
+	// and retry idempotently before restoring any inbound or authorization.
+	revocations []panel.UserInfo
 }
 
 func (c *Controller) runtimeNodeExists() bool {
@@ -54,6 +57,14 @@ func (c *Controller) recoverPanelRebuild() error {
 	r := c.rebuildRecovery
 	if r == nil {
 		return nil
+	}
+	if len(r.revocations) > 0 {
+		if c.runtimeNodeExists() {
+			if err := c.server.DelUsers(r.revocations, c.tag, r.info); err != nil {
+				return c.quiesceFailedRevocations(fmt.Errorf("retry rebuild revocations: %w", err))
+			}
+		}
+		r.revocations = nil
 	}
 	if r.resumeOnly {
 		if s, ok := c.server.(interface{ ResumeTraffic(string) error }); ok {
@@ -95,6 +106,14 @@ func (c *Controller) recoverPanelRebuild() error {
 	c.reportingReady()
 	return nil
 }
+
+func (c *Controller) quiesceFailedRevocations(cause error) error {
+	if d, ok := c.server.(interface{ DrainTraffic(string) error }); ok {
+		return errors.Join(cause, d.DrainTraffic(c.tag))
+	}
+	return cause
+}
+
 func (c *Controller) rebuildFromPanel(next *panel.NodeInfo, users []panel.UserInfo, alive map[int]int) (err error) {
 	c.trafficLifeMu.Lock()
 	defer c.trafficLifeMu.Unlock()
@@ -119,21 +138,24 @@ func (c *Controller) rebuildFromPanel(next *panel.NodeInfo, users []panel.UserIn
 	if users == nil {
 		users = append([]panel.UserInfo(nil), c.userList...)
 	}
-	// Revocations already applied must survive rollback. Commit each successful
-	// removal independently so a later removal failure cannot reactivate it.
+	// Rebuild each inbound's authentication table once, not once per user. A
+	// successful batch is fully applied; on error its partial result is unknown.
+	// Quarantine the entire requested set rather than guessing which users remain.
 	deleted, _ := compareUserList(c.userList, users)
-	for _, u := range deleted {
-		if e := c.server.DelUsers([]panel.UserInfo{u}, c.tag, c.info); e != nil {
-			return fmt.Errorf("revoke before rebuild: %w", e)
-		}
-		c.limiter.UpdateUser(c.tag, nil, []panel.UserInfo{u})
-		kept := make([]panel.UserInfo, 0, len(c.userList))
-		for _, old := range c.userList {
-			if old.Uuid != u.Uuid {
-				kept = append(kept, old)
+	if len(deleted) > 0 {
+		e := c.server.DelUsers(deleted, c.tag, c.info)
+		c.forgetAppliedUsers(deleted)
+		if e != nil {
+			c.rebuildRecovery = &nodeRebuildRecovery{
+				info: c.info, users: append([]panel.UserInfo(nil), c.userList...),
+				limiterUsers: append([]panel.UserInfo(nil), c.userList...),
+				cleanup:      true, revocations: append([]panel.UserInfo(nil), deleted...),
 			}
+			// Recreate only the surviving users after cleanup. ResumeTraffic alone
+			// could revive a paused identity captured before its deletion completed.
+			c.emitReportingStatus("unknown")
+			return c.quiesceFailedRevocations(fmt.Errorf("revoke before rebuild: %w", e))
 		}
-		c.userList = kept
 	}
 	r := &nodeRebuildRecovery{info: c.info, users: append([]panel.UserInfo(nil), c.userList...), limiterUsers: append([]panel.UserInfo(nil), c.userList...), resumeOnly: true}
 	c.rebuildRecovery = r
