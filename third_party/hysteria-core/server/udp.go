@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"math/rand"
 	"sync"
@@ -44,6 +45,9 @@ type udpSessionEntry struct {
 	connLock  sync.Mutex
 	closed    bool
 	receivers *sync.WaitGroup
+	ctx       context.Context
+	cancel    context.CancelFunc
+	pacer     TrafficPacer
 }
 
 func newUDPSessionEntry(
@@ -61,12 +65,23 @@ func newUDPSessionEntry(
 		ExitFunc: exitFunc,
 	}
 
+	if source, ok := io.(interface {
+		TrafficPacer() (context.Context, TrafficPacer)
+	}); ok {
+		if ctx, pacer := source.TrafficPacer(); pacer != nil {
+			e.ctx, e.cancel = context.WithCancel(ctx)
+			e.pacer = pacer
+		}
+	}
 	return e
 }
 
 // CloseWithErr closes the session and calls ExitFunc with the given error.
 // A nil error indicates the session is cleaned up due to timeout.
 func (e *udpSessionEntry) CloseWithErr(err error) {
+	if e.cancel != nil {
+		e.cancel()
+	}
 	// We need this lock to ensure not to create conn after session exit
 	e.connLock.Lock()
 
@@ -109,6 +124,12 @@ func (e *udpSessionEntry) Feed(msg *protocol.UDPMessage) (int, error) {
 		addr = e.OverrideAddr
 	}
 
+	if e.pacer != nil {
+		if err := e.pacer.Wait(e.ctx, len(dfMsg.Data)); err != nil {
+			e.CloseWithErr(err)
+			return 0, err
+		}
+	}
 	return e.conn.WriteTo(dfMsg.Data, addr)
 }
 
@@ -159,6 +180,14 @@ func (e *udpSessionEntry) initConn(firstMsg *protocol.UDPMessage) error {
 // Exit when either the underlying UDP connection returns error (e.g. closed),
 // or the IO returns error when sending.
 func (e *udpSessionEntry) receiveLoop() {
+	sender := e.IO
+	if e.pacer != nil {
+		if source, ok := e.IO.(interface {
+			sendMessage(context.Context, TrafficPacer, []byte, *protocol.UDPMessage) error
+		}); ok {
+			sender = &pacedUDPIO{udpIO: e.IO, send: source.sendMessage, ctx: e.ctx, pacer: e.pacer}
+		}
+	}
 	udpBuf := make([]byte, protocol.MaxUDPSize)
 	msgBuf := make([]byte, protocol.MaxUDPSize)
 	for {
@@ -184,7 +213,7 @@ func (e *udpSessionEntry) receiveLoop() {
 			Addr:      rAddr,
 			Data:      udpBuf[:udpN],
 		}
-		err = sendMessageAutoFrag(e.IO, msgBuf, msg)
+		err = sendMessageAutoFrag(sender, msgBuf, msg)
 		if err != nil {
 			e.CloseWithErr(err)
 			return
@@ -352,4 +381,16 @@ func (m *udpSessionManager) Count() int {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return len(m.m)
+}
+
+// Only limited sessions allocate this adapter; the ordinary UDP path is intact.
+type pacedUDPIO struct {
+	udpIO
+	send  func(context.Context, TrafficPacer, []byte, *protocol.UDPMessage) error
+	ctx   context.Context
+	pacer TrafficPacer
+}
+
+func (p *pacedUDPIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
+	return p.send(p.ctx, p.pacer, buf, msg)
 }

@@ -11,3 +11,13 @@ Changed upstream production files: server/server.go, server/copy.go, server/udp.
 Device lease integration adds optional StreamLeaseLogger in server/config.go. TCP acquires after request admission and releases on handler completion; UDP acquires on session creation and releases through its existing single-close path, including failed dial and idle timeout. Implementations without this optional interface retain upstream behavior. Packet and byte-counting paths are unchanged by device pinning.
 
 Sniffed TCP putback is metered once before target writing using the existing ingress-byte convention. Denied callbacks and short/failed writes follow normal cleanup. No additional work is added to subsequent copy iterations; sniff timing and routing are unchanged.
+
+Optional TrafficPacerProvider / TrafficPacer adds cancellable per-user pacing at
+TCP writes (including sniffed putback) and UDP logical-message boundaries.
+Unlimited streams keep the original copy functions; limited UDP reserves once
+before download fragmentation and once after upload reassembly. There is no
+new unbounded queue, per-packet authentication lock for unlimited traffic, or
+QUIC ACK delay. Stream/connection cancellation unblocks pending writes before
+the existing drain join. Additional production file: server/pacer.go. See
+../../docs/HY2-USER-RATE-LIMIT.md for shared-bucket semantics, acceptance scope
+and the pre-existing UDP fragment-retry accounting limitation.

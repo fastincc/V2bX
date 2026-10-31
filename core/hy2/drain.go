@@ -12,6 +12,13 @@ func (h *Hysteria2) DrainTraffic(tag string) error {
 	}
 	n.Auth.mutex.Lock()
 	n.Auth.paused = true
+	for id, entry := range n.Auth.identities {
+		if entry.rate != nil {
+			close(entry.rate.done)
+			entry.rate = nil
+			n.Auth.identities[id] = entry
+		}
+	}
 	n.Auth.mutex.Unlock()
 	return nil
 }

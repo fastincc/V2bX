@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
@@ -295,4 +296,13 @@ func (s *StreamStats) setHookedReqAddr(addr string) {
 	if addr != s.ReqAddr.Load() {
 		s.HookedReqAddr.Store(addr)
 	}
+}
+
+// TrafficPacerProvider is optional. A nil pacer preserves the unthrottled path.
+// Obtain it once per TCP stream / UDP session, never once per packet.
+// A pacer must share quota across the authenticated user's connections and
+// honor cancellation without blocking authentication or transport ACKs.
+type TrafficPacerProvider interface{ TrafficPacer(id string) TrafficPacer }
+type TrafficPacer interface {
+	Wait(context.Context, int) error
 }

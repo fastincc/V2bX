@@ -14,6 +14,7 @@ import (
 	"github.com/InazumaV/V2bX/common/counter"
 	vCore "github.com/InazumaV/V2bX/core"
 	"github.com/apernet/hysteria/core/v2/server"
+	"github.com/juju/ratelimit"
 )
 
 var _ server.Authenticator = &V2bX{}
@@ -36,6 +37,7 @@ type hyIdentity struct {
 	credential string
 	uid        int
 	retired    bool
+	rate       *hyRate
 }
 
 // Connection IDs are opaque runtime handles, never accounting keys or credentials.
@@ -46,6 +48,7 @@ type hySession struct {
 	denied, closed   bool
 	managed, drained bool
 	streams          int
+	bucket           *ratelimit.Bucket
 }
 
 func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string) {
@@ -66,7 +69,8 @@ func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string
 	if e != nil {
 		return false, ""
 	}
-	if _, reject := l.CheckLimit(format.UserTag(v.tag, auth), ip.Unmap().String(), false, true); reject {
+	bucket, reject := l.CheckLimit(format.UserTag(v.tag, auth), ip.Unmap().String(), false, true)
+	if reject {
 		return false, ""
 	}
 	if v.sessions == nil {
@@ -74,7 +78,7 @@ func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string
 	}
 	v.nextSession++
 	id := generation + "/connection-" + strconv.FormatUint(v.nextSession, 10)
-	v.sessions[id] = &hySession{id: id, generation: generation, uid: v.identities[generation].uid}
+	v.sessions[id] = &hySession{id: id, generation: generation, uid: v.identities[generation].uid, bucket: bucket}
 	return true, id
 }
 
@@ -139,6 +143,10 @@ func (h *Hysteria2) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeIn
 		}
 		entry := n.Auth.identities[id]
 		entry.retired = true
+		if entry.rate != nil {
+			close(entry.rate.done)
+			entry.rate = nil
+		}
 		n.Auth.identities[id] = entry
 		n.Auth.retired.PushBack(id)
 		delete(n.Auth.active, u.Uuid)

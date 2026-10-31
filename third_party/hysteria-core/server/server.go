@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"io"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -316,15 +317,32 @@ func (h *h3sHandler) handleTCPRequest(stream *utils.QStream) {
 		_ = protocol.WriteTCPResponse(stream, true, "Connected")
 	}
 	streamStats.State.Store(StreamStateEstablished)
+	// The optional limiter wraps writes only. Unlimited streams retain their
+	// original copy path and allocate no cancellation context or pacing wrapper.
+	var serverRW io.ReadWriter = stream
+	var remoteRW io.ReadWriter = tConn
+	var cancel context.CancelFunc
+	if provider, ok := trafficLogger.(TrafficPacerProvider); ok {
+		if pacer := provider.TrafficPacer(h.authID); pacer != nil {
+			var ctx context.Context
+			ctx, cancel = context.WithCancel(stream.Context())
+			defer cancel()
+			serverRW = &pacedReadWriter{ReadWriter: stream, ctx: ctx, pacer: pacer}
+			remoteRW = &pacedReadWriter{ReadWriter: tConn, ctx: ctx, pacer: pacer}
+		}
+	}
 	// Put back the data if the hook requested
 	if len(putback) > 0 {
-		err = writePutback(tConn, putback, h.authID, trafficLogger, streamStats)
+		err = writePutback(remoteRW, putback, h.authID, trafficLogger, streamStats)
 	}
 	// A failed putback follows the same cleanup and denial path as copying.
 	if err == nil {
 		// Start proxying
 		if trafficLogger != nil {
-			err = copyTwoWayEx(h.authID, stream, tConn, trafficLogger, streamStats, func() {
+			err = copyTwoWayEx(h.authID, serverRW, remoteRW, trafficLogger, streamStats, func() {
+				if cancel != nil {
+					cancel()
+				}
 				_ = tConn.Close()
 				_ = stream.Close()
 				// Unblock a pending Write without resetting already queued stream data.
@@ -389,13 +407,29 @@ func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 	}
 }
 
+func (io *udpIOImpl) TrafficPacer() (context.Context, TrafficPacer) {
+	if provider, ok := io.TrafficLogger.(TrafficPacerProvider); ok {
+		return io.Conn.Context(), provider.TrafficPacer(io.AuthID)
+	}
+	return nil, nil
+}
 func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
+	return io.sendMessage(nil, nil, buf, msg)
+}
+func (io *udpIOImpl) sendMessage(ctx context.Context, pacer TrafficPacer, buf []byte, msg *protocol.UDPMessage) error {
 	if io.TrafficLogger != nil {
 		ok := io.TrafficLogger.LogTraffic(io.AuthID, 0, uint64(len(msg.Data)))
 		if !ok {
 			// TrafficLogger requested to disconnect the client
 			_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
 			return errDisconnect
+		}
+	}
+	// Fragmentation retries consume no additional rate quota. Logging retains
+	// its existing ingress convention; pacing does not change billing direction.
+	if pacer != nil && msg.FragCount <= 1 {
+		if err := pacer.Wait(ctx, len(msg.Data)); err != nil {
+			return err
 		}
 	}
 	msgN := msg.Serialize(buf)
