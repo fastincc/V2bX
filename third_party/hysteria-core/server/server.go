@@ -287,6 +287,17 @@ func (h *h3sHandler) handleTCPRequest(stream *utils.QStream) {
 	if h.config.EventLogger != nil {
 		h.config.EventLogger.TCPRequest(h.conn.RemoteAddr(), h.authID, reqAddr)
 	}
+	if tracker, ok := h.config.EventLogger.(StreamLeaseLogger); ok {
+		release, accepted := tracker.AcquireStream(h.conn.RemoteAddr(), h.authID)
+		if !accepted {
+			_ = stream.Close()
+			_ = h.conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
+			return
+		}
+		if release != nil {
+			defer release()
+		}
+	}
 	// Dial target
 	streamStats.State.Store(StreamStateConnecting)
 	tConn, err := h.config.Outbound.TCP(reqAddr)
@@ -421,4 +432,15 @@ func (l *udpEventLoggerImpl) Close(sessionID uint32, err error) {
 	if l.EventLogger != nil {
 		l.EventLogger.UDPError(l.Conn.RemoteAddr(), l.AuthID, sessionID, err)
 	}
+}
+
+func (l *udpEventLoggerImpl) Acquire() (func(), bool) {
+	if tracker, ok := l.EventLogger.(StreamLeaseLogger); ok {
+		release, accepted := tracker.AcquireStream(l.Conn.RemoteAddr(), l.AuthID)
+		if !accepted {
+			_ = l.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
+		}
+		return release, accepted
+	}
+	return nil, true
 }

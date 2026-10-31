@@ -7,3 +7,5 @@ Connection shutdown seals worker admission, closes QUIC, and waits for TCP handl
 The V2bX hook retains the accounting handle between Disconnect and the offline drain barrier. Authentication, revocation, per-connection denial and accounting generation checks still apply to all callbacks.
 
 Changed upstream production files: server/server.go, server/copy.go, server/udp.go. Local real QUIC tests cover delayed TCP and both UDP callback directions, exact accounting, and reclaimed handles. Upstream fixtures are synthetic, not deployment credentials.
+
+Device lease integration adds optional StreamLeaseLogger in server/config.go. TCP acquires after request admission and releases on handler completion; UDP acquires on session creation and releases through its existing single-close path, including failed dial and idle timeout. Implementations without this optional interface retain upstream behavior. Packet and byte-counting paths are unchanged by device pinning.

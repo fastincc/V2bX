@@ -187,3 +187,30 @@ func (l *serverLogger) checkAdmission(addr net.Addr, id string) {
 	_, reject := limit.CheckLimit(format.UserTag(l.Tag, identity.credential), extractIPFromAddr(addr), addr.Network() == "tcp", true)
 	session.denied = reject
 }
+
+// AcquireStream pins only the source admitted for this physical connection.
+// It runs once per TCP stream / UDP session, never in LogTraffic's hot path.
+func (l *serverLogger) AcquireStream(addr net.Addr, id string) (func(), bool) {
+	if l.Auth == nil {
+		return nil, false
+	}
+	l.Auth.mutex.Lock()
+	defer l.Auth.mutex.Unlock()
+	session := l.Auth.sessions[id]
+	if session == nil || session.closed || session.denied || l.Auth.paused {
+		return nil, false
+	}
+	identity, ok := l.Auth.identities[session.generation]
+	if !ok || identity.retired || l.Auth.active[identity.credential] != session.generation {
+		return nil, false
+	}
+	limit, err := limiter.GetLimiter(l.Tag)
+	if err != nil {
+		return nil, false
+	}
+	release, ok := limit.TrackAdmittedDevice(format.UserTag(l.Tag, identity.credential), extractIPFromAddr(addr))
+	if !ok {
+		session.denied = true
+	}
+	return release, ok
+}

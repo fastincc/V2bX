@@ -205,6 +205,13 @@ type EventLogger interface {
 	UDPError(addr net.Addr, id string, sessionID uint32, err error)
 }
 
+// StreamLeaseLogger optionally pins device admission for a TCP stream or UDP
+// session. Acquisition follows the request event; release is called exactly
+// once on every completion path, including dial failure. No packet callbacks.
+type StreamLeaseLogger interface {
+	AcquireStream(addr net.Addr, id string) (release func(), accepted bool)
+}
+
 type HyStream interface {
 	StreamID() quic.StreamID
 	Read(p []byte) (n int, err error)

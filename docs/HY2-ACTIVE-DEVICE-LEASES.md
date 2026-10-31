@@ -1,0 +1,15 @@
+# Independent Hy2 active device leases
+
+TCP streams and UDP sessions pin the admitted source in the existing limiter. Pin acquisition refuses missing, revoked or expired idle leases; it cannot authorize a new source. Same-user/same-IP streams share one device slot, each release is idempotent, and stale releases do not mutate a re-added user's lease. The current request admission and IP normalization rules are preserved.
+
+An authenticated but idle QUIC connection is not permanently pinned. Failed target dial, UDP idle timeout, normal close, rejected connection and user revocation are regression cases. No per-packet device lock or heartbeat is added. The extra reference and release closure are per live stream/session; existing online sampling enumerates live device sources.
+
+Behavior change: a continuously active Hy2 device remains visible across online samples and cannot free its slot merely by outliving the 180-second idle lease. A previously incorrectly admitted additional source may now be denied. The existing online minimum-traffic filter, legacy count-only panels and snapshot policy are unchanged. Cross-node admission remains eventual, not globally atomic. No panel API, subscription, migration, real-IP trust policy or accounting direction changes.
+
+Local acceptance: three race repetitions cover live TCP/UDP online reporting, unchanged real IP, second-source rejection, same-IP sharing, revocation, duplicate cleanup and exact counters. A real 185-second TCP stream stayed online beyond the 180-second idle TTL and denied a different source; both directions reconciled to 1,245,184 bytes. Failed TCP dial and two same-IP connections closing independently passed five repetitions; UDP timeout and failed dial are covered in the dependency tests.
+
+Two thousand actual QUIC connections in 40 rounds all drained their session handles and active leases. Post-GC heap in the final ten rounds ranged from 958,592 to 1,005,912 bytes; goroutines stayed at nine and peak RSS settled near 28.47 MiB. This 43-second churn profile is not an hours-long stability guarantee.
+
+Performance against -14: initial 12 alternating 10-second profiles measured single-stream median 229.24→218.91 MiB/s (-4.50%) and eight-stream 254.29→254.65 (+0.14%). Because the single-stream paired runs varied, six additional alternating 30-second profiles were run without another load test: median 232.21→230.13 MiB/s (-0.89%), CPU 116.33→116.82 seconds, peak RSS 27.94→27.66 MiB. All profiles reconciled exact bytes. The first short-run difference did not persist at its original magnitude; this is bounded local evidence, not a zero-cost/WAN-speed guarantee. CPU/RSS include client and server in one process. Lease work is on stream/session transitions, not the packet path.
+
+The dependency's complete non-stress race suite passed. Its combined stress run hit the 180-second total timeout during the final 1,000-parallel TCP case, after earlier large scenarios. That exact 1,000×1 MiB case then passed alone under race in 38.70 seconds. The initial combined timeout is retained as an incomplete run, not hidden or called a pass.

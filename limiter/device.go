@@ -157,3 +157,31 @@ func (c *deviceConn) Close() error { err := c.Conn.Close(); c.once.Do(c.release)
 // Upstream preserves optional transport capabilities (including half-close)
 // discovered by the core without bypassing our final Close accounting.
 func (c *deviceConn) Upstream() any { return c.Conn }
+
+// TrackAdmittedDevice pins an existing, still valid lease. It cannot create a
+// lease or resurrect a revoked user. Used after protocol admission succeeds.
+func (l *Limiter) TrackAdmittedDevice(user, ip string) (func(), bool) {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil || addr.Zone() != "" {
+		return nil, false
+	}
+	ip = addr.Unmap().String()
+	l.stateMu.Lock()
+	lease := l.deviceLeases[user][ip]
+	_, userExists := l.UserLimitInfo.Load(user)
+	if !userExists || lease == nil || (lease.active == 0 && !lease.expires.After(time.Now())) {
+		l.stateMu.Unlock()
+		return nil, false
+	}
+	lease.active++
+	l.stateMu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			l.stateMu.Lock()
+			lease.active--
+			lease.expires = time.Now().Add(deviceIdleTTL)
+			l.stateMu.Unlock()
+		})
+	}, true
+}

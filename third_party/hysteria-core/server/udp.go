@@ -299,6 +299,7 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 
 	// Create a new session if not exists
 	if entry == nil {
+		var release func()
 		dialFunc := func(addr string, firstMsgData []byte) (conn UDPConn, actualAddr string, err error) {
 			// Call the hook
 			err = m.io.Hook(firstMsgData, &addr)
@@ -308,11 +309,21 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 			actualAddr = addr
 			// Log the event
 			m.eventLogger.New(msg.SessionID, addr)
+			if tracker, ok := m.eventLogger.(interface{ Acquire() (func(), bool) }); ok {
+				var accepted bool
+				release, accepted = tracker.Acquire()
+				if !accepted {
+					return nil, actualAddr, errDisconnect
+				}
+			}
 			// Dial target
 			conn, err = m.io.UDP(addr)
 			return conn, actualAddr, err
 		}
 		exitFunc := func(err error) {
+			if release != nil {
+				release()
+			}
 			// Log the event
 			m.eventLogger.Close(entry.ID, err)
 
