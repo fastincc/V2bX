@@ -15,7 +15,6 @@ import (
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/apernet/hysteria/extras/v2/correctnet"
-	"github.com/apernet/hysteria/extras/v2/masq"
 	"github.com/apernet/hysteria/extras/v2/obfs"
 	"github.com/apernet/hysteria/extras/v2/outbounds"
 	"github.com/apernet/hysteria/extras/v2/sniff"
@@ -364,17 +363,14 @@ func (n *Hysteria2node) getMasqHandler(tlsconfig *server.TLSConfig, conn net.Pac
 		if c.Masquerade.ListenHTTP != "" && c.Masquerade.ListenHTTPS == "" {
 			return nil, fmt.Errorf("masquerade.listenHTTPS having only HTTP server without HTTPS is not supported")
 		}
-		s := masq.MasqTCPServer{
-			QUICPort:  extractPortFromAddr(conn.LocalAddr().String()),
-			HTTPSPort: extractPortFromAddr(c.Masquerade.ListenHTTPS),
-			Handler:   &masqHandlerLogWrapper{H: handler, QUIC: false, Logger: n.Logger},
-			TLSConfig: &tls.Config{
-				Certificates:   tlsconfig.Certificates,
-				GetCertificate: tlsconfig.GetCertificate,
-			},
-			ForceHTTPS: c.Masquerade.ForceHTTPS,
+		managed, err := newMasqueradeServers(c.Masquerade.ListenHTTP, c.Masquerade.ListenHTTPS,
+			&tls.Config{Certificates: tlsconfig.Certificates, GetCertificate: tlsconfig.GetCertificate},
+			&masqHandlerLogWrapper{H: handler, QUIC: false, Logger: n.Logger},
+			extractPortFromAddr(conn.LocalAddr().String()), extractPortFromAddr(c.Masquerade.ListenHTTPS), c.Masquerade.ForceHTTPS, n.Logger)
+		if err != nil {
+			return nil, err
 		}
-		go runMasqTCPServer(&s, c.Masquerade.ListenHTTP, c.Masquerade.ListenHTTPS, n.Logger)
+		n.masquerade = managed
 	}
 
 	return MasqHandler, nil
@@ -426,26 +422,6 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 		TrafficLogger:         n.TrafficLogger,
 		MasqHandler:           Masq,
 	}, nil
-}
-
-func runMasqTCPServer(s *masq.MasqTCPServer, httpAddr, httpsAddr string, logger *zap.Logger) {
-	errChan := make(chan error, 2)
-	if httpAddr != "" {
-		go func() {
-			logger.Info("masquerade HTTP server up and running", zap.String("listen", httpAddr))
-			errChan <- s.ListenAndServeHTTP(httpAddr)
-		}()
-	}
-	if httpsAddr != "" {
-		go func() {
-			logger.Info("masquerade HTTPS server up and running", zap.String("listen", httpsAddr))
-			errChan <- s.ListenAndServeHTTPS(httpsAddr)
-		}()
-	}
-	err := <-errChan
-	if err != nil {
-		logger.Fatal("failed to serve masquerade HTTP(S)", zap.Error(err))
-	}
 }
 
 func extractPortFromAddr(addr string) int {

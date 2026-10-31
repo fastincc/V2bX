@@ -1,6 +1,7 @@
 package hy2
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 )
 
 type Hysteria2node struct {
+	masquerade    *masqueradeServers
 	Auth          *V2bX
 	Hy2server     server.Server
 	Tag           string
@@ -66,10 +68,12 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 	s, err := server.NewServer(hyconfig)
 	if err != nil {
 		_ = hyconfig.Conn.Close()
+		n.masquerade.Close()
 		return err
 	}
 	n.Hy2server = s
 	h.Hy2nodes[tag] = n
+	n.masquerade.Start()
 	go func() {
 		if err := s.Serve(); err != nil {
 			if !strings.Contains(err.Error(), "quic: server closed") {
@@ -82,18 +86,42 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 
 func (h *Hysteria2) DelNode(tag string) error {
 	defer h.trafficGate.Lock(tag)()
-	h.nodesMu.Lock()
-	defer h.nodesMu.Unlock()
+	h.nodesMu.RLock()
 	n, ok := h.Hy2nodes[tag]
+	h.nodesMu.RUnlock()
 	if !ok {
 		return nil
 	}
-	err := n.Hy2server.Close()
-	if err != nil {
+	n.masquerade.Close()
+	if err := n.Hy2server.Close(); err != nil {
 		return err
 	}
+	h.nodesMu.Lock()
 	delete(h.Hy2nodes, tag)
+	h.nodesMu.Unlock()
 	return nil
+}
+
+// Close all nodes even when one close fails. Callers hold the all-node gate.
+func (h *Hysteria2) closeNodes() error {
+	h.nodesMu.RLock()
+	nodes := make(map[string]Hysteria2node, len(h.Hy2nodes))
+	for tag, n := range h.Hy2nodes {
+		nodes[tag] = n
+	}
+	h.nodesMu.RUnlock()
+	var result error
+	for tag, n := range nodes {
+		n.masquerade.Close()
+		if err := n.Hy2server.Close(); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		h.nodesMu.Lock()
+		delete(h.Hy2nodes, tag)
+		h.nodesMu.Unlock()
+	}
+	return result
 }
 
 func (h *Hysteria2) HasNode(tag string) bool {

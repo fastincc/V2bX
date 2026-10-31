@@ -48,15 +48,7 @@ func (h *Hysteria2) Start() error {
 
 func (h *Hysteria2) Close() error {
 	defer h.trafficGate.LockAll()()
-	h.nodesMu.Lock()
-	defer h.nodesMu.Unlock()
-	for _, n := range h.Hy2nodes {
-		err := n.Hy2server.Close()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return h.closeNodes()
 }
 
 func (h *Hysteria2) Type() string {
