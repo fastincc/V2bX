@@ -8,16 +8,21 @@ import (
 )
 
 func (b *Sing) PersistTrafficSnapshot(tag string, persist func([]panel.UserTraffic) error) error {
+	defer b.trafficGate.Lock(tag)()
 	b.users.mapLock.Lock()
-	defer b.users.mapLock.Unlock()
+	var snapshot *counter.Snapshot
 	if value, ok := b.hookServer.counter.Load(tag); ok {
-		err := counter.PersistSnapshot(value.(*counter.TrafficCounter), func(uuid string) int { return b.users.uidMap[userKey{tag, uuid}] }, func(string) int64 { return 0 }, persist)
-		if err == nil {
-			b.reapTrafficLocked(tag)
-		}
-		return err
+		snapshot = counter.PrepareSnapshot(value.(*counter.TrafficCounter), func(uuid string) int { return b.users.uidMap[userKey{tag, uuid}] }, func(string) int64 { return 0 })
 	}
+	b.users.mapLock.Unlock()
+	if snapshot != nil {
+		if err := snapshot.Persist(persist); err != nil {
+			return err
+		}
+	}
+	b.users.mapLock.Lock()
 	b.reapTrafficLocked(tag)
+	b.users.mapLock.Unlock()
 	return nil
 }
 
@@ -52,6 +57,7 @@ func (b *Sing) reapTrafficLocked(tag string) {
 	}
 }
 func (b *Sing) ReclaimTraffic(tag string) {
+	defer b.trafficGate.Lock(tag)()
 	b.users.mapLock.Lock()
 	defer b.users.mapLock.Unlock()
 	b.reapTrafficLocked(tag)
@@ -59,6 +65,7 @@ func (b *Sing) ReclaimTraffic(tag string) {
 
 // Stop acquisition, close tracked writers, then wait for their in-flight counts.
 func (b *Sing) DrainTraffic(tag string) error {
+	defer b.trafficGate.Lock(tag)()
 	b.users.mapLock.Lock()
 	if b.users.paused == nil {
 		b.users.paused = make(map[userKey]pausedUser)
@@ -92,6 +99,7 @@ func (b *Sing) DrainTraffic(tag string) error {
 }
 
 func (b *Sing) ResumeTraffic(tag string) error {
+	defer b.trafficGate.Lock(tag)()
 	b.users.mapLock.Lock()
 	defer b.users.mapLock.Unlock()
 	for raw, p := range b.users.paused {

@@ -3,6 +3,7 @@ package hy2
 import "fmt"
 
 func (h *Hysteria2) DrainTraffic(tag string) error {
+	defer h.trafficGate.Lock(tag)()
 	h.nodesMu.RLock()
 	defer h.nodesMu.RUnlock()
 	n, ok := h.Hy2nodes[tag]
@@ -15,6 +16,7 @@ func (h *Hysteria2) DrainTraffic(tag string) error {
 	return nil
 }
 func (h *Hysteria2) ResumeTraffic(tag string) error {
+	defer h.trafficGate.Lock(tag)()
 	h.nodesMu.RLock()
 	defer h.nodesMu.RUnlock()
 	n, ok := h.Hy2nodes[tag]

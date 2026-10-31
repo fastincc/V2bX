@@ -1,6 +1,7 @@
 package hy2
 
 import (
+	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/InazumaV/V2bX/conf"
 	vCore "github.com/InazumaV/V2bX/core"
 	"go.uber.org/zap"
@@ -10,9 +11,10 @@ import (
 var _ vCore.Core = (*Hysteria2)(nil)
 
 type Hysteria2 struct {
-	Hy2nodes map[string]Hysteria2node
-	nodesMu  sync.RWMutex
-	Logger   *zap.Logger
+	trafficGate counter.NodeGate
+	Hy2nodes    map[string]Hysteria2node
+	nodesMu     sync.RWMutex
+	Logger      *zap.Logger
 }
 
 func init() {
@@ -45,6 +47,7 @@ func (h *Hysteria2) Start() error {
 }
 
 func (h *Hysteria2) Close() error {
+	defer h.trafficGate.LockAll()()
 	h.nodesMu.Lock()
 	defer h.nodesMu.Unlock()
 	for _, n := range h.Hy2nodes {

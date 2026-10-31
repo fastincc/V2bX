@@ -2,6 +2,7 @@ package xray
 
 import (
 	"fmt"
+	"github.com/InazumaV/V2bX/common/counter"
 	"os"
 	"sync"
 
@@ -30,6 +31,7 @@ func init() {
 
 // Xray Structure
 type Xray struct {
+	trafficGate               counter.NodeGate
 	access                    sync.Mutex
 	Server                    *core.Instance
 	ihm                       inbound.Manager
@@ -199,6 +201,7 @@ func (c *Xray) Start() error {
 
 // Close  the core
 func (c *Xray) Close() error {
+	defer c.trafficGate.LockAll()()
 	c.access.Lock()
 	defer c.access.Unlock()
 	c.ihm = nil

@@ -3,6 +3,7 @@ package sing
 import (
 	"context"
 	"fmt"
+	"github.com/InazumaV/V2bX/common/counter"
 	"os"
 	"sync"
 
@@ -25,6 +26,7 @@ type DNSConfig struct {
 }
 
 type Sing struct {
+	trafficGate               counter.NodeGate
 	box                       *box.Box
 	ctx                       context.Context
 	hookServer                *HookServer
@@ -109,6 +111,7 @@ func (b *Sing) Start() error {
 }
 
 func (b *Sing) Close() error {
+	defer b.trafficGate.LockAll()()
 	return b.box.Close()
 }
 

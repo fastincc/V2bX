@@ -145,6 +145,7 @@ func (b *Sing) AddUsers(p *core.AddUsersParams) (added int, err error) {
 }
 
 func (b *Sing) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int64) {
+	defer b.trafficGate.Lock(tag)()
 	b.users.mapLock.RLock()
 	defer b.users.mapLock.RUnlock()
 	if v, ok := b.hookServer.counter.Load(tag); ok {
@@ -158,6 +159,7 @@ func (b *Sing) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int6
 }
 
 func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
+	defer b.trafficGate.Lock(tag)()
 	trafficSlice := make([]panel.UserTraffic, 0)
 	indexes := make(map[int]int)
 	hook := b.hookServer

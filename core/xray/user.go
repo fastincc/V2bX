@@ -61,6 +61,7 @@ func (c *Xray) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeInfo) e
 }
 
 func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
+	defer x.trafficGate.Lock(tag)()
 	trafficSlice := make([]panel.UserTraffic, 0)
 	x.users.mapLock.Lock()
 	defer x.users.mapLock.Unlock()

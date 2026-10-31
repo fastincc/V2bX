@@ -7,6 +7,7 @@ import (
 )
 
 func (x *Xray) DrainTraffic(tag string) error {
+	defer x.trafficGate.Lock(tag)()
 	x.users.mapLock.Lock()
 	var managers []*dispatcher.LinkManager
 	for key, node := range x.users.node {
@@ -39,6 +40,7 @@ func (x *Xray) DrainTraffic(tag string) error {
 	}
 }
 func (x *Xray) ResumeTraffic(tag string) error {
+	defer x.trafficGate.Lock(tag)()
 	x.users.mapLock.Lock()
 	defer x.users.mapLock.Unlock()
 	for _, key := range x.users.active {

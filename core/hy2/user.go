@@ -96,6 +96,7 @@ func (h *Hysteria2) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeIn
 }
 
 func (h *Hysteria2) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
+	defer h.trafficGate.Lock(tag)()
 	trafficSlice := make([]panel.UserTraffic, 0)
 	h.nodesMu.RLock()
 	defer h.nodesMu.RUnlock()

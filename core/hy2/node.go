@@ -21,6 +21,7 @@ type Hysteria2node struct {
 }
 
 func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
+	defer h.trafficGate.Lock(tag)()
 	h.nodesMu.Lock()
 	defer h.nodesMu.Unlock()
 	if _, exists := h.Hy2nodes[tag]; exists {
@@ -80,6 +81,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 }
 
 func (h *Hysteria2) DelNode(tag string) error {
+	defer h.trafficGate.Lock(tag)()
 	h.nodesMu.Lock()
 	defer h.nodesMu.Unlock()
 	n, ok := h.Hy2nodes[tag]

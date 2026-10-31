@@ -401,6 +401,7 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 }
 
 func (b *Sing) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
+	defer b.trafficGate.Lock(tag)()
 	b.setReportMinTraffic(tag, config.ReportMinTraffic*1024)
 	c, err := getInboundOptions(tag, info, config)
 	if err != nil {
@@ -423,6 +424,7 @@ func (b *Sing) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) e
 }
 
 func (b *Sing) DelNode(tag string) error {
+	defer b.trafficGate.Lock(tag)()
 	in := b.box.Inbound()
 	var err error
 	if _, exists := in.Get(tag); exists {

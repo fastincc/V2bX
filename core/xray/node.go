@@ -18,6 +18,7 @@ type DNSConfig struct {
 }
 
 func (c *Xray) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
+	defer c.trafficGate.Lock(tag)()
 	c.setReportMinTraffic(tag, config.ReportMinTraffic*1024)
 	err := updateDNSConfig(info)
 	if err != nil {
@@ -82,6 +83,7 @@ func (c *Xray) addOutbound(config *core.OutboundHandlerConfig) error {
 }
 
 func (c *Xray) DelNode(tag string) error {
+	defer c.trafficGate.Lock(tag)()
 	c.users.mapLock.Lock()
 	for raw, key := range c.users.active {
 		if c.users.node[key] == tag {
