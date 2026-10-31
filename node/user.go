@@ -28,7 +28,11 @@ func (c *Controller) reportUserTrafficTask() (err error) {
 		if storageErr != nil {
 			c.logTrafficStorageError(storageErr)
 		}
-		userTraffic, reportErr = delivery.report()
+		result := delivery.report()
+		reportErr = result.err
+		if result.state == deliveryConfirmed {
+			userTraffic = result.rows
+		}
 		c.operationMu.Lock()
 		if c.closed {
 			c.operationMu.Unlock()

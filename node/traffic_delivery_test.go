@@ -249,8 +249,8 @@ func TestDeliveryRegularTickPreemptsCatchupWait(t *testing.T) {
 	}
 	time.Sleep(20 * time.Millisecond)
 	start := time.Now()
-	rows, err := d.report()
-	if err != nil || len(rows) != 1 || time.Since(start) > 250*time.Millisecond {
+	result := d.report()
+	if result.err != nil || result.state != deliveryConfirmed || len(result.rows) != 1 || time.Since(start) > 250*time.Millisecond {
 		t.Fatal("regular report blocked by catchup budget")
 	}
 }

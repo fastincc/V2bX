@@ -64,9 +64,22 @@ func acquireDeliveryBudget(host string) (*rate.Limiter, func()) {
 	}
 }
 
+type deliveryState string
+
+const (
+	deliveryIdle       deliveryState = "idle"
+	deliveryDeferred   deliveryState = "deferred"
+	deliveryPaused     deliveryState = "paused"
+	deliveryCanceled   deliveryState = "canceled"
+	deliveryFailed     deliveryState = "failed"
+	deliveryAckPending deliveryState = "remote_confirmed_local_pending"
+	deliveryConfirmed  deliveryState = "confirmed"
+)
+
 type deliveryResult struct {
-	rows []panel.UserTraffic
-	err  error
+	state deliveryState
+	rows  []panel.UserTraffic
+	err   error
 }
 type deliveryRequest struct{ result chan deliveryResult }
 type trafficDelivery struct {
@@ -85,6 +98,7 @@ type trafficDelivery struct {
 	catchup, paused                          bool
 	retryAt, extraAt, roundStart, drainStart time.Time
 	failures, roundCount, drained            int
+	lastState                                deliveryState
 }
 
 func newTrafficDelivery(api *panel.Client, spool *trafficbatch.Store, tag string) *trafficDelivery {
@@ -99,18 +113,18 @@ func (d *trafficDelivery) notify() {
 	}
 }
 
-func (d *trafficDelivery) report() ([]panel.UserTraffic, error) {
+func (d *trafficDelivery) report() deliveryResult {
 	req := deliveryRequest{result: make(chan deliveryResult, 1)}
 	select {
 	case d.regular <- req:
 	case <-d.ctx.Done():
-		return nil, nil
+		return deliveryResult{state: deliveryCanceled}
 	}
 	select {
 	case result := <-req.result:
-		return result.rows, result.err
+		return result
 	case <-d.ctx.Done():
-		return nil, nil
+		return deliveryResult{state: deliveryCanceled}
 	}
 }
 func (d *trafficDelivery) run() {
@@ -192,13 +206,23 @@ func (d *trafficDelivery) run() {
 		}
 	}
 }
-func (d *trafficDelivery) attempt(extra bool) deliveryResult {
+func (d *trafficDelivery) attempt(extra bool) (result deliveryResult) {
+	result.state = deliveryIdle
+	defer func() { d.logDeliveryState(result.state) }()
 	batch := d.spool.Pending()
 	if batch == nil {
-		return deliveryResult{}
+		return result
 	}
-	result := deliveryResult{rows: batch.Traffic}
-	if d.paused || d.ctx.Err() != nil || time.Now().Before(d.retryAt) {
+	if d.ctx.Err() != nil {
+		result.state = deliveryCanceled
+		return result
+	}
+	if d.paused {
+		result.state = deliveryPaused
+		return result
+	}
+	if time.Now().Before(d.retryAt) {
+		result.state = deliveryDeferred
 		return result
 	}
 	d.catchup = true
@@ -217,6 +241,7 @@ func (d *trafficDelivery) attempt(extra bool) deliveryResult {
 	}
 	err := d.api.ReportTrafficBatchContext(d.ctx, batch.ID, batch.Traffic)
 	if d.ctx.Err() != nil {
+		result.state = deliveryCanceled
 		return result
 	} // keep ambiguous acknowledgement for replay
 	d.extraAt = time.Now().Add(d.policy.spacing)
@@ -235,19 +260,46 @@ func (d *trafficDelivery) attempt(extra bool) deliveryResult {
 		delay = max(delay, panel.TrafficRetryAfter(err))
 		d.retryAt = time.Now().Add(delay)
 		log.WithFields(log.Fields{"tag": d.tag, "retry_in": delay, "error": err}).Info("Reliable traffic attempt deferred; batch retained")
+		result.state = deliveryFailed
 		result.err = err
 		return result
 	}
 	if err = d.spool.Acknowledge(batch.ID); err != nil {
 		d.paused = true
-		log.WithFields(log.Fields{"tag": d.tag, "error": err}).Error("Reliable traffic acknowledgement storage failed; sender paused until restart")
+		result.state = deliveryAckPending
+		log.WithFields(log.Fields{"tag": d.tag, "error": err}).Error("Panel acknowledged traffic batch; local acknowledgement failed; batch retained and sender paused until restart")
 		result.err = err
 		return result
 	}
+	result.state = deliveryConfirmed
+	result.rows = batch.Traffic
 	d.failures = 0
 	d.retryAt = time.Time{}
 	if !d.drainStart.IsZero() {
 		d.drained++
 	}
 	return result
+}
+
+// Called only by the sender goroutine. Emit skipped states on transitions,
+// never once per checkpoint, and never include credentials or batch contents.
+func (d *trafficDelivery) logDeliveryState(state deliveryState) {
+	if d.lastState == state {
+		return
+	}
+	d.lastState = state
+	switch state {
+	case deliveryDeferred, deliveryPaused, deliveryCanceled:
+	default:
+		return
+	}
+	entry := log.WithFields(log.Fields{"tag": d.tag, "delivery_state": state})
+	switch state {
+	case deliveryDeferred:
+		entry.WithField("retry_in", max(time.Until(d.retryAt), 0)).Info("Reliable traffic retry deferred; batch retained")
+	case deliveryPaused:
+		entry.Info("Reliable traffic sender paused; batch retained")
+	case deliveryCanceled:
+		entry.Info("Reliable traffic delivery canceled; no completion confirmed by this attempt")
+	}
 }
