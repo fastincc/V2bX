@@ -47,6 +47,10 @@ jobs:
         run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./api/panel ./conf ./common/rate ./common/task ./limiter ./node ./core/... ./cmd -run 'Test(NodeConfig|NodeIntervals|RuleSnapshot|WatchCandidate|TaskRestart|ReloadDrain|Candidate|LastGood|DrainCanResume|LoggerNever|RevokedTail|HysteriaQUIC|XrayRealRevoked|RetiredManager|GenerationPreserves|PacketRate|UDPAdmission|ShadowsocksUDP)' -count=1 -timeout=180s
       - name: Authentication snapshots rebuild user sync and catch-up regression
         run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./api/panel ./node ./core/sing github.com/sagernet/sing-box/protocol/shadowsocks -run 'Test(UserSnapshot|ShadowsocksLiveUser|PanelRebuild|UserSync|TrafficDelivery|Delivery|UDPReject)' -count=1 -timeout=180s
+      - name: Checkpoint isolation and batched rebuild race regression
+        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./common/counter ./core/sing ./core/hy2 ./core/xray ./node -run 'Test(NodeGate|Checkpoint|PanelRebuild)' -count=1 -timeout=180s
+      - name: Reliable checkpoint real AnyTLS slow-storage reconciliation
+        run: GOEXPERIMENT=jsonv2 CHECKPOINT_PROFILE_DURATION=5s CHECKPOINT_PROFILE_PARALLEL=8 CHECKPOINT_PROFILE_SLOW_MS=300 go test -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./core/sing -run '^TestCheckpointTransportProfile$' -count=1 -timeout=90s
       - name: V2bX integration
         run: GOEXPERIMENT=jsonv2 ANYTLS_LONG_STREAM_DURATION=30s ANYTLS_CLEANUP_REVIEW=1 go test -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./core/sing -run TestAnyTLS -count=1
 
@@ -122,7 +126,9 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/sing-shadowsocks/LICENSE ./build_assets/LICENSE.sing-shadowsocks
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-12.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-13.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/CHECKPOINT-LOCK-ISOLATION.md ./build_assets/CHECKPOINT-LOCK-ISOLATION.md
+          cp ${GITHUB_WORKSPACE}/docs/BATCH-REBUILD-REVOCATION.md ./build_assets/BATCH-REBUILD-REVOCATION.md
           cp ${GITHUB_WORKSPACE}/docs/REPORTING-STATUS.md ./build_assets/REPORTING-STATUS.md
           cp ${GITHUB_WORKSPACE}/docs/RELIABLE-TRAFFIC-CATCHUP.md ./build_assets/RELIABLE-TRAFFIC-CATCHUP.md
           cp ${GITHUB_WORKSPACE}/docs/TRAFFIC-AUTO-MODE.md ./build_assets/TRAFFIC-AUTO-MODE.md
@@ -184,4 +190,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-12.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-13.md
