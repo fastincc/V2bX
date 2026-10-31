@@ -51,11 +51,13 @@ var logFormatMap = map[string]zapcore.EncoderConfig{
 }
 
 func (l *serverLogger) Connect(addr net.Addr, uuid string, tx uint64) {
-	l.checkAdmission(addr, uuid)
 	l.logger.Info("client connected", zap.String("addr", addr.String()), zap.String("user_id", l.safeUserID(uuid)), zap.Uint64("tx", tx))
 }
 
 func (l *serverLogger) Disconnect(addr net.Addr, uuid string, err error) {
+	if l.Auth != nil {
+		defer l.Auth.disconnect(uuid)
+	}
 	l.logger.Info("client disconnected", zap.String("addr", addr.String()), zap.String("user_id", l.safeUserID(uuid)), zap.String("error", safeLogError(err)))
 }
 
@@ -129,7 +131,11 @@ func (l *serverLogger) safeUserID(id string) string {
 	}
 	l.Auth.mutex.RLock()
 	defer l.Auth.mutex.RUnlock()
-	uid := l.Auth.uidLocked(id)
+	generation, _, _ := strings.Cut(id, "/connection-")
+	uid := l.Auth.uidLocked(generation)
+	if session := l.Auth.sessions[id]; session != nil {
+		uid = session.uid
+	}
 	if uid == 0 {
 		uid = l.Auth.usersMap[id]
 	}
@@ -164,15 +170,20 @@ func (l *serverLogger) checkAdmission(addr net.Addr, id string) {
 	}
 	l.Auth.mutex.Lock()
 	defer l.Auth.mutex.Unlock()
-	identity, ok := l.Auth.identities[id]
-	if !ok || identity.retired {
+	session := l.Auth.sessions[id]
+	if session == nil || session.denied {
+		return
+	}
+	identity, ok := l.Auth.identities[session.generation]
+	if !ok || identity.retired || l.Auth.active[identity.credential] != session.generation {
+		session.denied = true
 		return
 	}
 	limit, err := limiter.GetLimiter(l.Tag)
 	if err != nil {
-		l.Auth.denied[id] = true
+		session.denied = true
 		return
 	}
 	_, reject := limit.CheckLimit(format.UserTag(l.Tag, identity.credential), extractIPFromAddr(addr), addr.Network() == "tcp", true)
-	l.Auth.denied[id] = reject
+	session.denied = reject
 }

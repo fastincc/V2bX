@@ -6,6 +6,7 @@ import (
 	vcore "github.com/InazumaV/V2bX/core"
 	"github.com/InazumaV/V2bX/limiter"
 	"go.uber.org/zap"
+	"net"
 	"testing"
 )
 
@@ -51,4 +52,7 @@ func TestNodeAuthorizationIsolation(t *testing.T) {
 	}
 }
 
-func hyTestID(a *V2bX, raw string) string { _, id := a.Authenticate(nil, raw, 0); return id }
+func hyTestID(a *V2bX, raw string) string {
+	_, id := a.Authenticate(&net.UDPAddr{IP: net.ParseIP("192.0.2.1"), Port: 1234}, raw, 0)
+	return id
+}

@@ -2,7 +2,10 @@ package hy2
 
 import (
 	"fmt"
+	"github.com/InazumaV/V2bX/common/format"
+	"github.com/InazumaV/V2bX/limiter"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 
@@ -15,13 +18,16 @@ import (
 var _ server.Authenticator = &V2bX{}
 
 type V2bX struct {
-	usersMap   map[string]int
-	mutex      sync.RWMutex
-	active     map[string]string
-	identities map[string]hyIdentity
-	denied     map[string]bool
-	sequence   uint64
-	paused     bool
+	usersMap    map[string]int
+	mutex       sync.RWMutex
+	active      map[string]string
+	identities  map[string]hyIdentity
+	tag         string
+	sessions    map[string]*hySession
+	streams     map[server.HyStream]*hySession
+	nextSession uint64
+	sequence    uint64
+	paused      bool
 }
 
 type hyIdentity struct {
@@ -30,20 +36,62 @@ type hyIdentity struct {
 	retired    bool
 }
 
+// Connection IDs are opaque runtime handles, never accounting keys or credentials.
+// Multiple connections share their original accounting generation, not admission state.
+type hySession struct {
+	id, generation string
+	uid            int
+	denied, closed bool
+	streams        int
+}
+
 func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string) {
-	v.mutex.RLock()
-	defer v.mutex.RUnlock()
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	if v.paused {
 		return false, ""
 	}
-	id, ok := v.active[auth]
-	return ok, id
+	generation, ok := v.active[auth]
+	if !ok {
+		return false, ""
+	}
+	ip, e := netip.ParseAddr(extractIPFromAddr(addr))
+	if e != nil || ip.Zone() != "" {
+		return false, ""
+	}
+	l, e := limiter.GetLimiter(v.tag)
+	if e != nil {
+		return false, ""
+	}
+	if _, reject := l.CheckLimit(format.UserTag(v.tag, auth), ip.Unmap().String(), false, true); reject {
+		return false, ""
+	}
+	if v.sessions == nil {
+		v.sessions = make(map[string]*hySession)
+	}
+	v.nextSession++
+	id := generation + "/connection-" + strconv.FormatUint(v.nextSession, 10)
+	v.sessions[id] = &hySession{id: id, generation: generation, uid: v.identities[generation].uid}
+	return true, id
+}
+
+// Disconnect can precede the last TCP copy callback. Keep the connection handle
+// until traced streams finish; its original counter is still owned by the user
+// generation and is never deleted by disconnect.
+func (v *V2bX) disconnect(id string) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
+	if s := v.sessions[id]; s != nil {
+		s.closed = true
+		if s.streams == 0 {
+			delete(v.sessions, id)
+		}
+	}
 }
 func (v *V2bX) addLocked(credential string, uid int) {
 	if v.active == nil {
 		v.active = map[string]string{}
 		v.identities = map[string]hyIdentity{}
-		v.denied = map[string]bool{}
 	}
 	if _, ok := v.active[credential]; ok {
 		return
@@ -65,6 +113,7 @@ func (h *Hysteria2) AddUsers(p *vCore.AddUsersParams) (int, error) {
 	}
 	n.Auth.mutex.Lock()
 	defer n.Auth.mutex.Unlock()
+	n.Auth.tag = p.Tag
 	for _, u := range p.Users {
 		n.Auth.addLocked(u.Uuid, u.Id)
 	}
@@ -157,6 +206,5 @@ func (v *V2bX) reapLocked(c *counter.TrafficCounter) {
 		}
 		c.Delete(id)
 		delete(v.identities, id)
-		delete(v.denied, id)
 	}
 }

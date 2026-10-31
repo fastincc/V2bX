@@ -40,7 +40,7 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 			return fmt.Errorf("failed to parse server config: %w", err)
 		}
 	}
-	auth := &V2bX{usersMap: make(map[string]int)}
+	auth := &V2bX{tag: tag, usersMap: make(map[string]int)}
 	n := Hysteria2node{
 		Auth:   auth,
 		Tag:    tag,

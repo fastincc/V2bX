@@ -21,9 +21,38 @@ type HookServer struct {
 }
 
 func (h *HookServer) TraceStream(stream server.HyStream, stats *server.StreamStats) {
+	if h.Auth == nil {
+		return
+	}
+	h.Auth.mutex.Lock()
+	defer h.Auth.mutex.Unlock()
+	s := h.Auth.sessions[stats.AuthID]
+	if s == nil || s.closed {
+		return
+	}
+	if h.Auth.streams == nil {
+		h.Auth.streams = make(map[server.HyStream]*hySession)
+	}
+	if _, exists := h.Auth.streams[stream]; exists {
+		return
+	}
+	s.streams++
+	h.Auth.streams[stream] = s
 }
 
 func (h *HookServer) UntraceStream(stream server.HyStream) {
+	if h.Auth == nil {
+		return
+	}
+	h.Auth.mutex.Lock()
+	defer h.Auth.mutex.Unlock()
+	if s := h.Auth.streams[stream]; s != nil {
+		delete(h.Auth.streams, stream)
+		s.streams--
+		if s.closed && s.streams == 0 {
+			delete(h.Auth.sessions, s.id)
+		}
+	}
 }
 
 func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
@@ -33,8 +62,13 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	}
 	h.Auth.mutex.Lock()
 	defer h.Auth.mutex.Unlock()
-	identity, exists := h.Auth.identities[id]
-	if h.Auth.paused || !exists || identity.retired || h.Auth.active[identity.credential] != id || h.Auth.denied[id] {
+	session := h.Auth.sessions[id]
+	if session == nil || session.denied {
+		return false
+	}
+	generation := session.generation
+	identity, exists := h.Auth.identities[generation]
+	if h.Auth.paused || !exists || identity.retired || h.Auth.active[identity.credential] != generation {
 		return false
 	}
 	limiterinfo, err := limiter.GetLimiter(h.Tag)
@@ -46,8 +80,8 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 	}
 
 	tc := counter.LoadOrCreate(&h.Counter, h.Tag)
-	tc.Rx(id, int(rx))
-	tc.Tx(id, int(tx))
+	tc.Rx(generation, int(rx))
+	tc.Tx(generation, int(tx))
 	return true
 }
 func (s *HookServer) LogOnlineState(id string, online bool) {
