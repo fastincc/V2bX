@@ -32,17 +32,13 @@ func (h *Inbound) publishUsers(users map[string]option.AnyTLSUser) error {
 func (h *Inbound) AddUsers(users []option.AnyTLSUser) error {
 	h.usersMu.Lock()
 	next, epochs := maps.Clone(h.users), maps.Clone(h.epochs)
-	var closeConns []net.Conn
+	changed := make(map[string]struct{}, len(users))
 	for _, user := range users {
 		previous, exists := next[user.Name]
 		if !exists || previous.Password != user.Password {
 			h.nextEpoch++
 			epochs[user.Name] = h.nextEpoch
-			for conn, state := range h.sessions {
-				if state.user == user.Name {
-					closeConns = append(closeConns, conn)
-				}
-			}
+			changed[user.Name] = struct{}{}
 		}
 		next[user.Name] = user
 	}
@@ -51,6 +47,16 @@ func (h *Inbound) AddUsers(users []option.AnyTLSUser) error {
 		return err
 	}
 	h.epochs = epochs
+	// Scan the session table once per update, including re-added identities whose
+	// old transport may still be closing. Never scan once per new user.
+	var closeConns []net.Conn
+	if len(changed) > 0 {
+		for conn, state := range h.sessions {
+			if _, invalidate := changed[state.user]; invalidate {
+				closeConns = append(closeConns, conn)
+			}
+		}
+	}
 	for _, user := range users {
 		h.setAuditUser(user.Name, user.AuditID)
 	}
