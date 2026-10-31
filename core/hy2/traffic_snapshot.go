@@ -15,17 +15,25 @@ func (h *Hysteria2) PersistTrafficSnapshot(tag string, persist func([]panel.User
 		return fmt.Errorf("traffic node not found")
 	}
 	hook := node.TrafficLogger.(*HookServer)
+	node.Auth.mutex.Lock()
+	var snapshot *counter.Snapshot
 	if value, ok := hook.Counter.Load(tag); ok {
 		c := value.(*counter.TrafficCounter)
-		node.Auth.mutex.Lock()
-		snapshot := counter.PrepareSnapshot(c, node.Auth.uidLocked, func(string) int64 { return 0 })
-		node.Auth.mutex.Unlock()
+		snapshot = counter.PrepareSnapshot(c, node.Auth.uidLocked, func(string) int64 { return 0 })
+	}
+	node.Auth.mutex.Unlock()
+	if snapshot != nil {
 		if err := snapshot.Persist(persist); err != nil {
 			return err
 		}
-		node.Auth.mutex.Lock()
-		node.Auth.reapLocked(c)
-		node.Auth.mutex.Unlock()
 	}
+	node.Auth.mutex.Lock()
+	defer node.Auth.mutex.Unlock()
+	// The first traffic callback may have created a counter during persistence.
+	var counts *counter.TrafficCounter
+	if value, ok := hook.Counter.Load(tag); ok {
+		counts = value.(*counter.TrafficCounter)
+	}
+	node.Auth.reapLocked(counts)
 	return nil
 }

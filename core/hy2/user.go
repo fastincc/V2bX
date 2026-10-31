@@ -1,6 +1,7 @@
 package hy2
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/InazumaV/V2bX/common/format"
 	"github.com/InazumaV/V2bX/limiter"
@@ -22,6 +23,7 @@ type V2bX struct {
 	mutex       sync.RWMutex
 	active      map[string]string
 	identities  map[string]hyIdentity
+	retired     list.List // generation IDs, rotated so retained tails cannot starve cleanup
 	tag         string
 	sessions    map[string]*hySession
 	streams     map[server.HyStream]*hySession
@@ -138,6 +140,7 @@ func (h *Hysteria2) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeIn
 		entry := n.Auth.identities[id]
 		entry.retired = true
 		n.Auth.identities[id] = entry
+		n.Auth.retired.PushBack(id)
 		delete(n.Auth.active, u.Uuid)
 		delete(n.Auth.usersMap, u.Uuid)
 
@@ -187,25 +190,29 @@ func (h *Hysteria2) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTra
 		}
 		return trafficSlice, nil
 	}
+	auth.reapLocked(nil)
 	return nil, nil
 }
 
 // LogTraffic and revocation share this lock. No retired generation can acquire
 // a new counter or append bytes after this check, including after re-addition.
 func (v *V2bX) reapLocked(c *counter.TrafficCounter) {
-	scanned := 0
-	for id, e := range v.identities {
-		if !e.retired {
+	for remaining := min(v.retired.Len(), 256); remaining > 0; remaining-- {
+		element := v.retired.Front()
+		id := element.Value.(string)
+		identity, exists := v.identities[id]
+		if !exists || !identity.retired {
+			v.retired.Remove(element)
 			continue
 		}
-		scanned++
-		if scanned > 256 {
-			break
-		}
-		if c.GetUpCount(id) != 0 || c.GetDownCount(id) != 0 {
+		if c != nil && (c.GetUpCount(id) != 0 || c.GetDownCount(id) != 0) {
+			v.retired.MoveToBack(element)
 			continue
 		}
-		c.Delete(id)
+		if c != nil {
+			c.Delete(id)
+		}
 		delete(v.identities, id)
+		v.retired.Remove(element)
 	}
 }
