@@ -2,6 +2,8 @@
 
 节点按 `(面板节点 tag, 用户认证代际)` 隔离统计；同一用户在同一节点的 TCP/UDP、多个连接及上传下载共享策略。不是套餐耗尽降速，也不是跨节点总量限制。
 
+**第一版明确不支持 Xray/VLESS Vision 动态限速**（用户已选择优先保速）：不关闭其 Linux 零拷贝，不修改原连接和静态限速。请求同时发送 `X-V2bX-Dynamic-Speed-Limit-Exclude: xray-vless-vision`；面板不能向该路径下发启用规则，不确定核心时应保守排除 Vision 节点。节点识别到 Vision 认证账户时拒绝策略并限频告警，不应在 UI 中显示为已执行。后续支持需要单独零拷贝专项改造及 Linux 验收。
+
 ## 用户接口
 
 沿用 `GET /api/v1/server/UniProxy/user` 的现有鉴权。新节点发送 `X-V2bX-Dynamic-Speed-Limit: 1`。面板只向声明支持的节点返回用户对象的可选 `dynamic_speed_limit` 字段。JSON 与 MessagePack 字段与单位完全一致。

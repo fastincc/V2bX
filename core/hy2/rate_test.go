@@ -27,8 +27,8 @@ func TestHy2RateSharedAndUnlimited(t *testing.T) {
 			_, id2 := a.Authenticate(admissionAddr("192.0.2.1"), "synthetic", 0)
 			first, second := h.TrafficPacer(id), h.TrafficPacer(id2)
 			if speed == 0 {
-				if first != nil || second != nil {
-					t.Fatal("unlimited acquired pacing state")
+				if first.(*hyPacer).rate != nil || second.(*hyPacer).rate != nil {
+					t.Fatal("unlimited acquired token bucket or pacing queue")
 				}
 				return
 			}
@@ -123,8 +123,9 @@ func TestHy2RateCancelDrainRevoke(t *testing.T) {
 func TestHy2RateUnlimitedAllocations(t *testing.T) {
 	_, h, id := rateUnitFixture(t, 0)
 	if n := testing.AllocsPerRun(1000, func() {
-		if h.TrafficPacer(id) != nil {
-			panic("unlimited pacer")
+		p := h.TrafficPacer(id).(*hyPacer)
+		if p.rate != nil || p.Wait(context.Background(), 32768) != nil {
+			panic("unlimited pacing not a no-op")
 		}
 	}); n != 0 {
 		t.Fatalf("unlimited stream added %.2f allocations", n)

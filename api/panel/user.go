@@ -51,6 +51,7 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 		SetHeader("If-None-Match", c.userEtag).
 		SetHeader("X-Response-Format", "msgpack").
 		SetHeader(dynamic.CapabilityHeader, "1").
+		SetHeader("X-V2bX-Dynamic-Speed-Limit-Exclude", "xray-vless-vision").
 		SetDoNotParseResponse(true).
 		Get(path)
 	if r == nil || r.RawResponse == nil {

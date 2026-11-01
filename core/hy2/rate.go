@@ -3,6 +3,7 @@ package hy2
 import (
 	"context"
 	"errors"
+	"github.com/InazumaV/V2bX/common/dynamic"
 	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/juju/ratelimit"
 	"time"
@@ -20,9 +21,10 @@ type hyRate struct {
 	turn   chan struct{}
 }
 type hyPacer struct {
-	auth *V2bX
-	id   string
-	rate *hyRate
+	auth    *V2bX
+	id      string
+	rate    *hyRate
+	dynamic *dynamic.Control
 }
 type deniedPacer struct{}
 
@@ -44,17 +46,29 @@ func (h *HookServer) TrafficPacer(id string) server.TrafficPacer {
 		return deniedPacer{}
 	}
 	if s.bucket == nil {
-		return nil
+		if s.dynamic == nil {
+			return nil
+		}
+		if s.pacer.auth == nil {
+			s.pacer = hyPacer{auth: a, id: id, dynamic: s.dynamic}
+		}
+		return &s.pacer
 	}
 	if entry.rate == nil {
 		entry.rate = &hyRate{bucket: s.bucket, done: make(chan struct{}), turn: make(chan struct{}, 1)}
 		entry.rate.turn <- struct{}{}
 		a.identities[s.generation] = entry
 	}
-	return &hyPacer{auth: a, id: id, rate: entry.rate}
+	return &hyPacer{auth: a, id: id, rate: entry.rate, dynamic: s.dynamic}
 }
 
 func (p *hyPacer) Wait(ctx context.Context, n int) error {
+	if e := p.dynamic.Wait(int64(n), func() (time.Time, <-chan struct{}, error) { d, _ := ctx.Deadline(); return d, ctx.Done(), ctx.Err() }); e != nil {
+		return e
+	}
+	if p.rate == nil {
+		return ctx.Err()
+	}
 	// Serialize only this user's quota reservations. Channel handoff lets a
 	// waiting large write progress even under continuous small-packet traffic,
 	// and avoids waking every flow for the same refill. Cancellation can leave

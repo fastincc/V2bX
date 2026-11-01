@@ -3,6 +3,7 @@ package hy2
 import (
 	"container/list"
 	"fmt"
+	"github.com/InazumaV/V2bX/common/dynamic"
 	"github.com/InazumaV/V2bX/common/format"
 	"github.com/InazumaV/V2bX/limiter"
 	"net"
@@ -49,6 +50,8 @@ type hySession struct {
 	managed, drained bool
 	streams          int
 	bucket           *ratelimit.Bucket
+	dynamic          *dynamic.Control
+	pacer            hyPacer
 }
 
 func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string) {
@@ -78,7 +81,7 @@ func (v *V2bX) Authenticate(addr net.Addr, auth string, tx uint64) (bool, string
 	}
 	v.nextSession++
 	id := generation + "/connection-" + strconv.FormatUint(v.nextSession, 10)
-	v.sessions[id] = &hySession{id: id, generation: generation, uid: v.identities[generation].uid, bucket: bucket}
+	v.sessions[id] = &hySession{id: id, generation: generation, uid: v.identities[generation].uid, bucket: bucket, dynamic: l.DynamicControl(format.UserTag(v.tag, auth))}
 	return true, id
 }
 

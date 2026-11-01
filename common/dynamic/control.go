@@ -369,3 +369,6 @@ func (c *Control) waitGate(g *gate, n int64, state WaitState) (retry bool, err e
 		return false, nil
 	}
 }
+
+// ActiveLimit is a lock-free diagnostic; it does not include a fixed limiter.
+func (c *Control) ActiveLimit() bool { return c != nil && c.gate.Load() != nil }

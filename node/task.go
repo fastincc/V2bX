@@ -50,12 +50,7 @@ func (c *Controller) startTasks(node *panel.NodeInfo) {
 		}
 	}
 	if c.LimitConfig.EnableDynamicSpeedLimit {
-		c.traffic = make(map[string]int64)
-		c.dynamicSpeedLimitPeriodic = &task.Task{
-			Interval: time.Duration(c.LimitConfig.DynamicSpeedLimitConfig.Periodic) * time.Second,
-			Execute:  c.SpeedChecker,
-		}
-		log.Printf("[%s: %d] Start dynamic speed limit", c.apiClient.NodeType, c.apiClient.NodeId)
+		log.Warn("Legacy EnableDynamicSpeedLimit is inactive; use panel dynamic_speed_limit v1 policies")
 	}
 }
 

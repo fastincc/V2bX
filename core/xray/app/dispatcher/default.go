@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/InazumaV/V2bX/common/counter"
+	"github.com/InazumaV/V2bX/common/dynamic"
 	"github.com/InazumaV/V2bX/common/rate"
 	"github.com/InazumaV/V2bX/limiter"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/xtls/xray-core/features/routing"
 	routing_session "github.com/xtls/xray-core/features/routing/session"
 	"github.com/xtls/xray-core/features/stats"
+	"github.com/xtls/xray-core/proxy/vless"
 	"github.com/xtls/xray-core/transport"
 	"github.com/xtls/xray-core/transport/pipe"
 )
@@ -208,8 +210,9 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 		t := counter.LoadOrCreate(&d.Counter, sessionInbound.Tag)
 
 		ts := t.GetCounter(user.Email)
-		upcounter := &counter.XrayTrafficCounter{V: &ts.UpCounter}
-		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter}
+		dynamicControl := dynamicLinkControl(limit, lm.LimitKey, user)
+		upcounter := &counter.XrayTrafficCounter{V: &ts.UpCounter, Dynamic: dynamicControl}
+		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter, Dynamic: dynamicControl}
 		inboundLink.Writer = &dispatcher.SizeStatWriter{
 			Counter: upcounter,
 			Writer:  inboundLink.Writer,
@@ -223,6 +226,8 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			inboundLink.Writer = rate.NewRateLimitWriter(inboundLink.Writer, w)
 			outboundLink.Writer = rate.NewRateLimitWriter(outboundLink.Writer, w)
 		}
+		inboundLink.Writer = rate.NewDynamicWriter(inboundLink.Writer, dynamicControl)
+		outboundLink.Writer = rate.NewDynamicWriter(outboundLink.Writer, dynamicControl)
 		inboundLink.Writer = lm.wrap(inboundLink.Writer, outboundLink.Reader)
 		outboundLink.Writer = lm.wrap(outboundLink.Writer, inboundLink.Reader)
 	}
@@ -393,12 +398,15 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		t := counter.LoadOrCreate(&d.Counter, sessionInbound.Tag)
 
 		ts := t.GetCounter(user.Email)
-		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter}
+		dynamicControl := dynamicLinkControl(limit, lm.LimitKey, user)
+		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter, Dynamic: dynamicControl}
 		outbound.Reader = &CounterReader{
 			Reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
 			Counter: &ts.UpCounter,
 			Manager: lm,
 			Source:  sessionInbound.Conn,
+			Dynamic: dynamicControl,
+			Context: ctx,
 		}
 		outbound.Writer = &dispatcher.SizeStatWriter{
 			Counter: downcounter,
@@ -408,6 +416,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			sessionInbound.CanSpliceCopy = 3
 			outbound.Writer = rate.NewRateLimitWriter(outbound.Writer, w)
 		}
+		outbound.Writer = rate.NewDynamicWriter(outbound.Writer, dynamicControl)
 		outbound.Writer = lm.wrap(outbound.Writer, rawReader)
 	}
 
@@ -632,4 +641,14 @@ func (d *DefaultDispatcher) routeContext(ctx context.Context) context.Context {
 	copyUser.Email = v.(*LinkManager).LimitKey
 	copyIn.User = &copyUser
 	return session.ContextWithInbound(ctx, &copyIn)
+}
+
+func dynamicLinkControl(l *limiter.Limiter, key string, user *protocol.MemoryUser) *dynamic.Control {
+	if user != nil {
+		if a, ok := user.Account.(*vless.MemoryAccount); ok && strings.Contains(a.Flow, "vision") {
+			l.RejectDynamicPolicyForRawCopy(key)
+			return nil
+		}
+	}
+	return l.DynamicControl(key)
 }

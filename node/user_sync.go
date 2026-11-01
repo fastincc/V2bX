@@ -64,6 +64,7 @@ func (c *Controller) applyUserSnapshot(users []panel.UserInfo) (err error) {
 		}
 	}
 	c.limiter.UpdateDeviceLimits(c.tag, users)
+	c.limiter.UpdateDynamicPolicies(c.tag, users)
 	c.userList = append([]panel.UserInfo(nil), users...)
 	c.apiClient.CommitUserList()
 	return nil

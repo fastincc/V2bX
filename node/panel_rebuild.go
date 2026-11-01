@@ -88,6 +88,7 @@ func (c *Controller) recoverPanelRebuild() error {
 		deleted, added := compareUserList(r.limiterUsers, r.users)
 		c.limiter.UpdateUser(c.tag, added, deleted)
 		c.limiter.UpdateDeviceLimits(c.tag, r.users)
+		c.limiter.UpdateDynamicPolicies(c.tag, r.users)
 		if err := c.limiter.UpdateRule(&r.info.Rules); err != nil {
 			return err
 		}
@@ -173,6 +174,7 @@ func (c *Controller) rebuildFromPanel(next *panel.NodeInfo, users []panel.UserIn
 	removed, added := compareUserList(r.limiterUsers, users)
 	c.limiter.UpdateUser(c.tag, added, removed)
 	c.limiter.UpdateDeviceLimits(c.tag, users)
+	c.limiter.UpdateDynamicPolicies(c.tag, users)
 	r.limiterUsers = append([]panel.UserInfo(nil), users...)
 	if e := c.limiter.UpdateRule(&next.Rules); e != nil {
 		return fail(e)

@@ -17,10 +17,17 @@ var limitLock sync.RWMutex
 var limiter map[string]*Limiter
 
 func Init() {
+	limitLock.Lock()
+	old := limiter
 	limiter = map[string]*Limiter{}
+	limitLock.Unlock()
+	for _, l := range old {
+		l.closeDynamicPolicies()
+	}
 }
 
 type Limiter struct {
+	dynamic       dynamicPanel
 	deviceEvents  map[string]panel.DeviceEvent
 	globalIPs     map[int]map[string]time.Time
 	snapshotUntil time.Time
@@ -48,6 +55,7 @@ type UserLimitInfo struct {
 
 func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo, aliveList map[int]int) *Limiter {
 	info := &Limiter{
+		dynamic:       dynamicPanel{wake: make(chan struct{}, 1), done: make(chan struct{})},
 		SpeedLimit:    l.SpeedLimit,
 		UserOnlineIP:  new(sync.Map),
 		UserLimitInfo: new(sync.Map),
@@ -68,11 +76,13 @@ func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo, aliveLi
 		}
 		userLimit.OverLimit = false
 		info.UserLimitInfo.Store(format.UserTag(tag, users[i].Uuid), userLimit)
+		info.addDynamicUser(tag, users[i])
 	}
 	info.UUIDtoUID = uuidmap
 	limitLock.Lock()
 	limiter[tag] = info
 	limitLock.Unlock()
+	info.UpdateDynamicPolicies(tag, users)
 	return info
 }
 
@@ -88,14 +98,22 @@ func GetLimiter(tag string) (info *Limiter, err error) {
 
 func DeleteLimiter(tag string) {
 	limitLock.Lock()
+	old := limiter[tag]
 	delete(limiter, tag)
 	limitLock.Unlock()
+	if old != nil {
+		old.closeDynamicPolicies()
+	}
 }
 
 func (l *Limiter) UpdateUser(tag string, added []panel.UserInfo, deleted []panel.UserInfo) {
 	l.stateMu.Lock()
-	defer l.stateMu.Unlock()
+	defer func() { l.stateMu.Unlock(); l.UpdateDynamicPolicies(tag, added) }()
+	if l.dynamic.closed {
+		return
+	}
 	for i := range deleted {
+		l.removeDynamicUser(format.UserTag(tag, deleted[i].Uuid))
 		delete(l.deviceLeases, format.UserTag(tag, deleted[i].Uuid))
 		l.UserLimitInfo.Delete(format.UserTag(tag, deleted[i].Uuid))
 		l.UserOnlineIP.Delete(format.UserTag(tag, deleted[i].Uuid))
@@ -104,6 +122,7 @@ func (l *Limiter) UpdateUser(tag string, added []panel.UserInfo, deleted []panel
 		delete(l.AliveList, deleted[i].Id)
 	}
 	for i := range added {
+		l.addDynamicUser(tag, added[i])
 		userLimit := &UserLimitInfo{
 			UID: added[i].Id,
 		}

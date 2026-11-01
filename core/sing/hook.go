@@ -91,6 +91,7 @@ func (h *HookServer) RoutedConnection(ctx context.Context, conn net.Conn, m adap
 	}
 	t := counter.LoadOrCreate(&h.counter, m.Inbound)
 	conn = counter.NewLeasedConn(conn, t.GetCounter(key))
+	conn = rate.NewDynamicConn(conn, l.DynamicControl(taguuid))
 	return conn
 }
 
@@ -150,6 +151,7 @@ func (h *HookServer) RoutedPacketConnection(ctx context.Context, conn N.PacketCo
 	}
 	t := counter.LoadOrCreate(&h.counter, m.Inbound)
 	conn = counter.NewLeasedPacketConn(conn, t.GetCounter(key))
+	conn = rate.NewDynamicPacketConn(conn, l.DynamicControl(taguuid))
 	return conn
 }
 

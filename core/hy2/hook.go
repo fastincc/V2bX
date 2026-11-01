@@ -79,6 +79,8 @@ func (h *HookServer) LogTraffic(id string, tx, rx uint64) (ok bool) {
 		return false
 	}
 
+	session.dynamic.Observe(int64(rx))
+	session.dynamic.Observe(int64(tx))
 	tc := counter.LoadOrCreate(&h.Counter, h.Tag)
 	tc.Rx(generation, int(rx))
 	tc.Tx(generation, int(tx))

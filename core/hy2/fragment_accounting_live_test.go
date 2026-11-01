@@ -57,7 +57,11 @@ func (p *fragmentAccountingPacer) Wait(ctx context.Context, n int) error {
 	if e := p.TrafficPacer.Wait(ctx, n); e != nil {
 		return e
 	}
-	p.log.quota.Add(int64(n))
+	// A disabled dynamic handle is present to allow hot enable, but spends no quota.
+	h, ok := p.TrafficPacer.(*hyPacer)
+	if !ok || h.rate != nil || h.dynamic.ActiveLimit() {
+		p.log.quota.Add(int64(n))
+	}
 	return nil
 }
 func fragmentExchange(c client.HyUDPConn, addr string, size int) error {
