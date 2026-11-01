@@ -262,3 +262,23 @@ func BenchmarkDynamicObserve(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkDynamicUserState(b *testing.B) {
+	for _, tc := range []struct {
+		name   string
+		window int
+	}{{"disabled", 0}, {"active-window-60", 60}, {"active-window-3600", 3600}} {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				c := New(0)
+				if tc.window > 0 {
+					c.Apply(&Policy{Version: 1, Revision: 1, Enabled: true, WindowSeconds: tc.window, ThresholdBytes: 1 << 60, SpeedMbps: 20, DurationSeconds: 300}, time.Now())
+					c.Observe(1)
+					c.Tick(time.Now())
+				}
+				c.Close()
+			}
+		})
+	}
+}

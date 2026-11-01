@@ -122,3 +122,44 @@ func TestDynamicHy2ExistingStreamAndUDPAccounting(t *testing.T) {
 	}
 	t.Logf("DYNAMIC_HY2 same_stream=true one_mbps=%s four_mbps=%s disabled=%s up=%d down=%d fragment_once=true", slow, faster, off, want, want)
 }
+
+func TestDynamicHy2FixedAndTemporaryMinimumDoesNotHalveSpeed(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		fixed, temporary int
+	}{{"fixed-lower", 1, 4}, {"temporary-lower", 4, 1}} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newTailLifecycleFixture(t, 1, nil)
+			rateConfigure(t, f, 0, tc.fixed)
+			cl, e := f.dial("127.0.0.1")
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer cl.Close()
+			c, e := cl.TCP(f.tcp)
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer c.Close()
+			l, _ := limiter.GetLimiter(f.tag)
+			users := []panel.UserInfo{{Id: 7, Uuid: "synthetic-live", DeviceLimit: 1, SpeedLimit: tc.fixed, DynamicSpeedLimit: &dynamic.Policy{Version: 1, Revision: 1, Enabled: true, WindowSeconds: 60, ThresholdBytes: 1, SpeedMbps: tc.temporary, DurationSeconds: 30}}}
+			l.UpdateDynamicPolicies(f.tag, users)
+			h := l.DynamicControl(f.tag + "|synthetic-live")
+			h.Observe(1)
+			l.TickDynamicPolicies(time.Now())
+			start := time.Now()
+			if e = dynamicExchange(c, 125000); e != nil {
+				t.Fatal(e)
+			}
+			elapsed := time.Since(start)
+			if elapsed < 1700*time.Millisecond || elapsed > 3200*time.Millisecond {
+				t.Fatal("minimum ceiling bypassed or duplicate pacing halved speed", elapsed)
+			}
+			rows, e := f.h.GetUserTrafficSlice(f.tag, false)
+			if e != nil || len(rows) != 1 || rows[0].Upload != 125000 || rows[0].Download != 125000 {
+				t.Fatal("accounting", e, rows)
+			}
+			t.Logf("DYNAMIC_HY2_MIN fixed=%d temporary=%d elapsed=%s up=125000 down=125000", tc.fixed, tc.temporary, elapsed)
+		})
+	}
+}
