@@ -4,6 +4,8 @@
 
 **第一版明确不支持 Xray/VLESS Vision 动态限速**（用户已选择优先保速）：不关闭其 Linux 零拷贝，不修改原连接和静态限速。请求同时发送 `X-V2bX-Dynamic-Speed-Limit-Exclude: xray-vless-vision`；面板不能向该路径下发启用规则，不确定核心时应保守排除 Vision 节点。节点识别到 Vision 认证账户时拒绝策略并限频告警，不应在 UI 中显示为已执行。后续支持需要单独零拷贝专项改造及 Linux 验收。
 
+补充（2026-11-02）：另有默认关闭、未发布的 Linux Vision 可调速 splice 原型；只有显式实验能力头和面板实验白名单才可考虑解除上述排除，详见 [原型约定](VISION-SPLICE-PROTOTYPE.md)。本轮没有部署面板配套。
+
 ## 用户接口
 
 沿用 `GET /api/v1/server/UniProxy/user` 的现有鉴权。新节点发送 `X-V2bX-Dynamic-Speed-Limit: 1`。面板只向声明支持的节点返回用户对象的可选 `dynamic_speed_limit` 字段。JSON 与 MessagePack 字段与单位完全一致。
