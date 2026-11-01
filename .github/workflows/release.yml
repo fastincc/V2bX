@@ -131,7 +131,11 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/sing-shadowsocks/LICENSE ./build_assets/LICENSE.sing-shadowsocks
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-16.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-17.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/HY2-MASQUERADE-LIFECYCLE.md ./build_assets/HY2-MASQUERADE-LIFECYCLE.md
+          cp ${GITHUB_WORKSPACE}/docs/HY2-INITIAL-STREAM-WINDOW.md ./build_assets/HY2-INITIAL-STREAM-WINDOW.md
+          cp ${GITHUB_WORKSPACE}/docs/HY2-USER-RATE-LIMIT.md ./build_assets/HY2-USER-RATE-LIMIT.md
+          cp ${GITHUB_WORKSPACE}/docs/HY2-UDP-FRAGMENT-ACCOUNTING.md ./build_assets/HY2-UDP-FRAGMENT-ACCOUNTING.md
           cp ${GITHUB_WORKSPACE}/docs/HY2-SNIFF-ACCOUNTING.md ./build_assets/HY2-SNIFF-ACCOUNTING.md
           cp ${GITHUB_WORKSPACE}/docs/HY2-RETIRED-CLEANUP.md ./build_assets/HY2-RETIRED-CLEANUP.md
           cp ${GITHUB_WORKSPACE}/docs/RELIABLE-DELIVERY-STATUS.md ./build_assets/RELIABLE-DELIVERY-STATUS.md
@@ -204,4 +208,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-16.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-17.md
