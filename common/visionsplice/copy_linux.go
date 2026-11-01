@@ -46,7 +46,8 @@ func Copy(ctx context.Context, dst *net.TCPConn, src net.Conn, o Options) (total
 		var callErr error
 		e = sr.Read(func(fd uintptr) bool {
 			for {
-				n, callErr = unix.Splice(int(fd), nil, fds[1], nil, 1<<20, unix.SPLICE_F_NONBLOCK)
+				amount, err := unix.Splice(int(fd), nil, fds[1], nil, 1<<20, unix.SPLICE_F_NONBLOCK)
+				n, callErr = int64(amount), err
 				if callErr == unix.EINTR {
 					continue
 				}
@@ -81,7 +82,8 @@ func Copy(ctx context.Context, dst *net.TCPConn, src net.Conn, o Options) (total
 				var moved int64
 				e = dr.Write(func(fd uintptr) bool {
 					for {
-						moved, callErr = unix.Splice(fds[0], nil, int(fd), nil, int(left), unix.SPLICE_F_NONBLOCK)
+						amount, err := unix.Splice(fds[0], nil, int(fd), nil, int(left), unix.SPLICE_F_NONBLOCK)
+						moved, callErr = int64(amount), err
 						if callErr == unix.EINTR {
 							continue
 						}

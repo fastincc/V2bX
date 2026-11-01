@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/InazumaV/V2bX/common/dynamic"
 	"io"
 	"net"
@@ -212,4 +213,52 @@ func TestVisionSpliceProfile(t *testing.T) {
 	}
 	b, _ := json.Marshal(map[string]any{"mode": mode, "parallel": parallel, "seconds": seconds, "mib_s": float64(wire.Load()) / 1048576 / seconds, "cpu_seconds": cpu(after) - cpu(before), "rss_bytes": rss, "bytes": wire.Load(), "splice_calls": stats.Calls.Load(), "reconciled": true})
 	t.Log("VISION_PROFILE " + string(b))
+}
+
+func TestVisionSplicePartialFailureCountsOnlyWrittenBytes(t *testing.T) {
+	in, src := pair(t)
+	dst, out := pair(t)
+	defer in.Close()
+	defer src.Close()
+	defer dst.Close()
+	defer out.Close()
+	sentinel := errors.New("synthetic quota stop")
+	var count int
+	var progress int64
+	done := make(chan struct{})
+	var total int64
+	var err error
+	go func() {
+		total, err = Copy(context.Background(), dst, src, Options{Limited: func() bool { return true }, Before: func(context.Context, int64) error {
+			count++
+			if count > 2 {
+				return sentinel
+			}
+			return nil
+		}, Progress: func(n int64) { progress += n }})
+		dst.CloseWrite()
+		close(done)
+	}()
+	go func() { in.Write(bytes.Repeat([]byte{1}, 1<<20)); in.CloseWrite() }()
+	out.SetReadDeadline(time.Now().Add(time.Second))
+	received, e := io.Copy(io.Discard, out)
+	if e != nil {
+		t.Fatal(e)
+	}
+	<-done
+	if err != sentinel || total != received || total != progress || total == 0 || total > 32768 {
+		t.Fatal("partial accounting", total, received, progress, err)
+	}
+}
+func TestVisionSpliceUnsupportedHasNoSilentFallback(t *testing.T) {
+	a, b := net.Pipe()
+	defer a.Close()
+	defer b.Close()
+	dst, out := pair(t)
+	defer dst.Close()
+	defer out.Close()
+	n, e := Copy(context.Background(), dst, a, Options{})
+	if n != 0 || !errors.Is(e, ErrUnsupported) {
+		t.Fatal(n, e)
+	}
 }
