@@ -27,7 +27,14 @@ type wirePolicy Policy
 
 func (p *Policy) UnmarshalJSON(b []byte) error {
 	var v wirePolicy
+	var state struct {
+		Enabled *bool `json:"enabled"`
+	}
 	if err := json.Unmarshal(b, &v); err != nil {
+		*p = Policy{Invalid: true}
+		return nil
+	}
+	if err := json.Unmarshal(b, &state); err != nil || state.Enabled == nil {
 		*p = Policy{Invalid: true}
 		return nil
 	}
@@ -37,7 +44,14 @@ func (p *Policy) UnmarshalJSON(b []byte) error {
 
 func (p *Policy) UnmarshalMsgpack(b []byte) error {
 	var v wirePolicy
+	var state struct {
+		Enabled *bool `msgpack:"enabled"`
+	}
 	if err := msgpack.Unmarshal(b, &v); err != nil {
+		*p = Policy{Invalid: true}
+		return nil
+	}
+	if err := msgpack.Unmarshal(b, &state); err != nil || state.Enabled == nil {
 		*p = Policy{Invalid: true}
 		return nil
 	}

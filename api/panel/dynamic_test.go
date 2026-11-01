@@ -72,3 +72,23 @@ func TestDynamicPolicyWireAndETag(t *testing.T) {
 		})
 	}
 }
+
+func TestDynamicMalformedEnableDoesNotDisableRule(t *testing.T) {
+	for _, value := range []map[string]any{{"version": 1, "revision": 2}, {"version": 1, "revision": 2, "enabled": nil}, {"version": 1, "revision": 2, "enabled": "false"}} {
+		for _, format := range []string{"json", "msgpack"} {
+			body := map[string]any{"id": 1, "uuid": "synthetic", "dynamic_speed_limit": value}
+			var user UserInfo
+			var e error
+			if format == "json" {
+				data, _ := json.Marshal(body)
+				e = json.Unmarshal(data, &user)
+			} else {
+				data, _ := msgpack.Marshal(body)
+				e = msgpack.Unmarshal(data, &user)
+			}
+			if e != nil || user.Id != 1 || user.DynamicSpeedLimit == nil || user.DynamicSpeedLimit.Validate() == nil {
+				t.Fatalf("%s malformed extension not isolated", format)
+			}
+		}
+	}
+}
