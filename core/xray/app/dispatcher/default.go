@@ -5,6 +5,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"github.com/juju/ratelimit"
 	"regexp"
 	"strings"
 	"sync"
@@ -109,6 +110,7 @@ type DefaultDispatcher struct {
 	policy       policy.Manager
 	stats        stats.Manager
 	fdns         dns.FakeDNSEngine
+	VisionSplice sync.Map // tag -> *visionsplice.Stats, opt-in Linux prototype
 	Counter      sync.Map
 	LinkManagers sync.Map // map[string]*LinkManager
 }
@@ -210,7 +212,11 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 		t := counter.LoadOrCreate(&d.Counter, sessionInbound.Tag)
 
 		ts := t.GetCounter(user.Email)
-		dynamicControl := dynamicLinkControl(limit, lm.LimitKey, user)
+		managedVision := d.visionEnabled(sessionInbound.Tag, user)
+		if managedVision {
+			sessionInbound.EnableManagedSplice()
+		}
+		dynamicControl := d.dynamicControl(limit, lm.LimitKey, user, managedVision)
 		upcounter := &counter.XrayTrafficCounter{V: &ts.UpCounter, Dynamic: dynamicControl}
 		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter, Dynamic: dynamicControl}
 		inboundLink.Writer = &dispatcher.SizeStatWriter{
@@ -222,7 +228,9 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 			Writer:  outboundLink.Writer,
 		}
 		if w != nil {
-			sessionInbound.CanSpliceCopy = 3
+			if !managedVision {
+				sessionInbound.CanSpliceCopy = 3
+			}
 			inboundLink.Writer = rate.NewRateLimitWriter(inboundLink.Writer, w)
 			outboundLink.Writer = rate.NewRateLimitWriter(outboundLink.Writer, w)
 		}
@@ -230,6 +238,10 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 		outboundLink.Writer = rate.NewDynamicWriter(outboundLink.Writer, dynamicControl)
 		inboundLink.Writer = lm.wrap(inboundLink.Writer, outboundLink.Reader)
 		outboundLink.Writer = lm.wrap(outboundLink.Writer, inboundLink.Reader)
+		if managedVision {
+			inboundLink.Writer = d.wrapVision(sessionInbound.Tag, inboundLink.Writer, lm, upcounter, dynamicControl, w)
+			outboundLink.Writer = d.wrapVision(sessionInbound.Tag, outboundLink.Writer, lm, downcounter, dynamicControl, w)
+		}
 	}
 
 	return inboundLink, outboundLink, limit, nil
@@ -368,6 +380,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 	var dynamicControl *dynamic.Control
 	var dynamicManager *LinkManager
 	var dynamicSource net.Conn
+	var visionFixed *ratelimit.Bucket
 	var err error
 	if user != nil && len(user.Email) > 0 {
 		limit, err = limiter.GetLimiter(sessionInbound.Tag)
@@ -403,7 +416,14 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		t := counter.LoadOrCreate(&d.Counter, sessionInbound.Tag)
 
 		ts := t.GetCounter(user.Email)
-		dynamicControl = dynamicLinkControl(limit, lm.LimitKey, user)
+		managedVision := d.visionEnabled(sessionInbound.Tag, user)
+		if managedVision {
+			sessionInbound.EnableManagedSplice()
+		}
+		if managedVision {
+			visionFixed = w
+		}
+		dynamicControl = d.dynamicControl(limit, lm.LimitKey, user, managedVision)
 		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter, Dynamic: dynamicControl}
 		outbound.Reader = &CounterReader{
 			Reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
@@ -417,16 +437,21 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			Writer:  outbound.Writer,
 		}
 		if w != nil {
-			sessionInbound.CanSpliceCopy = 3
+			if !managedVision {
+				sessionInbound.CanSpliceCopy = 3
+			}
 			outbound.Writer = rate.NewRateLimitWriter(outbound.Writer, w)
 		}
 		outbound.Writer = rate.NewDynamicWriter(outbound.Writer, dynamicControl)
 		outbound.Writer = lm.wrap(outbound.Writer, rawReader)
+		if managedVision {
+			outbound.Writer = d.wrapVision(sessionInbound.Tag, outbound.Writer, lm, downcounter, dynamicControl, w)
+		}
 	}
 
 	sniffingRequest := content.SniffingRequest
 	if !sniffingRequest.Enabled {
-		outbound.Reader = newDynamicReader(ctx, outbound.Reader, dynamicControl, dynamicManager, dynamicSource)
+		outbound.Reader = newVisionReadLimiter(ctx, outbound.Reader, dynamicControl, dynamicManager, dynamicSource, visionFixed)
 		d.routedDispatch(ctx, outbound, destination, limit, "")
 	} else {
 		cReader := &cachedReader{
@@ -455,7 +480,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 				ob.Target = destination
 			}
 		}
-		outbound.Reader = newDynamicReader(ctx, outbound.Reader, dynamicControl, dynamicManager, dynamicSource)
+		outbound.Reader = newVisionReadLimiter(ctx, outbound.Reader, dynamicControl, dynamicManager, dynamicSource, visionFixed)
 		d.routedDispatch(ctx, outbound, destination, limit, content.Protocol)
 	}
 

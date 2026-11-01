@@ -4,6 +4,7 @@ package session // import "github.com/xtls/xray-core/common/session"
 import (
 	"context"
 	"math/rand"
+	"sync/atomic"
 
 	c "github.com/xtls/xray-core/common/ctx"
 	"github.com/xtls/xray-core/common/errors"
@@ -55,6 +56,8 @@ type Inbound struct {
 	// CanSpliceCopy is a property for this connection
 	// 1 = can, 2 = after processing protocol info should be able to, 3 = cannot
 	CanSpliceCopy int
+	// ManagedSplice is opt-in shared state across routing metadata copies.
+	ManagedSplice *atomic.Int32
 }
 
 // Outbound is the metadata of an outbound connection.
@@ -119,4 +122,26 @@ func (c *Content) Attribute(name string) string {
 		return ""
 	}
 	return c.Attributes[name]
+}
+
+// EnableManagedSplice is called before this inbound is dispatched to workers.
+// Legacy connections keep their existing state path.
+func (i *Inbound) EnableManagedSplice() {
+	if i.ManagedSplice == nil {
+		i.ManagedSplice = new(atomic.Int32)
+		i.ManagedSplice.Store(int32(i.CanSpliceCopy))
+	}
+}
+func (i *Inbound) GetSpliceCopy() int {
+	if i.ManagedSplice != nil {
+		return int(i.ManagedSplice.Load())
+	}
+	return i.CanSpliceCopy
+}
+func (i *Inbound) SetSpliceCopy(v int) {
+	if i.ManagedSplice != nil {
+		i.ManagedSplice.Store(int32(v))
+		return
+	}
+	i.CanSpliceCopy = v
 }

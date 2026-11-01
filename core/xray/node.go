@@ -3,6 +3,7 @@ package xray
 import (
 	"context"
 	"fmt"
+	"github.com/InazumaV/V2bX/common/visionsplice"
 	"github.com/InazumaV/V2bX/core/xray/app/dispatcher"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -20,6 +21,23 @@ type DNSConfig struct {
 func (c *Xray) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
 	defer c.trafficGate.Lock(tag)()
 	c.setReportMinTraffic(tag, config.ReportMinTraffic*1024)
+	if config.XrayOptions.EnableVisionSplice && !visionsplice.Supported {
+		return fmt.Errorf("EnableVisionSplice prototype requires Linux")
+	}
+	// Set before listener admission; a failed replacement restores its old state.
+	previousVision, hadVision := c.dispatcher.VisionSplice.Load(tag)
+	c.dispatcher.SetVisionSplice(tag, config.XrayOptions.EnableVisionSplice)
+	accepted := false
+	defer func() {
+		if !accepted {
+			if hadVision {
+				c.dispatcher.VisionSplice.Store(tag, previousVision)
+			} else {
+				c.dispatcher.SetVisionSplice(tag, false)
+			}
+		}
+	}()
+
 	err := updateDNSConfig(info)
 	if err != nil {
 		return fmt.Errorf("build dns error: %s", err)
@@ -47,6 +65,7 @@ func (c *Xray) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) e
 		return fmt.Errorf("add outbound error: %s", err)
 	}
 	ready = true
+	accepted = true
 	return nil
 }
 
@@ -104,6 +123,7 @@ func (c *Xray) DelNode(tag string) error {
 	if err != nil {
 		return fmt.Errorf("remove out error: %s", err)
 	}
+	c.dispatcher.SetVisionSplice(tag, false)
 	return nil
 }
 

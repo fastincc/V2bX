@@ -269,8 +269,12 @@ func (w *VisionReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		w.rawInput = nil
 
 		if inbound := session.InboundFromContext(w.ctx); inbound != nil && inbound.Conn != nil {
-			if w.isUplink && inbound.CanSpliceCopy == 2 {
-				inbound.CanSpliceCopy = 1
+			if w.isUplink && inbound.GetSpliceCopy() == 2 {
+				// Managed downlink must wait for its own writer to switch, not the
+				// independent uplink reader. Legacy state transitions stay unchanged.
+				if inbound.ManagedSplice == nil {
+					inbound.SetSpliceCopy(1)
+				}
 			}
 			if !w.isUplink && w.ob != nil && w.ob.CanSpliceCopy == 2 { // ob need to be passed in due to context can have more than one ob
 				w.ob.CanSpliceCopy = 1
@@ -331,8 +335,8 @@ func (w *VisionWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 
 	if *switchToDirectCopy {
 		if inbound := session.InboundFromContext(w.ctx); inbound != nil {
-			if !w.isUplink && inbound.CanSpliceCopy == 2 {
-				inbound.CanSpliceCopy = 1
+			if !w.isUplink && inbound.GetSpliceCopy() == 2 {
+				inbound.SetSpliceCopy(1)
 			}
 			if w.isUplink && w.ob != nil && w.ob.CanSpliceCopy == 2 {
 				w.ob.CanSpliceCopy = 1
@@ -701,6 +705,12 @@ func UnwrapRawConn(conn net.Conn) (net.Conn, stats.Counter, stats.Counter) {
 // CopyRawConnIfExist use the most efficient copy method.
 // - If caller don't want to turn on splice, do not pass in both reader conn and writer conn
 // - writer are from *transport.Link
+// RawSpliceProvider is an opt-in integration point. Ordinary writers retain
+// the original ReadFrom path and do not execute a per-chunk callback.
+type RawSpliceProvider interface {
+	CopyRawSplice(context.Context, net.Conn, *net.TCPConn, func(int64)) error
+}
+
 func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net.Conn, writer buf.Writer, timer *signal.ActivityTimer, inTimer *signal.ActivityTimer) error {
 	readerConn, readCounter, _ := UnwrapRawConn(readerConn)
 	writerConn, _, writeCounter := UnwrapRawConn(writerConn)
@@ -713,7 +723,7 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 		return readV(ctx, reader, writer, timer, readCounter)
 	}
 	inbound := session.InboundFromContext(ctx)
-	if inbound == nil || inbound.CanSpliceCopy == 3 {
+	if inbound == nil || inbound.GetSpliceCopy() == 3 {
 		return readV(ctx, reader, writer, timer, readCounter)
 	}
 	outbounds := session.OutboundsFromContext(ctx)
@@ -729,7 +739,7 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 	for {
 		inbound := session.InboundFromContext(ctx)
 		outbounds := session.OutboundsFromContext(ctx)
-		var splice = inbound.CanSpliceCopy == 1
+		var splice = inbound.GetSpliceCopy() == 1
 		for _, ob := range outbounds {
 			if ob.CanSpliceCopy != 1 {
 				splice = false
@@ -743,6 +753,16 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 			timer.SetTimeout(24 * time.Hour) // prevent leak, just in case
 			if inTimer != nil {
 				inTimer.SetTimeout(24 * time.Hour)
+			}
+			if controlled, ok := writer.(RawSpliceProvider); ok {
+				return controlled.CopyRawSplice(ctx, readerConn, tc, func(n int64) {
+					if readCounter != nil {
+						readCounter.Add(n)
+					}
+					if writeCounter != nil {
+						writeCounter.Add(n)
+					}
+				})
 			}
 			w, err := tc.ReadFrom(readerConn)
 			if readCounter != nil {
