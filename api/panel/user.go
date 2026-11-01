@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/InazumaV/V2bX/common/dynamic"
 	"strconv"
 	"strings"
 
@@ -19,10 +20,11 @@ type OnlineUser struct {
 }
 
 type UserInfo struct {
-	Id          int    `json:"id" msgpack:"id"`
-	Uuid        string `json:"uuid" msgpack:"uuid"`
-	SpeedLimit  int    `json:"speed_limit" msgpack:"speed_limit"`
-	DeviceLimit int    `json:"device_limit" msgpack:"device_limit"`
+	Id                int             `json:"id" msgpack:"id"`
+	Uuid              string          `json:"uuid" msgpack:"uuid"`
+	SpeedLimit        int             `json:"speed_limit" msgpack:"speed_limit"`
+	DeviceLimit       int             `json:"device_limit" msgpack:"device_limit"`
+	DynamicSpeedLimit *dynamic.Policy `json:"dynamic_speed_limit,omitempty" msgpack:"dynamic_speed_limit,omitempty"`
 }
 
 type UserListBody struct {
@@ -48,6 +50,7 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 	r, err := c.client.R().
 		SetHeader("If-None-Match", c.userEtag).
 		SetHeader("X-Response-Format", "msgpack").
+		SetHeader(dynamic.CapabilityHeader, "1").
 		SetDoNotParseResponse(true).
 		Get(path)
 	if r == nil || r.RawResponse == nil {
