@@ -92,3 +92,40 @@ func TestDynamicMalformedEnableDoesNotDisableRule(t *testing.T) {
 		}
 	}
 }
+
+func TestVisionPrototypeCapabilityIsExplicitAndETagInvalidated(t *testing.T) {
+	enabled := false
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if (r.Header.Get("X-V2bX-Vision-Splice-Prototype") == "1") != enabled {
+			t.Error("prototype capability")
+		}
+		if (r.Header.Get("X-V2bX-Dynamic-Speed-Limit-Exclude") == "xray-vless-vision") == enabled {
+			t.Error("Vision exclusion")
+		}
+		if r.Header.Get("If-None-Match") != "" {
+			t.Error("stale capabilities etag")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"users":[{"id":1,"uuid":"synthetic"}]}`))
+	}))
+	defer s.Close()
+	c, e := New(&conf.ApiConfig{APIHost: s.URL, NodeType: "vless"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = c.GetUserList(); e != nil {
+		t.Fatal(e)
+	}
+	c.userEtag = "old"
+	enabled = true
+	c.ConfigureVisionSplicePrototype(true)
+	if _, e = c.GetUserList(); e != nil {
+		t.Fatal(e)
+	}
+	c.userEtag = "experimental"
+	enabled = false
+	c.ConfigureVisionSplicePrototype(false)
+	if _, e = c.GetUserList(); e != nil {
+		t.Fatal(e)
+	}
+}

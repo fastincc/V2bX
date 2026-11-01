@@ -14,20 +14,21 @@ import (
 // Panel is the interface for different panel's api.
 
 type Client struct {
-	client              *resty.Client
-	trafficClient       *resty.Client
-	APIHost             string
-	APISendIP           string
-	Token               string
-	NodeType            string
-	NodeId              int
-	nodeEtag            string
-	userEtag            string
-	pendingUserETag     string
-	userResponsePending bool
-	responseBodyHash    string
-	UserList            *UserListBody
-	AliveMap            *AliveMap
+	visionSplicePrototype bool
+	client                *resty.Client
+	trafficClient         *resty.Client
+	APIHost               string
+	APISendIP             string
+	Token                 string
+	NodeType              string
+	NodeId                int
+	nodeEtag              string
+	userEtag              string
+	pendingUserETag       string
+	userResponsePending   bool
+	responseBodyHash      string
+	UserList              *UserListBody
+	AliveMap              *AliveMap
 }
 
 func New(c *conf.ApiConfig) (*Client, error) {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/InazumaV/V2bX/common/trafficbatch"
+	"github.com/InazumaV/V2bX/common/visionsplice"
 	"sync"
 	"time"
 
@@ -61,6 +62,7 @@ func NewController(server vCore.Core, api *panel.Client, config *conf.Options) *
 // Start implement the Start() function of the service interface
 func (c *Controller) Start() (err error) {
 	c.emitReportingStatus("unknown")
+	c.apiClient.ConfigureVisionSplicePrototype(c.Options != nil && c.Core == "xray" && c.XrayOptions != nil && c.XrayOptions.EnableVisionSplice && visionsplice.Supported)
 	// First fetch Node Info
 	node, err := c.apiClient.GetNodeInfo()
 	if err != nil {
@@ -120,6 +122,9 @@ func (c *Controller) Start() (err error) {
 		return fmt.Errorf("add new node error: %s", err)
 	}
 	c.nodeRemoved = false
+	// Auto core selection resolves XrayOptions inside AddNode. Invalidate the
+	// conservative first response so the next poll can fetch prototype policies.
+	c.apiClient.ConfigureVisionSplicePrototype(c.Options != nil && c.Core == "xray" && c.XrayOptions != nil && c.XrayOptions.EnableVisionSplice && visionsplice.Supported)
 	added, err := c.server.AddUsers(&vCore.AddUsersParams{
 		Tag:      c.tag,
 		Users:    c.userList,

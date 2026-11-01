@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/InazumaV/V2bX/api/panel"
+	"github.com/InazumaV/V2bX/common/visionsplice"
 	vcore "github.com/InazumaV/V2bX/core"
 	"github.com/InazumaV/V2bX/limiter"
 	"strings"
@@ -209,7 +210,7 @@ func (c *Controller) rebuildFromPanel(next *panel.NodeInfo, users []panel.UserIn
 }
 
 func (c *Controller) restoreBufferedDynamicPolicies(info *panel.NodeInfo, users []panel.UserInfo) {
-	if info != nil && info.VAllss != nil && strings.Contains(info.VAllss.Flow, "vision") {
+	if info != nil && info.VAllss != nil && strings.Contains(info.VAllss.Flow, "vision") && !(c.Options != nil && c.XrayOptions != nil && c.XrayOptions.EnableVisionSplice && visionsplice.Supported) {
 		return
 	}
 	c.limiter.ResetUnsupportedDynamicPolicies(c.tag, users)

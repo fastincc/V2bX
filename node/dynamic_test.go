@@ -4,6 +4,7 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/dynamic"
 	"github.com/InazumaV/V2bX/common/format"
+	"github.com/InazumaV/V2bX/common/visionsplice"
 	"github.com/InazumaV/V2bX/conf"
 	"github.com/InazumaV/V2bX/limiter"
 	"testing"
@@ -47,5 +48,25 @@ func TestDynamicPolicySyncPreservesIdentityDeviceAndETag(t *testing.T) {
 	}
 	if core.addCalls != 0 || core.deleteCalls != 0 {
 		t.Fatal("disable disconnected user")
+	}
+}
+
+func TestVisionPrototypeRebuildReactivatesOnlyOptedInUsers(t *testing.T) {
+	limiter.Init()
+	users := []panel.UserInfo{{Id: 1, Uuid: "synthetic", DynamicSpeedLimit: &dynamic.Policy{Version: 1, Revision: 1, Enabled: true, WindowSeconds: 60, ThresholdBytes: 100, SpeedMbps: 1, DurationSeconds: 10}}}
+	l := limiter.AddLimiter("vision-rebuild", &conf.LimitConfig{}, users, nil)
+	defer limiter.DeleteLimiter("vision-rebuild")
+	key := format.UserTag("vision-rebuild", "synthetic")
+	l.RejectDynamicPolicyForRawCopy(key)
+	c := &Controller{tag: "vision-rebuild", limiter: l, Options: &conf.Options{XrayOptions: conf.NewXrayOptions()}}
+	info := &panel.NodeInfo{VAllss: &panel.VAllssNode{Flow: "xtls-rprx-vision"}}
+	c.restoreBufferedDynamicPolicies(info, users)
+	if l.DynamicControl(key).Status().Enabled {
+		t.Fatal("default restored excluded Vision")
+	}
+	c.XrayOptions.EnableVisionSplice = true
+	c.restoreBufferedDynamicPolicies(info, users)
+	if l.DynamicControl(key).Status().Enabled != visionsplice.Supported {
+		t.Fatal("platform-aware opt-in restore")
 	}
 }

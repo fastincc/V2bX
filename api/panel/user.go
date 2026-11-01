@@ -47,13 +47,17 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 	c.pendingUserETag = ""
 	c.userResponsePending = false
 	const path = "/api/v1/server/UniProxy/user"
-	r, err := c.client.R().
+	request := c.client.R().
 		SetHeader("If-None-Match", c.userEtag).
 		SetHeader("X-Response-Format", "msgpack").
 		SetHeader(dynamic.CapabilityHeader, "1").
-		SetHeader("X-V2bX-Dynamic-Speed-Limit-Exclude", "xray-vless-vision").
-		SetDoNotParseResponse(true).
-		Get(path)
+		SetDoNotParseResponse(true)
+	if c.visionSplicePrototype {
+		request.SetHeader("X-V2bX-Vision-Splice-Prototype", "1")
+	} else {
+		request.SetHeader("X-V2bX-Dynamic-Speed-Limit-Exclude", "xray-vless-vision")
+	}
+	r, err := request.Get(path)
 	if r == nil || r.RawResponse == nil {
 		return nil, fmt.Errorf("received nil response or raw response")
 	}
@@ -203,4 +207,13 @@ func (c *Client) InvalidateUserCache() {
 	c.userEtag = ""
 	c.pendingUserETag = ""
 	c.userResponsePending = false
+}
+
+// ConfigureVisionSplicePrototype is startup-only; it advertises the experimental
+// ability separately so a panel can continue excluding it unless opted in.
+func (c *Client) ConfigureVisionSplicePrototype(enabled bool) {
+	if c.visionSplicePrototype != enabled {
+		c.InvalidateUserCache()
+	}
+	c.visionSplicePrototype = enabled
 }
