@@ -6,6 +6,7 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	vcore "github.com/InazumaV/V2bX/core"
 	"github.com/InazumaV/V2bX/limiter"
+	"strings"
 )
 
 // The controller's applied config remains authoritative until the new inbound
@@ -99,6 +100,7 @@ func (c *Controller) recoverPanelRebuild() error {
 			return fmt.Errorf("restore applied node: %w", err)
 		}
 		c.nodeRemoved = false
+		c.restoreBufferedDynamicPolicies(r.info, r.users)
 		if _, err := c.server.AddUsers(&vcore.AddUsersParams{Tag: c.tag, Users: r.users, NodeInfo: r.info}); err != nil {
 			return fmt.Errorf("restore applied users: %w", err)
 		}
@@ -186,6 +188,7 @@ func (c *Controller) rebuildFromPanel(next *panel.NodeInfo, users []panel.UserIn
 		return fail(fmt.Errorf("create candidate node: %w", e))
 	}
 	c.nodeRemoved = false
+	c.restoreBufferedDynamicPolicies(next, users)
 	if _, e := c.server.AddUsers(&vcore.AddUsersParams{Tag: c.tag, Users: users, NodeInfo: next}); e != nil {
 		return fail(fmt.Errorf("install candidate users: %w", e))
 	}
@@ -203,4 +206,11 @@ func (c *Controller) rebuildFromPanel(next *panel.NodeInfo, users []panel.UserIn
 	}
 	c.reportingReady()
 	return nil
+}
+
+func (c *Controller) restoreBufferedDynamicPolicies(info *panel.NodeInfo, users []panel.UserInfo) {
+	if info != nil && info.VAllss != nil && strings.Contains(info.VAllss.Flow, "vision") {
+		return
+	}
+	c.limiter.ResetUnsupportedDynamicPolicies(c.tag, users)
 }

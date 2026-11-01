@@ -365,6 +365,9 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 	}
 
 	var limit *limiter.Limiter
+	var dynamicControl *dynamic.Control
+	var dynamicManager *LinkManager
+	var dynamicSource net.Conn
 	var err error
 	if user != nil && len(user.Email) > 0 {
 		limit, err = limiter.GetLimiter(sessionInbound.Tag)
@@ -381,6 +384,8 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			return errors.New("authorization revoked")
 		}
 		lm := entry.(*LinkManager)
+		dynamicManager = lm
+		dynamicSource = sessionInbound.Conn
 		defer lm.end()
 		// Speed Limit and Device Limit
 		w, reject := limit.CheckLimit(lm.LimitKey,
@@ -398,7 +403,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		t := counter.LoadOrCreate(&d.Counter, sessionInbound.Tag)
 
 		ts := t.GetCounter(user.Email)
-		dynamicControl := dynamicLinkControl(limit, lm.LimitKey, user)
+		dynamicControl = dynamicLinkControl(limit, lm.LimitKey, user)
 		downcounter := &counter.XrayTrafficCounter{V: &ts.DownCounter, Dynamic: dynamicControl}
 		outbound.Reader = &CounterReader{
 			Reader:  &buf.TimeoutWrapperReader{Reader: outbound.Reader},
@@ -406,7 +411,6 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			Manager: lm,
 			Source:  sessionInbound.Conn,
 			Dynamic: dynamicControl,
-			Context: ctx,
 		}
 		outbound.Writer = &dispatcher.SizeStatWriter{
 			Counter: downcounter,
@@ -422,6 +426,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 
 	sniffingRequest := content.SniffingRequest
 	if !sniffingRequest.Enabled {
+		outbound.Reader = newDynamicReader(ctx, outbound.Reader, dynamicControl, dynamicManager, dynamicSource)
 		d.routedDispatch(ctx, outbound, destination, limit, "")
 	} else {
 		cReader := &cachedReader{
@@ -450,6 +455,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 				ob.Target = destination
 			}
 		}
+		outbound.Reader = newDynamicReader(ctx, outbound.Reader, dynamicControl, dynamicManager, dynamicSource)
 		d.routedDispatch(ctx, outbound, destination, limit, content.Protocol)
 	}
 

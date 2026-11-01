@@ -113,6 +113,23 @@ func (l *Limiter) RejectDynamicPolicyForRawCopy(key string) {
 		}
 	}
 }
+
+// Only after the old node has drained: a transport change away from Vision
+// must not leave a permanent unsupported flag on otherwise unchanged users.
+func (l *Limiter) ResetUnsupportedDynamicPolicies(tag string, users []panel.UserInfo) {
+	l.stateMu.Lock()
+	if !l.dynamic.closed {
+		for _, u := range users {
+			key := format.UserTag(tag, u.Uuid)
+			if v, ok := l.dynamic.controls.Load(key); ok && v.(*dynamicEntry).unsupported {
+				l.removeDynamicUser(key)
+				l.addDynamicUser(tag, u)
+			}
+		}
+	}
+	l.stateMu.Unlock()
+	l.UpdateDynamicPolicies(tag, users)
+}
 func (l *Limiter) TickDynamicPolicies(now time.Time) {
 	l.dynamic.active.Range(func(_, v any) bool {
 		e := v.(*dynamicEntry)

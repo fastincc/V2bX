@@ -103,6 +103,9 @@ func (c *Control) Apply(p *Policy, now time.Time) error {
 	if !c.until.IsZero() {
 		if !now.Before(c.until) {
 			c.until = time.Time{}
+			// A policy update can win the race with the expiry tick. Discard
+			// observations from the old penalty period in either ordering.
+			c.obs.Store(&observation{})
 			c.resetWindow(now)
 			c.setGate(nil)
 		} else {
@@ -129,11 +132,10 @@ func (c *Control) setGate(g *gate) {
 	}
 }
 func (c *Control) activateGate(mbps int) {
-	// The existing fixed limiter remains authoritative. Do not add a second
-	// wait if that fixed ceiling is already the stricter policy.
-	if c.fixedMbps > 0 && c.fixedMbps <= mbps {
-		c.setGate(nil)
-		return
+	// Own the effective ceiling while active, including direct reader paths.
+	// Existing fixed buckets remain intact and never receive extra tokens.
+	if c.fixedMbps > 0 && c.fixedMbps < mbps {
+		mbps = c.fixedMbps
 	}
 	c.setGate(newGate(int64(mbps) * 1000000 / 8))
 }

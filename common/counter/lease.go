@@ -56,9 +56,19 @@ type leasedConn struct {
 }
 
 func NewLeasedConn(c net.Conn, s *TrafficStorage) net.Conn {
+	return NewWrappedLeasedConn(c, s, nil)
+}
+
+// Register the outer lifecycle owner so drain/revocation also cancels waits
+// outside the accounting wrapper. The billing boundary itself stays unchanged.
+func NewWrappedLeasedConn(c net.Conn, s *TrafficStorage, wrap func(net.Conn) net.Conn) net.Conn {
 	v := &leasedConn{c, newLease(s)}
-	s.register(v.owner, v.Close)
-	return v
+	var result net.Conn = v
+	if wrap != nil {
+		result = wrap(v)
+	}
+	s.register(v.owner, result.Close)
+	return result
 }
 func (c *leasedConn) Read(p []byte) (int, error) {
 	if !c.owner.begin() {
@@ -88,9 +98,17 @@ type leasedPacketConn struct {
 }
 
 func NewLeasedPacketConn(c N.PacketConn, s *TrafficStorage) N.PacketConn {
+	return NewWrappedLeasedPacketConn(c, s, nil)
+}
+
+func NewWrappedLeasedPacketConn(c N.PacketConn, s *TrafficStorage, wrap func(N.PacketConn) N.PacketConn) N.PacketConn {
 	v := &leasedPacketConn{c, newLease(s)}
-	s.register(v.owner, v.Close)
-	return v
+	var result N.PacketConn = v
+	if wrap != nil {
+		result = wrap(v)
+	}
+	s.register(v.owner, result.Close)
+	return result
 }
 func (c *leasedPacketConn) ReadPacket(b *buf.Buffer) (M.Socksaddr, error) {
 	if !c.owner.begin() {

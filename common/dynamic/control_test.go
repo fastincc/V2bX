@@ -217,6 +217,33 @@ func TestDynamicConcurrentObserveAndUpdate(t *testing.T) {
 	wg.Wait()
 }
 
+func TestDynamicExpiryUpdateDoesNotReusePenaltyTraffic(t *testing.T) {
+	c := New(0)
+	defer c.Close()
+	now := time.Now()
+	p := testPolicy()
+	c.Apply(p, now)
+	c.Observe(1000)
+	c.Tick(now)
+	until := c.Status().Until
+	c.Observe(1000000)
+	v := *p
+	v.Revision = 2
+	v.SpeedMbps = 2
+	if e := c.Apply(&v, until); e != nil {
+		t.Fatal(e)
+	}
+	c.Tick(until.Add(time.Second))
+	if c.Status().Limited || c.Status().WindowBytes != 0 {
+		t.Fatal("old penalty traffic retriggered after expiry", c.Status())
+	}
+	c.Observe(1000)
+	c.Tick(until.Add(2 * time.Second))
+	if !c.Status().Limited {
+		t.Fatal("new period traffic ignored")
+	}
+}
+
 func BenchmarkDynamicDisabled(b *testing.B) {
 	c := New(0)
 	b.ReportAllocs()

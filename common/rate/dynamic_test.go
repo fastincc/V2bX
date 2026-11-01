@@ -2,9 +2,11 @@ package rate
 
 import (
 	"errors"
+	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/InazumaV/V2bX/common/dynamic"
 	"github.com/sagernet/sing/common/buf"
 	M "github.com/sagernet/sing/common/metadata"
+	N "github.com/sagernet/sing/common/network"
 	"net"
 	"os"
 	"testing"
@@ -48,5 +50,34 @@ func TestDynamicPacketDeadlineCloseAndFraming(t *testing.T) {
 				t.Fatal("packet wait stuck")
 			}
 		})
+	}
+}
+
+func TestDynamicPacketCoreDrainCancelsOuterWait(t *testing.T) {
+	h := dynamic.New(0)
+	defer h.Close()
+	h.Apply(&dynamic.Policy{Version: 1, Revision: 1, Enabled: true, WindowSeconds: 60, ThresholdBytes: 1, SpeedMbps: 1, DurationSeconds: 60}, time.Now())
+	h.Observe(1)
+	h.Tick(time.Now())
+	f := new(packetFixture)
+	s := new(counter.TrafficStorage)
+	c := counter.NewWrappedLeasedPacketConn(f, s, func(p N.PacketConn) N.PacketConn { return NewDynamicPacketConn(p, h) })
+	defer c.Close()
+	b := buf.NewSize(60000)
+	b.Extend(60000)
+	done := make(chan error, 1)
+	go func() { done <- c.WritePacket(b, M.Socksaddr{}) }()
+	time.Sleep(15 * time.Millisecond)
+	s.CloseWriters()
+	select {
+	case e := <-done:
+		if !errors.Is(e, net.ErrClosed) {
+			t.Fatal(e)
+		}
+	case <-time.After(300 * time.Millisecond):
+		t.Fatal("UDP core drain did not cancel outer pacing")
+	}
+	if f.writes.Load() != 0 || s.DownCounter.Load() != 0 || s.Owners.Load() != 0 || !b.IsEmpty() {
+		t.Fatal("unsent datagram leaked or billed")
 	}
 }

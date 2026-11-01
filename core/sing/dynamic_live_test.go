@@ -7,7 +7,9 @@ import (
 	"github.com/InazumaV/V2bX/common/counter"
 	"github.com/InazumaV/V2bX/common/dynamic"
 	"github.com/InazumaV/V2bX/common/format"
+	"github.com/InazumaV/V2bX/conf"
 	"github.com/InazumaV/V2bX/limiter"
+	"github.com/sagernet/sing-box/adapter"
 	M "github.com/sagernet/sing/common/metadata"
 	"io"
 	"net"
@@ -33,6 +35,37 @@ func dynamicEcho(c net.Conn, n int) error {
 		n -= m
 	}
 	return nil
+}
+
+func TestDynamicSingDrainCancelsOuterWait(t *testing.T) {
+	limiter.Init()
+	l := limiter.AddLimiter("dynamic-drain", &conf.LimitConfig{}, []panel.UserInfo{{Id: 1, Uuid: "synthetic", DynamicSpeedLimit: &dynamic.Policy{Version: 1, Revision: 1, Enabled: true, WindowSeconds: 60, ThresholdBytes: 1, SpeedMbps: 1, DurationSeconds: 60}}}, nil)
+	defer limiter.DeleteLimiter("dynamic-drain")
+	a, b := net.Pipe()
+	defer b.Close()
+	h := new(HookServer)
+	c := h.RoutedConnection(context.Background(), a, adapter.InboundContext{Inbound: "dynamic-drain", User: "synthetic", Source: M.ParseSocksaddr("192.0.2.1:1234"), Destination: M.ParseSocksaddr("example.test:443")}, nil, nil)
+	defer c.Close()
+	control := l.DynamicControl(format.UserTag("dynamic-drain", "synthetic"))
+	control.Observe(1)
+	l.TickDynamicPolicies(time.Now())
+	done := make(chan error, 1)
+	go func() { _, e := c.Write(make([]byte, 500000)); done <- e }()
+	time.Sleep(20 * time.Millisecond)
+	v, _ := h.counter.Load("dynamic-drain")
+	s := v.(*counter.TrafficCounter).GetCounter("synthetic")
+	s.CloseWriters()
+	select {
+	case e := <-done:
+		if e == nil {
+			t.Fatal("drained wait forwarded")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("outer policy wait survived core drain")
+	}
+	if s.DownCounter.Load() != 0 || s.Owners.Load() != 0 {
+		t.Fatal("drain leaked owner or charged unsent data")
+	}
 }
 func TestDynamicAnyTLSExistingStreamIPDeviceBilling(t *testing.T) {
 	f := newReviewFixture(t, true)
