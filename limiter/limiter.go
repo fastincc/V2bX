@@ -80,8 +80,12 @@ func AddLimiter(tag string, l *conf.LimitConfig, users []panel.UserInfo, aliveLi
 	}
 	info.UUIDtoUID = uuidmap
 	limitLock.Lock()
+	previous := limiter[tag]
 	limiter[tag] = info
 	limitLock.Unlock()
+	if previous != nil {
+		previous.closeDynamicPolicies()
+	}
 	info.UpdateDynamicPolicies(tag, users)
 	return info
 }

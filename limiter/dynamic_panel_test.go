@@ -88,3 +88,48 @@ func TestDynamicTransportRebuildClearsUnsupportedState(t *testing.T) {
 		t.Fatal("buffered transport could not restore policy")
 	}
 }
+
+func TestDynamicReplacingNodeStopsPreviousScheduler(t *testing.T) {
+	Init()
+	users := []panel.UserInfo{{Id: 1, Uuid: "synthetic", DynamicSpeedLimit: &dynamic.Policy{Version: 1, Revision: 1, Enabled: true, WindowSeconds: 60, ThresholdBytes: 1, SpeedMbps: 1, DurationSeconds: 30}}}
+	old := AddLimiter("dynamic-replace", &conf.LimitConfig{}, users, nil)
+	h := old.DynamicControl(format.UserTag("dynamic-replace", "synthetic"))
+	h.Observe(1)
+	h.Tick(time.Now())
+	next := AddLimiter("dynamic-replace", &conf.LimitConfig{}, users, nil)
+	defer DeleteLimiter("dynamic-replace")
+	select {
+	case <-old.dynamic.done:
+	default:
+		t.Fatal("old scheduler not closed")
+	}
+	if h.Status().Enabled || h.ActiveLimit() {
+		t.Fatal("old policy retained")
+	}
+	if !next.DynamicControl(format.UserTag("dynamic-replace", "synthetic")).Status().Enabled {
+		t.Fatal("replacement policy disabled")
+	}
+}
+
+func TestDynamicSchedulerTriggersAndExpiresWithoutMoreTraffic(t *testing.T) {
+	Init()
+	users := []panel.UserInfo{{Id: 1, Uuid: "synthetic", DynamicSpeedLimit: &dynamic.Policy{Version: 1, Revision: 1, Enabled: true, WindowSeconds: 60, ThresholdBytes: 1000, SpeedMbps: 1, DurationSeconds: 1}}}
+	l := AddLimiter("dynamic-timer", &conf.LimitConfig{}, users, nil)
+	defer DeleteLimiter("dynamic-timer")
+	h := l.DynamicControl(format.UserTag("dynamic-timer", "synthetic"))
+	h.Observe(1000)
+	deadline := time.Now().Add(2500 * time.Millisecond)
+	for !h.ActiveLimit() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !h.ActiveLimit() {
+		t.Fatal("scheduler did not trigger")
+	}
+	deadline = time.Now().Add(2500 * time.Millisecond)
+	for h.ActiveLimit() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if h.ActiveLimit() || !h.Status().Enabled {
+		t.Fatal("idle penalty did not expire while preserving rule")
+	}
+}
