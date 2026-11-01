@@ -413,21 +413,28 @@ func (io *udpIOImpl) TrafficPacer() (context.Context, TrafficPacer) {
 	}
 	return nil, nil
 }
-func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
-	return io.sendMessage(nil, nil, buf, msg)
+func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage, first bool) error {
+	return io.sendMessage(nil, nil, buf, msg, first)
 }
-func (io *udpIOImpl) sendMessage(ctx context.Context, pacer TrafficPacer, buf []byte, msg *protocol.UDPMessage) error {
+func (io *udpIOImpl) sendMessage(ctx context.Context, pacer TrafficPacer, buf []byte, msg *protocol.UDPMessage, first bool) error {
+	// Preserve ingress accounting, including failed/partial sends. The original
+	// message owns all payload bytes. Retries still call the logger with zero
+	// bytes so revocation, generation and drain checks run before every fragment.
+	var download uint64
+	if first {
+		download = uint64(len(msg.Data))
+	}
 	if io.TrafficLogger != nil {
-		ok := io.TrafficLogger.LogTraffic(io.AuthID, 0, uint64(len(msg.Data)))
+		ok := io.TrafficLogger.LogTraffic(io.AuthID, 0, download)
 		if !ok {
 			// TrafficLogger requested to disconnect the client
 			_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
 			return errDisconnect
 		}
 	}
-	// Fragmentation retries consume no additional rate quota. Logging retains
-	// its existing ingress convention; pacing does not change billing direction.
-	if pacer != nil && msg.FragCount <= 1 {
+	// The same internal call boundary owns rate quota and billing, irrespective
+	// of on-wire fragment metadata. No extra wait is introduced for retries.
+	if pacer != nil && first {
 		if err := pacer.Wait(ctx, len(msg.Data)); err != nil {
 			return err
 		}

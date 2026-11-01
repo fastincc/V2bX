@@ -29,10 +29,11 @@ load exceeds its quota and the existing bounded receive queues fill.
 TCP limits include sniffed putback bytes. UDP upload is paced after reassembly;
 download reserves quota once before fragmentation, never again on fragment
 retries. Metering stays at the existing ingress points and keeps upload/download
-orientation, user generation, device lease and actual peer IP unchanged. Existing
-UDP downstream fragment-retry **double accounting** is outside this repair:
-24,000 echoed payload bytes were recorded as 48,000 download bytes in both -16
-and this candidate. This document does not claim that pre-existing bug is fixed.
+orientation, user generation, device lease and actual peer IP unchanged. The initial rate-only repair preserved the pre-existing UDP downstream
+fragment-retry double accounting. The subsequent independent accounting repair
+uses an internal original/retry marker: it counts the original payload once and
+retains zero-byte authorization checks for retries. See
+[UDP fragment accounting](HY2-UDP-FRAGMENT-ACCOUNTING.md).
 
 Waits observe stream/connection cancellation and a generation cancellation signal.
 User revocation and traffic drain cancel pending waits; drain scans user

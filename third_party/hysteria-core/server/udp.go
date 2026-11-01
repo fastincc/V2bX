@@ -20,7 +20,8 @@ const (
 
 type udpIO interface {
 	ReceiveMessage() (*protocol.UDPMessage, error)
-	SendMessage([]byte, *protocol.UDPMessage) error
+	// first is true only for the original logical message, never a fragment retry.
+	SendMessage([]byte, *protocol.UDPMessage, bool) error
 	Hook(data []byte, reqAddr *string) error
 	UDP(reqAddr string) (UDPConn, error)
 }
@@ -183,7 +184,7 @@ func (e *udpSessionEntry) receiveLoop() {
 	sender := e.IO
 	if e.pacer != nil {
 		if source, ok := e.IO.(interface {
-			sendMessage(context.Context, TrafficPacer, []byte, *protocol.UDPMessage) error
+			sendMessage(context.Context, TrafficPacer, []byte, *protocol.UDPMessage, bool) error
 		}); ok {
 			sender = &pacedUDPIO{udpIO: e.IO, send: source.sendMessage, ctx: e.ctx, pacer: e.pacer}
 		}
@@ -225,14 +226,14 @@ func (e *udpSessionEntry) receiveLoop() {
 // but if it fails due to quic.ErrMessageTooLarge, it tries again by
 // fragmenting the message.
 func sendMessageAutoFrag(io udpIO, buf []byte, msg *protocol.UDPMessage) error {
-	err := io.SendMessage(buf, msg)
+	err := io.SendMessage(buf, msg, true)
 	var errTooLarge *quic.DatagramTooLargeError
 	if errors.As(err, &errTooLarge) {
 		// Message too large, try fragmentation
 		msg.PacketID = uint16(rand.Intn(0xFFFF)) + 1
 		fMsgs := frag.FragUDPMessage(msg, int(errTooLarge.MaxDatagramPayloadSize))
 		for _, fMsg := range fMsgs {
-			err := io.SendMessage(buf, &fMsg)
+			err := io.SendMessage(buf, &fMsg, false)
 			if err != nil {
 				return err
 			}
@@ -386,11 +387,11 @@ func (m *udpSessionManager) Count() int {
 // Only limited sessions allocate this adapter; the ordinary UDP path is intact.
 type pacedUDPIO struct {
 	udpIO
-	send  func(context.Context, TrafficPacer, []byte, *protocol.UDPMessage) error
+	send  func(context.Context, TrafficPacer, []byte, *protocol.UDPMessage, bool) error
 	ctx   context.Context
 	pacer TrafficPacer
 }
 
-func (p *pacedUDPIO) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
-	return p.send(p.ctx, p.pacer, buf, msg)
+func (p *pacedUDPIO) SendMessage(buf []byte, msg *protocol.UDPMessage, first bool) error {
+	return p.send(p.ctx, p.pacer, buf, msg, first)
 }

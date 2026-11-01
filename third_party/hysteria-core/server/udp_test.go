@@ -62,7 +62,7 @@ func TestUDPSessionManager(t *testing.T) {
 		FragCount: 1,
 		Addr:      msg1.Addr,
 		Data:      []byte("hi back"),
-	}).Return(nil).Once()
+	}, true).Return(nil).Once()
 	msgCh <- msg1
 	udpConn1Ch <- []byte("hi back")
 
@@ -101,7 +101,7 @@ func TestUDPSessionManager(t *testing.T) {
 		FragCount: 1,
 		Addr:      msg2_1.Addr,
 		Data:      []byte("im fine"),
-	}).Return(nil).Once()
+	}, true).Return(nil).Once()
 	msgCh <- msg2_1
 	msgCh <- msg2_2
 	udpConn2Ch <- []byte("im fine")
@@ -122,7 +122,7 @@ func TestUDPSessionManager(t *testing.T) {
 		FragCount: 1,
 		Addr:      msg3.Addr,
 		Data:      []byte("im your father"),
-	}).Return(nil).Once()
+	}, true).Return(nil).Once()
 	msgCh <- msg3
 	udpConn1Ch <- []byte("im your father")
 

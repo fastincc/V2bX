@@ -20,4 +20,14 @@ new unbounded queue, per-packet authentication lock for unlimited traffic, or
 QUIC ACK delay. Stream/connection cancellation unblocks pending writes before
 the existing drain join. Additional production file: server/pacer.go. See
 ../../docs/HY2-USER-RATE-LIMIT.md for shared-bucket semantics, acceptance scope
-and the pre-existing UDP fragment-retry accounting limitation.
+and the separate UDP fragment accounting repair.
+
+UDP fragment accounting: the private udpIO send call carries an original-message
+marker, supplied by sendMessageAutoFrag. The original attempt owns ingress bytes
+and the single pacing reservation. Fragment retries call LogTraffic(id, 0, 0),
+preserving revocation, identity-generation and drain checks without charging the
+payload again. Internal retry ownership is independent of wire FragCount and is
+not stored across messages/sessions. No wire/API/configuration format changes,
+new queue, per-packet allocation or new lock. Failed/partial sends keep the
+existing ingress-byte convention. Tests include real QUIC datagrams, IPv6 target,
+rate quotas, mid-fragment revocation/drain, real send errors and boundary sizes.
