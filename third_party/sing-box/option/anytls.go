@@ -3,7 +3,8 @@ package option
 import "github.com/sagernet/sing/common/json/badoption"
 
 type AnyTLSInboundOptions struct {
-	AuditAccess bool `json:"audit_access,omitempty"`
+	AdaptiveQuickACK bool `json:"adaptive_quick_ack,omitempty"`
+	AuditAccess      bool `json:"audit_access,omitempty"`
 	ListenOptions
 	InboundTLSOptionsContainer
 	Users                []AnyTLSUser                `json:"users,omitempty"`

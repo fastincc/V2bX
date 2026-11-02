@@ -10,6 +10,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/inbound"
 	"github.com/sagernet/sing-box/common/listener"
+	"github.com/sagernet/sing-box/common/tcpquickack"
 	"github.com/sagernet/sing-box/common/tls"
 	"github.com/sagernet/sing-box/common/trustedproxy"
 	"github.com/sagernet/sing-box/common/uot"
@@ -49,6 +50,7 @@ type Inbound struct {
 	auditEnabled      bool
 	auditProxyTrusted bool
 	auditUsers        sync.Map
+	adaptiveQuickACK  bool
 }
 
 func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.AnyTLSInboundOptions) (adapter.Inbound, error) {
@@ -59,6 +61,10 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 	}
 
 	inbound.auditEnabled = options.AuditAccess
+	inbound.adaptiveQuickACK = options.AdaptiveQuickACK
+	if options.AdaptiveQuickACK {
+		logger.Info("AnyTLS adaptive TCP_QUICKACK prototype requested; supported=", tcpquickack.Supported, " (direct target TCP only)")
+	}
 	if inbound.auditEnabled {
 		if err := initAuditInstance(); err != nil {
 			return nil, err
@@ -203,6 +209,7 @@ func (h *inboundHandler) NewConnectionEx(ctx context.Context, conn net.Conn, sou
 	var metadata adapter.InboundContext
 	metadata.Inbound = h.Tag()
 	metadata.InboundType = h.Type()
+	metadata.AnyTLSAdaptiveQuickACK = h.adaptiveQuickACK
 	//nolint:staticcheck
 	metadata.InboundDetour = h.listener.ListenOptions().Detour
 	//nolint:staticcheck

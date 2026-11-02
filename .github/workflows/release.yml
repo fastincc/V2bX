@@ -61,6 +61,8 @@ jobs:
         run: |
           GOEXPERIMENT=jsonv2 go test -race ./common/visionsplice ./common/rate ./core/xray/app/dispatcher -count=1
           GOEXPERIMENT=jsonv2 go test -race -tags vision_live -gcflags=github.com/xtls/xray-core/proxy/vless/...=-d=checkptr=0 ./core/xray -run TestVision -count=1 -timeout=180s
+      - name: AnyTLS adaptive QUICKACK prototype regression (explicit opt-in test)
+        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./conf ./core/sing github.com/sagernet/sing-box/common/tcpquickack -run 'Test(QuickACK|AnyTLSQuickACK|Hint|Socket|OpaqueSocket)' -count=1 -timeout=180s
       - name: V2bX integration
         run: GOEXPERIMENT=jsonv2 ANYTLS_LONG_STREAM_DURATION=30s ANYTLS_CLEANUP_REVIEW=1 go test -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./core/sing -run TestAnyTLS -count=1
 

@@ -353,6 +353,7 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 		}
 		in.Type = "anytls"
 		in.Options = &option.AnyTLSInboundOptions{
+			AdaptiveQuickACK:     c.SingOptions.AnyTLSAdaptiveQuickACK,
 			AuditAccess:          c.SingOptions.AnyTLSAuditAccess,
 			TrustedProxyProtocol: proxyOptions,
 			ListenOptions:        listen,

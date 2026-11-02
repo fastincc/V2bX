@@ -68,7 +68,14 @@ func TestDynamicSingDrainCancelsOuterWait(t *testing.T) {
 	}
 }
 func TestDynamicAnyTLSExistingStreamIPDeviceBilling(t *testing.T) {
-	f := newReviewFixture(t, true)
+	testDynamicAnyTLSExistingStreamIPDeviceBilling(t, newReviewFixture(t, true))
+}
+
+func TestQuickACKDynamicExistingStreamIPDeviceBilling(t *testing.T) {
+	testDynamicAnyTLSExistingStreamIPDeviceBilling(t, newQuickACKForwardFixture(t))
+}
+
+func testDynamicAnyTLSExistingStreamIPDeviceBilling(t *testing.T, f *reviewFixture) {
 	cl := f.client(t)
 	defer cl.Close()
 	c, e := cl.CreateProxy(context.Background(), M.ParseSocksaddr("echo.invalid:80"))

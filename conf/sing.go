@@ -32,6 +32,7 @@ func NewSingConfig() *SingConfig {
 }
 
 type SingOptions struct {
+	AnyTLSAdaptiveQuickACK   bool                       `json:"AnyTLSAdaptiveQuickACK"`
 	AnyTLSAuditAccess        bool                       `json:"AnyTLSAuditAccess"`
 	AnyTLSProxyProtocol      *AnyTLSProxyProtocolConfig `json:"AnyTLSProxyProtocol"`
 	TCPFastOpen              bool                       `json:"EnableTFO"`

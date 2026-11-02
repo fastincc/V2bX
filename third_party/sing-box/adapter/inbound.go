@@ -42,14 +42,16 @@ type InboundManager interface {
 }
 
 type InboundContext struct {
-	Inbound     string
-	InboundType string
-	IPVersion   uint8
-	Network     string
-	Source      M.Socksaddr
-	Destination M.Socksaddr
-	User        string
-	Outbound    string
+	// Local AnyTLS prototype setting; not supplied by clients or panel policies.
+	AnyTLSAdaptiveQuickACK bool
+	Inbound                string
+	InboundType            string
+	IPVersion              uint8
+	Network                string
+	Source                 M.Socksaddr
+	Destination            M.Socksaddr
+	User                   string
+	Outbound               string
 
 	// sniffer
 

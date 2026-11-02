@@ -14,6 +14,7 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/dialer"
+	"github.com/sagernet/sing-box/common/tcpquickack"
 	"github.com/sagernet/sing-box/common/tlsfragment"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing/common"
@@ -92,6 +93,13 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 	}
 	if metadata.TLSFragment || metadata.TLSRecordFragment {
 		remoteConn = tf.NewConn(remoteConn, ctx, metadata.TLSFragment, metadata.TLSRecordFragment, metadata.TLSFragmentFallbackDelay)
+	}
+	// Scope the hint to the raw, direct destination socket. Never unwrap tunnels,
+	// TLS fragmentation, client streams, rate limiters or accounting wrappers.
+	if metadata.AnyTLSAdaptiveQuickACK && metadata.InboundType == C.TypeAnyTLS && !metadata.TLSFragment && !metadata.TLSRecordFragment {
+		if outbound, ok := this.(adapter.Outbound); ok && outbound.Type() == C.TypeDirect {
+			remoteConn = tcpquickack.New(remoteConn)
+		}
 	}
 	m.access.Lock()
 	element := m.connections.PushBack(conn)

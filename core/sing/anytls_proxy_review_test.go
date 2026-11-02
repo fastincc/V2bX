@@ -90,6 +90,10 @@ func newReviewFixtureUsers(t testing.TB, enabled bool, users []option.AnyTLSUser
 }
 
 func newReviewFixtureAudit(t testing.TB, enabled bool, users []option.AnyTLSUser, logger log.ContextLogger, audit bool) *reviewFixture {
+	return newReviewFixtureQuickACK(t, enabled, users, logger, audit, false)
+}
+
+func newReviewFixtureQuickACK(t testing.TB, enabled bool, users []option.AnyTLSUser, logger log.ContextLogger, audit, quickACK bool) *reviewFixture {
 	t.Helper()
 	ctx := context.Background()
 	limiter.Init()
@@ -116,7 +120,7 @@ func newReviewFixtureAudit(t testing.TB, enabled bool, users []option.AnyTLSUser
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(cert)
 	r := &reviewRouter{done: make(chan struct{}, 10000), sources: make(chan string, 10000)}
-	opts := option.AnyTLSInboundOptions{AuditAccess: audit, Users: users, InboundTLSOptionsContainer: option.InboundTLSOptionsContainer{TLS: &option.InboundTLSOptions{Enabled: true, Certificate: []string{string(cert)}, Key: []string{string(keypem)}}}}
+	opts := option.AnyTLSInboundOptions{AdaptiveQuickACK: quickACK, AuditAccess: audit, Users: users, InboundTLSOptionsContainer: option.InboundTLSOptionsContainer{TLS: &option.InboundTLSOptions{Enabled: true, Certificate: []string{string(cert)}, Key: []string{string(keypem)}}}}
 	if enabled {
 		opts.TrustedProxyProtocol = &option.AnyTLSProxyProtocolOptions{Enabled: true, Version: 2}
 	}
@@ -145,6 +149,10 @@ func (f *reviewFixture) client(t testing.TB) *client.Client {
 	return f.clientPassword(t, "test-password")
 }
 func (f *reviewFixture) clientPassword(t testing.TB, password string) *client.Client {
+	return f.clientSource(t, password, 9)
+}
+
+func (f *reviewFixture) clientSource(t testing.TB, password string, lastByte byte) *client.Client {
 	t.Helper()
 	cl, e := client.NewClient(context.Background(), client.ClientConfig{Password: password, Logger: log.NewNOPFactory().Logger(), IdleSessionCheckInterval: time.Minute, IdleSessionTimeout: time.Minute, MinIdleSession: 1, DialOut: func(ctx context.Context) (net.Conn, error) {
 		c, e := (&net.Dialer{}).DialContext(ctx, "tcp", f.listener.Addr().String())
@@ -153,7 +161,7 @@ func (f *reviewFixture) clientPassword(t testing.TB, password string) *client.Cl
 		}
 		c.SetDeadline(time.Now().Add(10 * time.Second))
 		if f.enabled {
-			h := append([]byte("\r\n\r\n\x00\r\nQUIT\n"), 0x21, 0x11, 0, 12, 198, 51, 100, 9, 0, 0, 0, 0, 0x30, 0x39, 0, 0)
+			h := append([]byte("\r\n\r\n\x00\r\nQUIT\n"), 0x21, 0x11, 0, 12, 198, 51, 100, lastByte, 0, 0, 0, 0, 0x30, 0x39, 0, 0)
 			if _, e = c.Write(h); e != nil {
 				c.Close()
 				return nil, e
