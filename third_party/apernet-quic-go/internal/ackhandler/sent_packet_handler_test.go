@@ -1119,6 +1119,9 @@ func TestSentPacketHandlerPathProbe(t *testing.T) {
 		nil,
 		utils.DefaultLogger,
 	)
+	// Keep packet numbers consecutive so the final ACK cannot declare pn1 lost
+	// by the packet threshold before the path migration being tested.
+	sph.appDataPackets.pns = newSequentialPacketNumberGenerator(0)
 	sph.DropPackets(protocol.EncryptionInitial, time.Now())
 	sph.DropPackets(protocol.EncryptionHandshake, time.Now())
 
