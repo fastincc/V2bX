@@ -265,15 +265,25 @@ func (g *gate) refund(n int64) {
 // a context or goroutine per packet. nil is suitable for a caller with no deadline.
 type WaitState func() (time.Time, <-chan struct{}, error)
 
-func (c *Control) Wait(n int64, state WaitState) error {
-	if c == nil || n <= 0 {
+// The named nil result keeps the no-limit entry within Go 1.25's inline budget.
+func (c *Control) Wait(n int64, state WaitState) (err error) {
+	if c == nil || c.gate.Load() == nil {
+		return
+	}
+	return c.waitSlow(n, state)
+}
+
+// The entry's gate load is only a fast-path hint. Read the current gate again
+// here, as on every retry; a concurrent disable may have already cleared it.
+func (c *Control) waitSlow(n int64, state WaitState) error {
+	if n <= 0 {
 		return nil
 	}
 	for {
 		g := c.gate.Load()
 		if g == nil {
 			return nil
-		} // unchanged/disabled fast path
+		}
 		retry, err := c.waitGate(g, n, state)
 		if err != nil {
 			return err
