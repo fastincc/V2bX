@@ -11,10 +11,6 @@ import (
 )
 
 type observation struct{ pending atomic.Int64 }
-type slot struct {
-	second int64
-	bytes  int64
-}
 
 // Control is stable for one authorization generation, including across panel
 // policy changes. It never owns or resets the billing counters/device records.
@@ -30,7 +26,7 @@ type Control struct {
 	closed     bool
 	epoch      time.Time
 	lastSecond int64
-	slots      []slot
+	slots      []int64 // Byte totals; epoch/lastSecond identify each ring position.
 	total      int64
 	until      time.Time
 }
@@ -174,19 +170,18 @@ func (c *Control) Tick(now time.Time) string {
 		} else {
 			for s := c.lastSecond + 1; s <= sec; s++ {
 				i := int(s % int64(w))
-				c.total -= c.slots[i].bytes
-				c.slots[i] = slot{second: s}
+				c.total -= c.slots[i]
+				c.slots[i] = 0
 			}
 		}
 	}
 	c.lastSecond = sec
 	if delta > 0 {
 		if len(c.slots) == 0 {
-			c.slots = make([]slot, w)
+			c.slots = make([]int64, w)
 		}
 		i := int(sec % int64(w))
-		c.slots[i].second = sec
-		c.slots[i].bytes += delta
+		c.slots[i] += delta
 		c.total += delta
 	}
 	if c.total >= c.policy.ThresholdBytes {

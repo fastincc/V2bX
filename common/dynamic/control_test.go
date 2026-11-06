@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -244,6 +245,50 @@ func TestDynamicExpiryUpdateDoesNotReusePenaltyTraffic(t *testing.T) {
 	}
 }
 
+// Use an event history rather than a second ring to independently check the
+// one-second expiry boundary, wraparound, repeated ticks and long idle gaps.
+func TestDynamicWindowBoundaryCompatibility(t *testing.T) {
+	for _, window := range []int{1, 60, 300, 3600} {
+		t.Run(strconv.Itoa(window), func(t *testing.T) {
+			c := New(0)
+			defer c.Close()
+			epoch := time.Unix(1700000000, 0)
+			p := testPolicy()
+			p.WindowSeconds = window
+			p.ThresholdBytes = 1 << 60
+			if err := c.Apply(p, epoch); err != nil {
+				t.Fatal(err)
+			}
+			type event struct {
+				second int
+				bytes  int64
+			}
+			var history []event
+			for _, next := range []event{
+				{0, 11}, {0, 7}, {window - 1, 23}, {window, 31},
+				{window + 1, 0}, {2 * window, 47}, {4 * window, 0},
+				{4*window + 1, 59},
+			} {
+				c.Observe(next.bytes)
+				history = append(history, next)
+				if transition := c.Tick(epoch.Add(time.Duration(next.second) * time.Second)); transition != "" {
+					t.Fatalf("unexpected transition at second %d: %s", next.second, transition)
+				}
+				var want int64
+				for _, old := range history {
+					if old.second > next.second-window {
+						want += old.bytes
+					}
+				}
+				got := c.Status()
+				if got.WindowBytes != want || !got.Enabled || got.Limited {
+					t.Fatalf("second %d: got %+v, want %d bytes without a penalty", next.second, got, want)
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkDynamicDisabled(b *testing.B) {
 	c := New(0)
 	b.ReportAllocs()
@@ -267,7 +312,7 @@ func BenchmarkDynamicUserState(b *testing.B) {
 	for _, tc := range []struct {
 		name   string
 		window int
-	}{{"disabled", 0}, {"active-window-60", 60}, {"active-window-3600", 3600}} {
+	}{{"disabled", 0}, {"active-window-60", 60}, {"active-window-300", 300}, {"active-window-3600", 3600}} {
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
