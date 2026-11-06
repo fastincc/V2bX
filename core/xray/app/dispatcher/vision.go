@@ -26,14 +26,26 @@ func (d *DefaultDispatcher) SetVisionSplice(tag string, enabled bool) {
 	}
 }
 func (d *DefaultDispatcher) visionEnabled(tag string, user *protocol.MemoryUser) bool {
-	if !visionsplice.Supported || user == nil {
+	if !visionsplice.Supported || !visionUser(user) {
 		return false
 	}
 	if _, ok := d.VisionSplice.Load(tag); !ok {
 		return false
 	}
+	return true
+}
+func visionUser(user *protocol.MemoryUser) bool {
+	if user == nil {
+		return false
+	}
 	a, ok := user.Account.(*vless.MemoryAccount)
 	return ok && strings.Contains(a.Flow, "vision")
+}
+
+// The ordinary unlimited path needs shared readiness/accounting, but does not
+// opt in to panel-managed Vision limits or the adjustable-splice prototype.
+func basicVisionSplice(user *protocol.MemoryUser, fixed *ratelimit.Bucket, prototype bool) bool {
+	return visionsplice.Supported && !prototype && fixed == nil && visionUser(user)
 }
 func (d *DefaultDispatcher) dynamicControl(l *limiter.Limiter, key string, u *protocol.MemoryUser, managed bool) *dynamic.Control {
 	if managed {
@@ -49,6 +61,32 @@ type visionWriter struct {
 	control *dynamic.Control
 	fixed   *ratelimit.Bucket
 	stats   *visionsplice.Stats
+}
+
+type basicVisionWriter struct {
+	buf.Writer
+	manager *LinkManager
+	counter *counter.XrayTrafficCounter
+}
+
+func (w *basicVisionWriter) Close() error { return common.Close(w.Writer) }
+func (w *basicVisionWriter) Interrupt()   { common.Interrupt(w.Writer) }
+func (w *basicVisionWriter) CopyRawSpliceIngress(ctx context.Context, src net.Conn, dst *net.TCPConn, read, written func(int64)) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	end, ok := w.manager.beginRead(func() { cancel(); src.Close(); dst.Close() })
+	if !ok {
+		return net.ErrClosed
+	}
+	defer end()
+	_, err := visionsplice.CopyIngress(ctx, dst, src, func(n int64) {
+		// Preserve SizeStatWriter's ingress boundary, including output errors.
+		w.counter.Add(n)
+		if read != nil {
+			read(n)
+		}
+	}, written)
+	return err
 }
 
 func newVisionWriter(w buf.Writer, m *LinkManager, c *counter.XrayTrafficCounter, h *dynamic.Control, b *ratelimit.Bucket) *visionWriter {

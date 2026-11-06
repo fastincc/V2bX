@@ -56,7 +56,7 @@ type Inbound struct {
 	// CanSpliceCopy is a property for this connection
 	// 1 = can, 2 = after processing protocol info should be able to, 3 = cannot
 	CanSpliceCopy int
-	// ManagedSplice is opt-in shared state across routing metadata copies.
+	// ManagedSplice shares safe splice readiness across routing metadata copies.
 	ManagedSplice *atomic.Int32
 }
 
@@ -124,8 +124,8 @@ func (c *Content) Attribute(name string) string {
 	return c.Attributes[name]
 }
 
-// EnableManagedSplice is called before this inbound is dispatched to workers.
-// Legacy connections keep their existing state path.
+// EnableManagedSplice is called before an accounted inbound is dispatched to
+// workers. Connections without such a provider keep their existing state path.
 func (i *Inbound) EnableManagedSplice() {
 	if i.ManagedSplice == nil {
 		i.ManagedSplice = new(atomic.Int32)

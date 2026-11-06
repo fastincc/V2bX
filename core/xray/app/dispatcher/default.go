@@ -213,7 +213,8 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 
 		ts := t.GetCounter(user.Email)
 		managedVision := d.visionEnabled(sessionInbound.Tag, user)
-		if managedVision {
+		basicVision := basicVisionSplice(user, w, managedVision)
+		if managedVision || basicVision {
 			sessionInbound.EnableManagedSplice()
 		}
 		dynamicControl := d.dynamicControl(limit, lm.LimitKey, user, managedVision)
@@ -241,6 +242,9 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network) (*
 		if managedVision {
 			inboundLink.Writer = d.wrapVision(sessionInbound.Tag, inboundLink.Writer, lm, upcounter, dynamicControl, w)
 			outboundLink.Writer = d.wrapVision(sessionInbound.Tag, outboundLink.Writer, lm, downcounter, dynamicControl, w)
+		} else if basicVision {
+			inboundLink.Writer = &basicVisionWriter{Writer: inboundLink.Writer, manager: lm, counter: upcounter}
+			outboundLink.Writer = &basicVisionWriter{Writer: outboundLink.Writer, manager: lm, counter: downcounter}
 		}
 	}
 
@@ -417,7 +421,8 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 
 		ts := t.GetCounter(user.Email)
 		managedVision := d.visionEnabled(sessionInbound.Tag, user)
-		if managedVision {
+		basicVision := basicVisionSplice(user, w, managedVision)
+		if managedVision || basicVision {
 			sessionInbound.EnableManagedSplice()
 		}
 		if managedVision {
@@ -446,6 +451,8 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		outbound.Writer = lm.wrap(outbound.Writer, rawReader)
 		if managedVision {
 			outbound.Writer = d.wrapVision(sessionInbound.Tag, outbound.Writer, lm, downcounter, dynamicControl, w)
+		} else if basicVision {
+			outbound.Writer = &basicVisionWriter{Writer: outbound.Writer, manager: lm, counter: downcounter}
 		}
 	}
 

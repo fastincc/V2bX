@@ -711,6 +711,13 @@ type RawSpliceProvider interface {
 	CopyRawSplice(context.Context, net.Conn, *net.TCPConn, func(int64)) error
 }
 
+// RawSpliceIngressProvider preserves a dispatcher's write-before-forward user
+// accounting while separating source-read and successful-output transport stats.
+// It carries no adjustable-quota capability.
+type RawSpliceIngressProvider interface {
+	CopyRawSpliceIngress(context.Context, net.Conn, *net.TCPConn, func(int64), func(int64)) error
+}
+
 func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net.Conn, writer buf.Writer, timer *signal.ActivityTimer, inTimer *signal.ActivityTimer) error {
 	readerConn, readCounter, _ := UnwrapRawConn(readerConn)
 	writerConn, _, writeCounter := UnwrapRawConn(writerConn)
@@ -753,6 +760,16 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 			timer.SetTimeout(24 * time.Hour) // prevent leak, just in case
 			if inTimer != nil {
 				inTimer.SetTimeout(24 * time.Hour)
+			}
+			if accounted, ok := writer.(RawSpliceIngressProvider); ok {
+				var read, written func(int64)
+				if readCounter != nil {
+					read = func(n int64) { readCounter.Add(n) }
+				}
+				if writeCounter != nil {
+					written = func(n int64) { writeCounter.Add(n) }
+				}
+				return accounted.CopyRawSpliceIngress(ctx, readerConn, tc, read, written)
 			}
 			if controlled, ok := writer.(RawSpliceProvider); ok {
 				return controlled.CopyRawSplice(ctx, readerConn, tc, func(n int64) {

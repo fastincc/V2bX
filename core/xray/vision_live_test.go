@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -36,7 +37,9 @@ import (
 	vcore "github.com/InazumaV/V2bX/core"
 	"github.com/InazumaV/V2bX/limiter"
 	"github.com/pires/go-proxyproto"
+	xapplog "github.com/xtls/xray-core/app/log"
 	"github.com/xtls/xray-core/app/proxyman"
+	xlog "github.com/xtls/xray-core/common/log"
 	xn "github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/uuid"
@@ -495,6 +498,131 @@ func TestVisionRealLegacyDefault(t *testing.T) {
 	visionUpload(t, c, 125000)
 	if calls, _ := f.x.dispatcher.VisionSpliceStats(f.tag); calls != 0 {
 		t.Fatal("default used prototype")
+	}
+}
+
+type visionSpliceLogObserver struct {
+	previous xlog.Handler
+	calls    atomic.Int64
+}
+
+func (o *visionSpliceLogObserver) Handle(msg xlog.Message) {
+	// The fixture's TCP gateway can use Go splice, but cannot emit this Xray
+	// transition. The in-process client has no raw inbound TCP writer to splice.
+	if strings.Contains(msg.String(), "CopyRawConn splice") {
+		o.calls.Add(1)
+	}
+	o.previous.Handle(msg)
+}
+
+func observeVisionSplice(t *testing.T, f *visionFixture) *visionSpliceLogObserver {
+	t.Helper()
+	previous := f.client.GetFeature((*xapplog.Instance)(nil)).(xlog.Handler)
+	o := &visionSpliceLogObserver{previous: previous}
+	xlog.RegisterHandler(o)
+	t.Cleanup(func() { xlog.RegisterHandler(previous) })
+	return o
+}
+
+func TestVisionRealDefaultSpliceSnapshotsAndRevoke(t *testing.T) {
+	if os.Getenv("VISION_INNER_TLS12") != "" {
+		t.Skip("TLS 1.2 is covered by the buffered-fallback test")
+	}
+	f := newVisionFixture(t, false, 0)
+	logs := observeVisionSplice(t, f)
+	c := f.dial(t)
+	var persistedUp, persistedDown int64
+	persist := func(rows []panel.UserTraffic) error {
+		for _, r := range rows {
+			if r.UID != f.u.Id {
+				t.Fatal("wrong user attribution", r.UID)
+			}
+			persistedUp += r.Upload
+			persistedDown += r.Download
+		}
+		return nil
+	}
+	for i := 0; i < 3; i++ {
+		visionRead(t, c, 256<<10)
+		visionUpload(t, c, 32768)
+		if i == 0 {
+			failed := errors.New("synthetic durable-save failure")
+			if e := f.x.PersistTrafficSnapshot(f.tag, func([]panel.UserTraffic) error { return failed }); e != failed {
+				t.Fatal("failed snapshot was not retained", e)
+			}
+		}
+		for end := time.Now().Add(time.Second); time.Now().Before(end); {
+			if e := f.x.PersistTrafficSnapshot(f.tag, persist); e != nil {
+				t.Fatal(e)
+			}
+			if persistedUp == f.up.Load() && persistedDown == f.down.Load() {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		if persistedUp != f.up.Load() || persistedDown != f.down.Load() {
+			t.Fatalf("open-stream snapshot %d: up=%d/%d down=%d/%d", i, persistedUp, f.up.Load(), persistedDown, f.down.Load())
+		}
+	}
+	if logs.calls.Load() == 0 {
+		t.Fatal("default Vision never reached Xray raw splice (legacy -18 negative control)")
+	}
+	if calls, _ := f.x.dispatcher.VisionSpliceStats(f.tag); calls != 0 {
+		t.Fatal("default enabled adjustable prototype")
+	}
+	f.rule(1, 1, true)
+	h := f.l.DynamicControl(format.UserTag(f.tag, f.u.Uuid))
+	if h.Status().Enabled {
+		t.Fatal("default Vision accepted an unsupported panel policy")
+	}
+	online, e := f.l.GetOnlineDevice()
+	if e != nil || len(*online) != 1 || (*online)[0].IP != "198.51.100.9" {
+		t.Fatal("PROXY real IP", e)
+	}
+	f.source.Store(10)
+	denied, e := f.open()
+	f.source.Store(9)
+	if e == nil {
+		denied.Close()
+		t.Fatal("actual second device admitted")
+	}
+	if e = f.x.DelUsers([]panel.UserInfo{f.u}, f.tag, f.info); e != nil {
+		t.Fatal(e)
+	}
+	c.SetReadDeadline(time.Now().Add(time.Second))
+	var b [1]byte
+	if _, e = c.Read(b[:]); e == nil {
+		t.Fatal("revoked default splice survived")
+	} else if nerr, ok := e.(net.Error); ok && nerr.Timeout() {
+		t.Fatal("revocation left raw copy blocked", e)
+	}
+	if e = f.x.DrainTraffic(f.tag); e != nil {
+		t.Fatal(e)
+	}
+	if e = f.x.PersistTrafficSnapshot(f.tag, persist); e != nil {
+		t.Fatal(e)
+	}
+	if e = f.x.PersistTrafficSnapshot(f.tag, func([]panel.UserTraffic) error {
+		t.Fatal("retired traffic reported twice")
+		return nil
+	}); e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("VISION_DEFAULT splice_transitions=%d snapshots=3 up=%d down=%d ip_device_revoke=true prototype=false", logs.calls.Load(), persistedUp, persistedDown)
+}
+
+func TestVisionRealDefaultStaticRemainsBuffered(t *testing.T) {
+	f := newVisionFixture(t, false, 1)
+	logs := observeVisionSplice(t, f)
+	c := f.dial(t)
+	// Consume the existing fixed bucket's burst before measuring steady state.
+	visionRead(t, c, 250000)
+	elapsed := visionRead(t, c, 125000)
+	if elapsed < 800*time.Millisecond || elapsed > 3*time.Second {
+		t.Fatal("existing static ceiling changed", elapsed)
+	}
+	if logs.calls.Load() != 0 {
+		t.Fatal("default fixed ceiling was bypassed by raw copy")
 	}
 }
 func TestVisionRealProfile(t *testing.T) {

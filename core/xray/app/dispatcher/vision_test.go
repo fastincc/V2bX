@@ -53,6 +53,22 @@ func TestVisionPrototypeScopeAndSharedHandshakeState(t *testing.T) {
 	wg.Wait()
 }
 
+func TestVisionBasicSpliceDoesNotEnablePrototypeOrLimits(t *testing.T) {
+	user := &protocol.MemoryUser{Email: "generation", Account: &vless.MemoryAccount{Flow: "xtls-rprx-vision"}}
+	if basicVisionSplice(user, nil, false) != (runtime.GOOS == "linux") {
+		t.Fatal("basic Linux Vision eligibility")
+	}
+	if basicVisionSplice(user, ratelimit.NewBucketWithRate(125000, 125000), false) ||
+		basicVisionSplice(user, nil, true) || basicVisionSplice(nil, nil, false) ||
+		basicVisionSplice(&protocol.MemoryUser{}, nil, false) {
+		t.Fatal("basic copy changed static/prototype/protocol scope")
+	}
+	d := new(DefaultDispatcher)
+	if d.visionEnabled("tag", user) {
+		t.Fatal("basic eligibility enabled the prototype")
+	}
+}
+
 type visionTailReader struct{}
 
 func (visionTailReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
