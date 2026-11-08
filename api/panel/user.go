@@ -8,10 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"encoding/json/jsontext"
 	"encoding/json/v2"
-
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type OnlineUser struct {
@@ -70,49 +67,24 @@ func (c *Client) GetUserList() ([]UserInfo, error) {
 	if err = c.checkResponse(r, path, err); err != nil {
 		return nil, err
 	}
-	userlist := &UserListBody{}
-	if strings.Contains(r.Header().Get("Content-Type"), "application/x-msgpack") {
-		decoder := msgpack.NewDecoder(r.RawResponse.Body)
-		if err := decoder.Decode(userlist); err != nil {
-			return nil, fmt.Errorf("decode user list error")
-		}
-	} else {
-		dec := jsontext.NewDecoder(r.RawResponse.Body)
-		for {
-			tok, err := dec.ReadToken()
-			if err != nil {
-				return nil, fmt.Errorf("decode user list error")
-			}
-			if tok.Kind() == '"' && tok.String() == "users" {
-				break
-			}
-		}
-		tok, err := dec.ReadToken()
-		if err != nil {
-			return nil, fmt.Errorf("decode user list error")
-		}
-		if tok.Kind() != '[' {
-			return nil, fmt.Errorf(`decode user list error: expected "users" array`)
-		}
-		for dec.PeekKind() != ']' {
-			val, err := dec.ReadValue()
-			if err != nil {
-				return nil, fmt.Errorf("decode user list error: read user object")
-			}
-			var u UserInfo
-			if err := json.Unmarshal(val, &u); err != nil {
-				return nil, fmt.Errorf("decode user list error: unmarshal user error")
-			}
-			userlist.Users = append(userlist.Users, u)
-		}
+	if r.StatusCode() != 200 {
+		return nil, fmt.Errorf("unexpected user list HTTP status %d", r.StatusCode())
 	}
-	// A successful empty list is distinct from a 304 (nil).
-	if userlist.Users == nil {
-		userlist.Users = []UserInfo{}
+	var users []UserInfo
+	if strings.Contains(r.Header().Get("Content-Type"), "application/x-msgpack") {
+		users, err = decodeUserListMessagePack(r.RawResponse.Body)
+	} else {
+		users, err = decodeUserListJSON(r.RawResponse.Body)
+	}
+	if err != nil {
+		// A malformed response is never a revocation snapshot. Retry a full
+		// response, even if the panel reused an ETag for the invalid body.
+		c.InvalidateUserCache()
+		return nil, err
 	}
 	c.pendingUserETag = r.Header().Get("ETag")
 	c.userResponsePending = true
-	return userlist.Users, nil
+	return users, nil
 }
 
 // GetUserAlive will fetch the alive_ip count for users

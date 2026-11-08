@@ -346,3 +346,6 @@ replace github.com/sagernet/sing-shadowsocks => ./third_party/sing-shadowsocks
 
 // Pinned Hy2 lifecycle completion for delayed TCP/UDP accounting callbacks.
 replace github.com/apernet/hysteria/core/v2 => ./third_party/hysteria-core
+
+// Pinned v5.4.1 with checked 32-bit container lengths for complete snapshots.
+replace github.com/vmihailenco/msgpack/v5 v5.4.1 => ./third_party/msgpack
