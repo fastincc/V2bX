@@ -7,7 +7,6 @@ import (
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/dynamic"
 	"github.com/InazumaV/V2bX/common/format"
-	log "github.com/sirupsen/logrus"
 )
 
 type dynamicEntry struct {
@@ -64,15 +63,15 @@ func (l *Limiter) UpdateDynamicPolicies(tag string, users []panel.UserInfo) {
 		e := v.(*dynamicEntry)
 		if e.unsupported {
 			if u.DynamicSpeedLimit != nil && u.DynamicSpeedLimit.Enabled && time.Since(e.lastWarning) > time.Minute {
-				log.WithField("uid", u.Id).Warn("Dynamic speed policy unsupported on Xray Vision raw copy; fixed limit unchanged")
 				e.lastWarning = time.Now()
+				dynamicDiagnostics.emit(dynamicDiagnostic{at: e.lastWarning, uid: u.Id, kind: dynamicUnsupported})
 			}
 			continue
 		}
 		if err := e.control.Apply(u.DynamicSpeedLimit, time.Now()); err != nil {
 			if time.Since(e.lastWarning) > time.Minute {
-				log.WithFields(log.Fields{"uid": u.Id, "reason": err.Error()}).Warn("Dynamic speed policy rejected")
 				e.lastWarning = time.Now()
+				dynamicDiagnostics.emit(dynamicDiagnostic{at: e.lastWarning, uid: u.Id, kind: dynamicRejected, reason: err.Error()})
 			}
 			continue
 		}
@@ -105,11 +104,12 @@ func (l *Limiter) RejectDynamicPolicyForRawCopy(key string) {
 		e := v.(*dynamicEntry)
 		if !e.unsupported {
 			e.unsupported = true
-			if e.control.Status().Enabled {
-				log.WithField("uid", e.uid).Warn("Dynamic speed policy unsupported on Xray Vision raw copy; fixed limit unchanged")
-			}
+			wasEnabled := e.control.Status().Enabled
 			e.control.Apply(nil, time.Now())
 			l.dynamic.active.Delete(key)
+			if wasEnabled {
+				dynamicDiagnostics.emit(dynamicDiagnostic{at: time.Now(), uid: e.uid, kind: dynamicUnsupported})
+			}
 		}
 	}
 }
@@ -134,7 +134,7 @@ func (l *Limiter) TickDynamicPolicies(now time.Time) {
 	l.dynamic.active.Range(func(_, v any) bool {
 		e := v.(*dynamicEntry)
 		if transition := e.control.Tick(now); transition != "" {
-			log.WithFields(log.Fields{"uid": e.uid, "state": transition}).Info("Dynamic speed limit changed")
+			dynamicDiagnostics.emit(dynamicDiagnostic{at: now, uid: e.uid, kind: dynamicChanged, state: transition})
 		}
 		return true
 	})
