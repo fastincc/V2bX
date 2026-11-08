@@ -756,20 +756,40 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 			errors.LogDebug(ctx, "CopyRawConn splice")
 			statWriter, _ := writer.(*dispatcher.SizeStatWriter)
 			//runtime.Gosched() // necessary
-			time.Sleep(time.Millisecond)     // without this, there will be a rare ssl error for freedom splice
-			timer.SetTimeout(24 * time.Hour) // prevent leak, just in case
-			if inTimer != nil {
-				inTimer.SetTimeout(24 * time.Hour)
-			}
+			time.Sleep(time.Millisecond) // without this, there will be a rare ssl error for freedom splice
 			if accounted, ok := writer.(RawSpliceIngressProvider); ok {
-				var read, written func(int64)
-				if readCounter != nil {
-					read = func(n int64) { readCounter.Add(n) }
+				// This path reports progress while the copy is running, so keep
+				// the configured idle/half-close timeout instead of overriding it.
+				// Activity is separate from ingress billing and output statistics.
+				activity := func() {
+					timer.Update()
+					if inTimer != nil && inTimer != timer {
+						inTimer.Update()
+					}
 				}
-				if writeCounter != nil {
-					written = func(n int64) { writeCounter.Add(n) }
+				read := func(n int64) {
+					if n > 0 {
+						activity()
+						if readCounter != nil {
+							readCounter.Add(n)
+						}
+					}
+				}
+				written := func(n int64) {
+					if n > 0 {
+						activity()
+						if writeCounter != nil {
+							writeCounter.Add(n)
+						}
+					}
 				}
 				return accounted.CopyRawSpliceIngress(ctx, readerConn, tc, read, written)
+			}
+			// Preserve the existing timeout contract for the opt-in adjustable
+			// prototype (which can wait for quota) and native ReadFrom path.
+			timer.SetTimeout(24 * time.Hour)
+			if inTimer != nil {
+				inTimer.SetTimeout(24 * time.Hour)
 			}
 			if controlled, ok := writer.(RawSpliceProvider); ok {
 				return controlled.CopyRawSplice(ctx, readerConn, tc, func(n int64) {

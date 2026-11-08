@@ -78,7 +78,21 @@ type visionFixture struct {
 	source       atomic.Int32
 }
 
+// visionFixtureOptions affects only an explicit test fixture. The zero value
+// preserves the ordinary fixture's timeouts, gateway and target behavior.
+type visionFixtureOptions struct {
+	connectionConfig *conf.XrayConnectionConfig
+	nodeConnection   func(*net.TCPConn)
+	downlinkDelay    time.Duration
+	beforeDownlink   func(int)
+}
+
 func newVisionFixture(t *testing.T, enabled bool, fixed int) *visionFixture {
+	t.Helper()
+	return newVisionFixtureWithOptions(t, enabled, fixed, visionFixtureOptions{})
+}
+
+func newVisionFixtureWithOptions(t *testing.T, enabled bool, fixed int, opts visionFixtureOptions) *visionFixture {
 	t.Helper()
 	id := uuid.New()
 	f := &visionFixture{tag: "vision-live", u: panel.UserInfo{Id: 51, Uuid: id.String(), DeviceLimit: 1, SpeedLimit: fixed}}
@@ -113,6 +127,10 @@ func newVisionFixture(t *testing.T, enabled bool, fixed int) *visionFixture {
 	f.l = limiter.AddLimiter(f.tag, &conf.LimitConfig{}, []panel.UserInfo{f.u}, nil)
 	t.Cleanup(func() { limiter.DeleteLimiter(f.tag) })
 	cfg := conf.NewXrayConfig()
+	if opts.connectionConfig != nil {
+		v := *opts.connectionConfig
+		cfg.ConnectionConfig = &v
+	}
 	if os.Getenv("VISION_DEBUG") != "" {
 		cfg.LogConfig.Level = "debug"
 	}
@@ -198,6 +216,9 @@ func newVisionFixture(t *testing.T, enabled bool, fixed int) *visionFixture {
 				if _, e = h.WriteTo(b); e != nil {
 					return
 				}
+				if opts.nodeConnection != nil {
+					opts.nodeConnection(b.(*net.TCPConn))
+				}
 				done := make(chan struct{})
 				go func() { io.Copy(b, a); b.Close(); close(done) }()
 				io.Copy(a, b)
@@ -261,8 +282,15 @@ func newVisionFixture(t *testing.T, enabled bool, fixed int) *visionFixture {
 						}
 						continue
 					}
+					if opts.beforeDownlink != nil {
+						opts.beforeDownlink(n)
+					}
+					bulk := n > 64
 					b := bytes.Repeat([]byte{69}, min(n, 32<<10))
 					for n > 0 {
+						if bulk && opts.downlinkDelay > 0 {
+							time.Sleep(opts.downlinkDelay)
+						}
 						v := min(n, len(b))
 						if _, e := c.Write(b[:v]); e != nil {
 							return
