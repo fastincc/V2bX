@@ -1,6 +1,6 @@
 # 默认 Vision 基础 splice 修补
 
-本地候选修补，尚未发布或部署。`EnableVisionSplice` 与 `AnyTLSAdaptiveQuickACK` 仍默认 false。本修补不发送 Vision 原型能力头，不解除面板的默认 Vision 动态策略排除，不改配置、订阅、真实 IP、设备限制或上报格式。
+本修补纳入 -19；发布不代表已部署节点。`EnableVisionSplice` 与 `AnyTLSAdaptiveQuickACK` 仍默认 false。本修补不发送 Vision 原型能力头，不解除面板的默认 Vision 动态策略排除，不改配置、订阅、真实 IP、设备限制或上报格式。验收及性能边界见 [发布说明](RELEASE-0.4.1-19.md)。
 
 ## 原因与适用范围
 

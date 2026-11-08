@@ -136,13 +136,16 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/hysteria-core/LICENSE.md ./build_assets/LICENSE.hysteria-core
           cp ${GITHUB_WORKSPACE}/third_party/xray-core/LICENSE ./build_assets/LICENSE.xray-core
           cp ${GITHUB_WORKSPACE}/docs/VISION-SPLICE-PROTOTYPE.md ./build_assets/VISION-SPLICE-PROTOTYPE.md
+          cp ${GITHUB_WORKSPACE}/docs/VISION-SPLICE-BASELINE.md ./build_assets/VISION-SPLICE-BASELINE.md
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS-QUICKACK-PROTOTYPE.md ./build_assets/ANYTLS-QUICKACK-PROTOTYPE.md
           cp ${GITHUB_WORKSPACE}/third_party/sing-box/LICENSE ./build_assets/LICENSE.sing-box
           cp ${GITHUB_WORKSPACE}/third_party/sing-anytls/LICENSE ./build_assets/LICENSE.sing-anytls
           cp ${GITHUB_WORKSPACE}/third_party/sing-shadowsocks/LICENSE ./build_assets/LICENSE.sing-shadowsocks
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-18.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-19.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-19.md ./build_assets/RELEASE-0.4.1-19.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-18.md ./build_assets/RELEASE-0.4.1-18.md
           cp ${GITHUB_WORKSPACE}/docs/HY2-MASQUERADE-LIFECYCLE.md ./build_assets/HY2-MASQUERADE-LIFECYCLE.md
           cp ${GITHUB_WORKSPACE}/docs/HY2-INITIAL-STREAM-WINDOW.md ./build_assets/HY2-INITIAL-STREAM-WINDOW.md
           cp ${GITHUB_WORKSPACE}/docs/HY2-USER-RATE-LIMIT.md ./build_assets/HY2-USER-RATE-LIMIT.md
@@ -221,4 +224,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-18.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-19.md
