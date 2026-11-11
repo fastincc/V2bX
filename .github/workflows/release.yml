@@ -37,6 +37,12 @@ jobs:
         run: GOEXPERIMENT=jsonv2 go test ./common/trustedproxy ./protocol/anytls ./common/uot
       - name: Device admission race regression
         run: GOEXPERIMENT=jsonv2 go test -race ./limiter ./api/panel -count=1
+      - name: Snapshot length guards on a real 32-bit runtime
+        run: |
+          GOEXPERIMENT=jsonv2 GOARCH=386 CGO_ENABLED=0 go test ./api/panel -run '^TestUserListMessagePack' -count=1 -timeout=120s
+          GOEXPERIMENT=jsonv2 GOARCH=386 CGO_ENABLED=0 go test github.com/vmihailenco/msgpack/v5 -run 'Test(Length32PlatformRange|ExtensionSkipTypeAndRawRecording|InternedStringWideLengths)' -count=1 -timeout=120s
+      - name: EOF capabilities accounting and device release regression
+        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./common/counter ./common/rate ./limiter ./core/sing -run 'Test(Duplex|EOFClose|Lease|AnyTLSTargetEOF|AnyTLSEOFKeepsSibling)' -count=3 -timeout=180s
       - name: Automatic reliable mode regression
         run: GOEXPERIMENT=jsonv2 go test -race ./conf ./api/panel ./common/trafficbatch ./node -run 'Test(Reporting|Traffic|Automatic|Batch|Queue|Conf_Load)' -count=1 -timeout=120s
       - name: Device limit hot-update regression
@@ -143,8 +149,13 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/sing-shadowsocks/LICENSE ./build_assets/LICENSE.sing-shadowsocks
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-19.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-20.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-20.md ./build_assets/RELEASE-0.4.1-20.md
           cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-19.md ./build_assets/RELEASE-0.4.1-19.md
+          cp ${GITHUB_WORKSPACE}/docs/USER-SNAPSHOT-VALIDATION.md ./build_assets/USER-SNAPSHOT-VALIDATION.md
+          cp ${GITHUB_WORKSPACE}/docs/DYNAMIC-DIAGNOSTIC-ISOLATION.md ./build_assets/DYNAMIC-DIAGNOSTIC-ISOLATION.md
+          cp ${GITHUB_WORKSPACE}/docs/EOF-HALF-CLOSE.md ./build_assets/EOF-HALF-CLOSE.md
+          cp ${GITHUB_WORKSPACE}/third_party/msgpack/LICENSE ./build_assets/LICENSE.msgpack
           cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-18.md ./build_assets/RELEASE-0.4.1-18.md
           cp ${GITHUB_WORKSPACE}/docs/HY2-MASQUERADE-LIFECYCLE.md ./build_assets/HY2-MASQUERADE-LIFECYCLE.md
           cp ${GITHUB_WORKSPACE}/docs/HY2-INITIAL-STREAM-WINDOW.md ./build_assets/HY2-INITIAL-STREAM-WINDOW.md
@@ -224,4 +235,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-19.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-20.md
