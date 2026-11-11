@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/juju/ratelimit"
+	S "github.com/sagernet/sing/common"
 	N "github.com/sagernet/sing/common/network"
 )
 
-func NewConnRateLimiter(c net.Conn, l *ratelimit.Bucket) *Conn {
-	return &Conn{Conn: c, limiter: l, read: newWaitState(), write: newWaitState()}
+func NewConnRateLimiter(c net.Conn, l *ratelimit.Bucket) net.Conn {
+	return wrapRateDuplex(c, l)
 }
 
 type Conn struct {
@@ -53,8 +54,8 @@ func (c *Conn) Close() error {
 	})
 	return c.closeErr
 }
-func (c *Conn) CloseRead() error  { c.read.update(time.Time{}, true); return N.CloseRead(c.Conn) }
-func (c *Conn) CloseWrite() error { c.write.update(time.Time{}, true); return N.CloseWrite(c.Conn) }
+func (c *Conn) closeRead() error  { c.read.update(time.Time{}, true); return N.CloseRead(c.Conn) }
+func (c *Conn) closeWrite() error { c.write.update(time.Time{}, true); return N.CloseWrite(c.Conn) }
 func (c *Conn) SetDeadline(t time.Time) error {
 	c.read.update(t, false)
 	c.write.update(t, false)
@@ -67,4 +68,28 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 func (c *Conn) SetWriteDeadline(t time.Time) error {
 	c.write.update(t, false)
 	return c.Conn.SetWriteDeadline(t)
+}
+
+// Select optional half-close methods once, without adding a hot-path wrapper.
+type rateReadConn struct{ Conn }
+type rateWriteConn struct{ Conn }
+type rateDuplexConn struct{ Conn }
+
+func (c *rateReadConn) CloseRead() error    { return c.closeRead() }
+func (c *rateWriteConn) CloseWrite() error  { return c.closeWrite() }
+func (c *rateDuplexConn) CloseRead() error  { return c.closeRead() }
+func (c *rateDuplexConn) CloseWrite() error { return c.closeWrite() }
+func wrapRateDuplex(c net.Conn, l *ratelimit.Bucket) net.Conn {
+	_, rd := S.Cast[N.ReadCloser](c)
+	_, wr := S.Cast[N.WriteCloser](c)
+	switch {
+	case rd && wr:
+		return &rateDuplexConn{Conn{Conn: c, limiter: l, read: newWaitState(), write: newWaitState()}}
+	case rd:
+		return &rateReadConn{Conn{Conn: c, limiter: l, read: newWaitState(), write: newWaitState()}}
+	case wr:
+		return &rateWriteConn{Conn{Conn: c, limiter: l, read: newWaitState(), write: newWaitState()}}
+	default:
+		return &Conn{Conn: c, limiter: l, read: newWaitState(), write: newWaitState()}
+	}
 }

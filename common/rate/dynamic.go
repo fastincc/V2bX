@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/InazumaV/V2bX/common/dynamic"
+	S "github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
@@ -27,7 +28,7 @@ func NewDynamicConn(c net.Conn, h *dynamic.Control) net.Conn {
 	if h == nil {
 		return c
 	}
-	return &DynamicConn{Conn: c, control: h, read: newWaitState(), write: newWaitState()}
+	return wrapDynamicDuplex(c, h)
 }
 func (c *DynamicConn) Read(p []byte) (int, error) {
 	n, e := c.Conn.Read(p)
@@ -49,8 +50,8 @@ func (c *DynamicConn) Close() error {
 	c.once.Do(func() { c.read.update(time.Time{}, true); c.write.update(time.Time{}, true); c.err = c.Conn.Close() })
 	return c.err
 }
-func (c *DynamicConn) CloseRead() error { c.read.update(time.Time{}, true); return N.CloseRead(c.Conn) }
-func (c *DynamicConn) CloseWrite() error {
+func (c *DynamicConn) closeRead() error { c.read.update(time.Time{}, true); return N.CloseRead(c.Conn) }
+func (c *DynamicConn) closeWrite() error {
 	c.write.update(time.Time{}, true)
 	return N.CloseWrite(c.Conn)
 }
@@ -155,4 +156,28 @@ func (w *DynamicWriter) Close() error {
 }
 func (w *DynamicWriter) Interrupt() {
 	w.once.Do(func() { w.wait.update(time.Time{}, true); common.Interrupt(w.writer) })
+}
+
+// Select optional half-close methods once, without adding a hot-path wrapper.
+type dynamicReadConn struct{ DynamicConn }
+type dynamicWriteConn struct{ DynamicConn }
+type dynamicDuplexConn struct{ DynamicConn }
+
+func (c *dynamicReadConn) CloseRead() error    { return c.closeRead() }
+func (c *dynamicWriteConn) CloseWrite() error  { return c.closeWrite() }
+func (c *dynamicDuplexConn) CloseRead() error  { return c.closeRead() }
+func (c *dynamicDuplexConn) CloseWrite() error { return c.closeWrite() }
+func wrapDynamicDuplex(c net.Conn, h *dynamic.Control) net.Conn {
+	_, rd := S.Cast[N.ReadCloser](c)
+	_, wr := S.Cast[N.WriteCloser](c)
+	switch {
+	case rd && wr:
+		return &dynamicDuplexConn{DynamicConn{Conn: c, control: h, read: newWaitState(), write: newWaitState()}}
+	case rd:
+		return &dynamicReadConn{DynamicConn{Conn: c, control: h, read: newWaitState(), write: newWaitState()}}
+	case wr:
+		return &dynamicWriteConn{DynamicConn{Conn: c, control: h, read: newWaitState(), write: newWaitState()}}
+	default:
+		return &DynamicConn{Conn: c, control: h, read: newWaitState(), write: newWaitState()}
+	}
 }

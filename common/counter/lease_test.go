@@ -44,7 +44,7 @@ func TestLeaseHalfCloseRetainsOwner(t *testing.T) {
 	a, b := net.Pipe()
 	defer b.Close()
 	s := &TrafficStorage{}
-	c := NewLeasedConn(a, s)
+	c := NewLeasedConn(leaseHalfCloseFixture{a}, s)
 	c.(interface{ CloseWrite() error }).CloseWrite()
 	if s.Owners.Load() != 1 {
 		t.Fatal("half-close released owner")
@@ -83,3 +83,8 @@ func BenchmarkAccountingWrappers(b *testing.B) {
 		})
 	}
 }
+
+// A declared transport capability; net.Pipe alone has no half-close.
+type leaseHalfCloseFixture struct{ net.Conn }
+
+func (leaseHalfCloseFixture) CloseWrite() error { return nil }

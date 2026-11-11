@@ -75,9 +75,9 @@ func TestTCPRateWaitCancellationPreservesBytes(t *testing.T) {
 						}
 					case "half-close":
 						if read {
-							c.CloseRead()
+							c.(interface{ CloseRead() error }).CloseRead()
 						} else {
-							c.CloseWrite()
+							c.(interface{ CloseWrite() error }).CloseWrite()
 						}
 					}
 					if partialErr != nil {
@@ -98,7 +98,7 @@ func TestTCPRateWaitCancellationPreservesBytes(t *testing.T) {
 						if read && f.readClosed.Load() != 1 || !read && f.writeClosed.Load() != 1 {
 							t.Fatal("half close not forwarded")
 						}
-						c.limiter = ratelimit.NewBucketWithRate(1000000, 1000000)
+						c.(*rateDuplexConn).limiter = ratelimit.NewBucketWithRate(1000000, 1000000)
 						if read {
 							_, err := c.Write([]byte("data"))
 							if err != partialErr {

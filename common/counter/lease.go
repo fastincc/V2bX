@@ -1,6 +1,7 @@
 package counter
 
 import (
+	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
@@ -62,12 +63,12 @@ func NewLeasedConn(c net.Conn, s *TrafficStorage) net.Conn {
 // Register the outer lifecycle owner so drain/revocation also cancels waits
 // outside the accounting wrapper. The billing boundary itself stays unchanged.
 func NewWrappedLeasedConn(c net.Conn, s *TrafficStorage, wrap func(net.Conn) net.Conn) net.Conn {
-	v := &leasedConn{c, newLease(s)}
-	var result net.Conn = v
+	owner := newLease(s)
+	var result net.Conn = wrapLeasedDuplex(leasedConn{c, owner})
 	if wrap != nil {
-		result = wrap(v)
+		result = wrap(result)
 	}
-	s.register(v.owner, result.Close)
+	s.register(owner, result.Close)
 	return result
 }
 func (c *leasedConn) Read(p []byte) (int, error) {
@@ -88,9 +89,32 @@ func (c *leasedConn) Write(p []byte) (int, error) {
 	c.owner.storage.DownCounter.Add(int64(n))
 	return n, e
 }
-func (c *leasedConn) Close() error      { return c.owner.close(c.Conn.Close) }
-func (c *leasedConn) CloseRead() error  { return N.CloseRead(c.Conn) }
-func (c *leasedConn) CloseWrite() error { return N.CloseWrite(c.Conn) }
+func (c *leasedConn) Close() error { return c.owner.close(c.Conn.Close) }
+
+// Optional methods must describe real transport capabilities. Claiming a
+// no-op half-close prevents the router from closing streams such as AnyTLS.
+type leasedReadConn struct{ leasedConn }
+type leasedWriteConn struct{ leasedConn }
+type leasedDuplexConn struct{ leasedConn }
+
+func (c *leasedReadConn) CloseRead() error    { return N.CloseRead(c.Conn) }
+func (c *leasedWriteConn) CloseWrite() error  { return N.CloseWrite(c.Conn) }
+func (c *leasedDuplexConn) CloseRead() error  { return N.CloseRead(c.Conn) }
+func (c *leasedDuplexConn) CloseWrite() error { return N.CloseWrite(c.Conn) }
+func wrapLeasedDuplex(c leasedConn) net.Conn {
+	_, rd := common.Cast[N.ReadCloser](c.Conn)
+	_, wr := common.Cast[N.WriteCloser](c.Conn)
+	switch {
+	case rd && wr:
+		return &leasedDuplexConn{c}
+	case rd:
+		return &leasedReadConn{c}
+	case wr:
+		return &leasedWriteConn{c}
+	default:
+		return &c
+	}
+}
 
 type leasedPacketConn struct {
 	N.PacketConn
