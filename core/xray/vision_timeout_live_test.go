@@ -189,12 +189,17 @@ func TestVisionRealDefaultHalfCloseKeepsActiveDownlink(t *testing.T) {
 			if elapsed < 2*time.Second || !bytes.Equal(payload, bytes.Repeat([]byte{69}, payloadBytes)) {
 				t.Fatal("paced response did not cross the half-close timeout intact", elapsed)
 			}
-			if logs.calls.Load() == 0 {
+			// Before-splice FIN does not guarantee a later direct transition:
+			// TCP reads may split TLS records, leaving Vision on its buffered
+			// path. Both paths must preserve the active response and honor idle
+			// closure. The after-splice case still requires node splice before
+			// FIN above and retains that assertion here.
+			if stage == "after-splice" && logs.calls.Load() == 0 {
 				t.Fatal("paced response never entered node splice")
 			}
 			visionTimeoutReconcile(t, f)
 			idle := expectVisionTimeoutClosure(t, c, 4*time.Second)
-			t.Logf("VISION_DEFAULT_HALF_CLOSE stage=%s configured_downlink_only=1s active_duration=%s idle_close=%s payload=%d transport_fin=true", stage, elapsed, idle, payloadBytes)
+			t.Logf("VISION_DEFAULT_HALF_CLOSE stage=%s configured_downlink_only=1s active_duration=%s idle_close=%s payload=%d transport_fin=true node_splice_transitions=%d", stage, elapsed, idle, payloadBytes, logs.calls.Load())
 		})
 	}
 }
