@@ -13,6 +13,8 @@ import (
 	M "github.com/sagernet/sing/common/metadata"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"runtime"
 	"strconv"
@@ -51,13 +53,22 @@ func (f *batchLiveCore) PersistTrafficSnapshot(tag string, save func([]panel.Use
 }
 
 func TestPanelRebuildRealPartialRevocation(t *testing.T) {
+	checkRealRevocations(t, false)
+}
+
+func TestConfigOutageRealRetainedStreamAndBilling(t *testing.T) {
+	checkRealRevocations(t, true)
+}
+
+func checkRealRevocations(t *testing.T, configOutage bool) {
+	t.Helper()
 	c, _, next := batchRebuildFixture(t, 3)
 	vc, e := singcore.New(&conf.CoreConfig{SingConfig: conf.NewSingConfig()})
 	if e != nil {
 		t.Fatal(e)
 	}
 	defer vc.Close()
-	core := &batchLiveCore{Core: vc, failPartial: true}
+	core := &batchLiveCore{Core: vc, failPartial: !configOutage}
 	c.server = core
 	socket, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
@@ -95,44 +106,94 @@ func TestPanelRebuildRealPartialRevocation(t *testing.T) {
 			go func() { defer conn.Close(); io.Copy(conn, conn) }()
 		}
 	}()
-	exchange := func(u panel.UserInfo) error {
+	dial := func(u panel.UserInfo) (net.Conn, error) {
 		method, e := shadowaead.New("aes-128-gcm", nil, u.Uuid)
 		if e != nil {
-			return e
+			return nil, e
 		}
 		raw, e := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), time.Second)
 		if e != nil {
-			return e
+			return nil, e
 		}
-		defer raw.Close()
 		raw.SetDeadline(time.Now().Add(time.Second))
 		conn, e := method.DialConn(raw, M.ParseSocksaddr(echo.Addr().String()))
 		if e != nil {
-			return e
+			raw.Close()
 		}
+		return conn, e
+	}
+	ping := func(conn net.Conn) error {
+		conn.SetDeadline(time.Now().Add(time.Second))
 		if _, e = conn.Write([]byte("ping")); e != nil {
 			return e
 		}
 		b := make([]byte, 4)
-		_, e = io.ReadFull(conn, b)
+		_, e := io.ReadFull(conn, b)
 		if e == nil && string(b) != "ping" {
 			return errors.New("corrupt echo")
 		}
 		return e
+	}
+	exchange := func(u panel.UserInfo) error {
+		conn, err := dial(u)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		return ping(conn)
 	}
 	for _, u := range all {
 		if e = exchange(u); e != nil {
 			t.Fatal(e)
 		}
 	}
-	if e = c.rebuildFromPanel(next, all[2:], nil); e == nil {
-		t.Fatal("missing partial error")
-	}
-	if e = c.recoverPanelRebuild(); e != nil {
-		t.Fatal(e)
-	}
-	if core.deleteCalls != 2 || len(c.userList) != 1 {
-		t.Fatal("wrong batch recovery")
+	if configOutage {
+		retained, err := dial(all[2])
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer retained.Close()
+		if err := ping(retained); err != nil {
+			t.Fatal(err)
+		}
+		panelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/api/v1/server/UniProxy/alivelist":
+				fmt.Fprint(w, `{"alive":{}}`)
+			case "/api/v1/server/UniProxy/config":
+				w.WriteHeader(http.StatusServiceUnavailable)
+			case "/api/v1/server/UniProxy/user":
+				fmt.Fprintf(w, `{"users":[{"id":3,"uuid":%q,"speed_limit":9},{"id":4,"uuid":"deferred"}]}`, all[2].Uuid)
+			default:
+				t.Errorf("unexpected request %s", r.URL.Path)
+			}
+		}))
+		defer panelServer.Close()
+		c.apiClient, e = panel.New(&conf.ApiConfig{APIHost: panelServer.URL, NodeType: "shadowsocks", NodeID: 1})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = c.nodeInfoMonitor(); e != nil {
+			t.Fatal(e)
+		}
+		if core.deleteCalls != 1 || len(c.userList) != 1 || c.userList[0].Id != 3 || c.userList[0].SpeedLimit != 0 {
+			t.Fatal("outage changed survivor or applied additions")
+		}
+		if err := ping(retained); err != nil {
+			t.Fatal("policy-only change interrupted the existing connection", err)
+		}
+		retained.Close()
+	} else {
+		if e = c.rebuildFromPanel(next, all[2:], nil); e == nil {
+			t.Fatal("missing partial error")
+		}
+		if e = c.recoverPanelRebuild(); e != nil {
+			t.Fatal(e)
+		}
+		if core.deleteCalls != 2 || len(c.userList) != 1 {
+			t.Fatal("wrong batch recovery")
+		}
 	}
 	for _, u := range all[:2] {
 		if exchange(u) == nil {
@@ -167,12 +228,15 @@ func TestPanelRebuildRealPartialRevocation(t *testing.T) {
 		want := int64(4)
 		if u.Id == 3 {
 			want = 8
+			if configOutage {
+				want += 8 // Two exchanges on the same retained connection.
+			}
 		}
 		if totals[u.Id] != [2]int64{want, want} {
 			t.Fatal("lost or misattributed tail", totals)
 		}
 	}
-	t.Log("real SS partial revocation/recovery: two rejected users, one surviving user, tails exactly reconciled")
+	t.Logf("real SS survivor verified, per-user uplink/downlink totals: %v", totals)
 }
 
 // Opt-in comparison using real AnyTLS authentication-table publication. Network

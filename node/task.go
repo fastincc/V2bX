@@ -83,9 +83,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			"tag": c.tag,
 			"err": err,
 		}).Error("Get alive list failed")
-		if revokeErr := c.revokeUsersDuringAliveFailure(); revokeErr != nil {
-			log.WithField("tag", c.tag).WithError(revokeErr).Error("User revocation synchronization failed")
-		}
+		c.syncOutageRevocations()
 		return nil
 	}
 	// get node info
@@ -95,6 +93,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			"tag": c.tag,
 			"err": err,
 		}).Error("Get node info failed")
+		c.syncOutageRevocations()
 		return nil
 	}
 	// get user info
@@ -140,37 +139,15 @@ func (c *Controller) SpeedChecker() error {
 	return nil
 }
 
-// Apply only removals while admission state is unavailable. Preserve the last
-// valid snapshot and defer additions/rebuilds until the next successful poll.
-func (c *Controller) revokeUsersDuringAliveFailure() error {
+// Sync revocations against the running node while admission or config is unavailable.
+func (c *Controller) syncOutageRevocations() {
 	users, err := c.apiClient.GetUserList()
+	if err == nil && users != nil {
+		c.trafficLifeMu.Lock()
+		err = c.applyRevocationsOnly(users)
+		c.trafficLifeMu.Unlock()
+	}
 	if err != nil {
-		return err
+		log.WithField("tag", c.tag).WithError(err).Error("User revocation synchronization failed")
 	}
-	if users == nil {
-		return nil
-	}
-	// This response is only partially applied. Fetch it again after recovery.
-	c.apiClient.InvalidateUserCache()
-	deleted, _ := compareUserList(c.userList, users)
-	if len(deleted) == 0 {
-		return nil
-	}
-	if err = c.server.DelUsers(deleted, c.tag, c.info); err != nil {
-		return err
-	}
-	c.limiter.UpdateUser(c.tag, nil, deleted)
-	removed := make(map[string]bool, len(deleted))
-	for _, user := range deleted {
-		removed[user.Uuid] = true
-	}
-	kept := make([]panel.UserInfo, 0, len(c.userList))
-	for _, user := range c.userList {
-		if !removed[user.Uuid] {
-			kept = append(kept, user)
-		}
-	}
-	c.userList = kept
-	log.WithField("tag", c.tag).Infof("Revoked %d users while online state is unavailable", len(deleted))
-	return nil
 }
