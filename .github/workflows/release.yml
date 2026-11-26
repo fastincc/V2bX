@@ -45,6 +45,8 @@ jobs:
         run: GOEXPERIMENT=jsonv2 go test -race -tags "sing with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./common/counter ./common/rate ./limiter ./core/sing -run 'Test(Duplex|EOFClose|Lease|AnyTLSTargetEOF|AnyTLSEOFKeepsSibling)' -count=3 -timeout=180s
       - name: Automatic reliable mode regression
         run: GOEXPERIMENT=jsonv2 go test -race ./conf ./api/panel ./common/trafficbatch ./node -run 'Test(Reporting|Traffic|Automatic|Batch|Queue|Conf_Load)' -count=1 -timeout=120s
+      - name: Private key creation, configuration outage revocation and storage recovery
+        run: GOEXPERIMENT=jsonv2 go test -race -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./common/counter ./common/trafficbatch ./node -run '^Test(CertPrivate|ConfigOutage|StorageRecovery|DeliveryAcknowledgementStorageFailure)' -count=1 -timeout=180s
       - name: Device limit hot-update regression
         run: GOEXPERIMENT=jsonv2 go test -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" ./node -run TestDevice -count=1
       - name: Hysteria2 QUIC congestion snapshot race regression
@@ -149,7 +151,8 @@ jobs:
           cp ${GITHUB_WORKSPACE}/third_party/sing-shadowsocks/LICENSE ./build_assets/LICENSE.sing-shadowsocks
           cp ${GITHUB_WORKSPACE}/docs/ANYTLS.md ./build_assets/ANYTLS.md
           cp ${GITHUB_WORKSPACE}/docs/BUILD-CANDIDATE-20261029.md ./build_assets/BUILD-CANDIDATE.md
-          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-21.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-22.md ./build_assets/RELEASE-NOTES.md
+          cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-22.md ./build_assets/RELEASE-0.4.1-22.md
           cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-21.md ./build_assets/RELEASE-0.4.1-21.md
           cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-20.md ./build_assets/RELEASE-0.4.1-20.md
           cp ${GITHUB_WORKSPACE}/docs/RELEASE-0.4.1-19.md ./build_assets/RELEASE-0.4.1-19.md
@@ -236,4 +239,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-21.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file docs/RELEASE-0.4.1-22.md
