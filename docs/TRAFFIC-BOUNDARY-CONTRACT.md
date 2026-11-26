@@ -47,8 +47,9 @@ Batch mode checkpoints all positive byte counts every `TrafficCheckpointSeconds`
 (default 1, range 1..60). A mutable `active.json` is never transmitted. It is
 sealed into an immutable batch at the reporting cadence; an outstanding older
 batch does not block checkpointing or sealing. A slow network acknowledgement
-holds no checkpoint lifecycle lock. Current report request rate stays bounded by
-the configured reporting task; the backlog therefore drains gradually.
+holds no checkpoint lifecycle lock. The reporting task and bounded catch-up
+worker deliver sealed batches in order. See [reliable traffic catch-up](RELIABLE-TRAFFIC-CATCHUP.md)
+for pacing and acknowledgement recovery.
 
 All-positive snapshots intentionally bypass `ReportMinTraffic` suppression in
 batch mode, including small retired tails. Legacy threshold behavior is unchanged.
@@ -58,10 +59,19 @@ fractional-rounding deployment gate; a capability response does not resolve it.
 `TrafficSpoolMaxBytes` defaults to 64 MiB and `TrafficSpoolMaxBatches` to 4096.
 Capacity includes durable payloads, not filesystem metadata or temporary atomic
 replacement space. Provision additional free space for replacements. At capacity,
-existing batches can still drain; unsaved increments remain in memory and an
-error is logged. Storage failure does not silently evict batches or stop service.
-This preserves availability but does NOT guarantee durable counting during a full
-or failed disk. An ambiguous write poisons the store until restart.
+existing batches can still drain. After a scheduled checkpoint fails, the
+report and checkpoint tasks share a retry delay of 2, 4, then 8 seconds.
+A successful checkpoint resets that delay. Shutdown and rebuild attempt their
+final checkpoint immediately.
+
+If writing the temporary file fails, the counters retain the unsaved increments.
+If publication of the journal is uncertain, the process retains the original UID
+assignments and sample. It checks the on-disk state against the previous and
+candidate journal, then confirms the exact candidate before deducting the sample
+once. New traffic is collected separately. An unexpected file, binding or batch
+conflict requires inspection. Preserve the spool before investigating.
+Abrupt termination can still lose increments that exist only in memory while
+the disk remains unavailable.
 
 Checkpointing does not send every checkpoint as a separate charge. It aggregates
 within the reporting window. Panel fractional-rate rounding and rate changes

@@ -8,6 +8,22 @@ No new external API, core interface, configuration field, subscription format or
 
 Behavior under deletion failure is explicit: the affected node can temporarily stop accepting traffic until cleanup and restoration succeed; unaffected nodes are not deliberately paused. This is a conservative response to unknown partial authorization state. Existing configuration-driven rebuilds can already interrupt established streams; this change does not provide seamless listener replacement.
 
+## While node configuration is unavailable
+
+A running node still polls the existing user endpoint when the online-device or
+node-configuration request fails. If a proposed configuration fails rule or TLS
+preflight, the controller uses the user response it already fetched in that
+poll. A valid user snapshot can revoke a missing credential or one reassigned
+to another numeric user ID. A speed-only change keeps the existing identity
+and its connections. New authorizations and policy changes wait for a healthy
+poll.
+
+An explicit, valid empty user list revokes all applied users. HTTP 304, a
+failed request, malformed data or ambiguous identities yield no revocations.
+A response used only for removals leaves the user cache invalid, so a healthy
+poll fetches the complete snapshot before committing its ETag. Partial core
+deletion follows the quarantine and retry procedure above.
+
 Tests cover one batch for 900/1000 deletions; failures before, during and after deletion; repeated cleanup failure with the panel unavailable; persistence failure; UID replacement rollback; and real Shadowsocks partial revocation/recovery with exact per-user bidirectional tail reconciliation. `TestPanelRebuildTableProfile` is opt-in with `REBUILD_PROFILE_USERS=1000`, `5000` or `10000`; it measures actual AnyTLS authentication-table rebuild work (90% removed, listeners not started), including duration, allocations and deletion-call count. Baseline and candidate use the same profile harness.
 
 Local acceptance (2026-10-31, macOS arm64): five rounds of controller race tests passed; three rounds of real SS partial-revocation/recovery race tests reconciled each user's tail exactly. Combined race regression and go vet passed. The three-run median real AnyTLS table profile for 10,000 applied users / 9,000 removed users changed from 9,000 deletion calls and 7,779.146ms to one call and 8.332ms. Allocated bytes over the rebuild changed from about 26,393.68 MiB to 10.84 MiB; these are cumulative allocations, not resident memory. Whole-test peak RSS medians were 73.64 MiB and 58.09 MiB respectively. Four standard release targets compile locally, without publication or runtime certification of those targets.

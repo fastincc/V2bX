@@ -2,6 +2,6 @@
 
 The sender distinguishes idle, deferred, paused, canceled, failed, remote_confirmed_local_pending and confirmed. Only confirmed returns rows eligible for the controller's successful-report log: the panel's matching acknowledgement and the existing local acknowledgement operation must both succeed.
 
-A remote confirmation followed by a local storage error is explicitly logged as such; the existing queue retention and pause-until-restart behavior is unchanged. Deferred/paused/canceled messages are emitted on state transitions rather than every reporting tick. They never include payloads or credentials. Existing success text remains, but no longer describes a skipped attempt.
+After a matching panel acknowledgement, a failed local acknowledgement yields `remote_confirmed_local_pending`. A transient storage failure triggers a local retry with backoff. The running sender keeps the confirmed ID and sends no additional request for that head. A closed spool or a conflicting head pauses the sender. Deferred, paused and canceled messages are emitted on state transitions and omit credentials and payloads.
 
-This changes observation only: no request format, batch ID, replay, pacing, fsync, device-window accounting or forwarding-path changes. Monitoring that relied on misleading periodic success entries should instead distinguish confirmed delivery from pending state.
+Count only `confirmed` as completed delivery. See [reliable traffic catch-up](RELIABLE-TRAFFIC-CATCHUP.md) for restart and replay behavior.

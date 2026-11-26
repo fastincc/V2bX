@@ -17,8 +17,14 @@ The reliable HTTP client shares the existing transport/authentication/source-IP
 settings but performs one attempt only. The worker owns exponential retry delay
 (2–60 seconds plus bounded jitter) and honors longer valid Retry-After delays on
 429/503. All attempts retain the original head ID/payload. A mismatched or missing
-acknowledgement does not advance the queue. Local acknowledgement storage failure
-pauses delivery until restart. Pending files must not be deleted to clear errors.
+acknowledgement leaves the head queued for replay. After a matching panel
+acknowledgement, a transient local unlink or directory sync error keeps the
+same head pending. The running sender retries the local acknowledgement with
+backoff and advances to the next batch only after that operation is durable.
+A closed spool or an acknowledged head that conflicts with the stored record
+pauses the sender. Preserve the spool and investigate the storage before
+restarting. After a process restart, any surviving batch is replayed with its
+original ID and payload for panel deduplication.
 
 Network delivery does not hold the controller operation lock. Shutdown cancels
 and joins the sender before closing its spool; ambiguous in-flight requests remain
@@ -36,7 +42,9 @@ real-IP extraction, credentials or billable bytes/directions. Catch-up does not
 emit extra online snapshots or consume device events.
 
 Additional memory is bounded by worker state, one in-flight batch copy and a map
-of active user totals for the current device-reporting window. Recovery increases
+of active user totals for the current device-reporting window. A checkpoint
+with an uncertain write result also retains the candidate journal and its
+original counter observations until the storage outcome is resolved. Recovery increases
 request/fsync frequency temporarily; normal checkpoints are not accelerated.
 Recovery requires panel throughput greater than batch production. Existing queue
 capacity limits, disk-failure windows, platform-lock support and snapshot-lock

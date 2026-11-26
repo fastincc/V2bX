@@ -43,3 +43,15 @@ Prepared 2026-10-26 (Asia/Shanghai). No production deployment.
 ## AnyTLS release update — 2026-10-26
 
 Release fastincc-v0.4.1-2 adds opt-in AnyTLS PROXY and audit logging, with a bundled modified core. See [release acceptance](docs/RELEASE-0.4.1-2.md) and [configuration](docs/ANYTLS.md). The original migration record above describes v0.4.1-1, not this update.
+
+## Upgrading nodes that manage TLS keys
+
+On POSIX systems, V2bX creates new self-signed and ACME TLS private keys and
+ACME account files with mode `0600`. A newly created ACME account directory
+uses `0700`. Existing keys retain their access settings across the upgrade
+and renewal. Review a permission warning using the file's ownership, mode and
+any ACLs. If another service reads the same key, verify its service account
+can still load it after renewal. Use owner-only access for exclusive keys and
+grant explicitly authorized readers the minimum access they need. Externally
+managed files in `CertMode: file` remain under their existing owner's control.
+Windows deployments should inspect the native ACLs.
