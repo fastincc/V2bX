@@ -15,15 +15,9 @@ func (h *Hysteria2) PersistTrafficSnapshot(tag string, persist func([]panel.User
 		return fmt.Errorf("traffic node not found")
 	}
 	hook := node.TrafficLogger.(*HookServer)
-	node.Auth.mutex.Lock()
-	var snapshot *counter.Snapshot
 	if value, ok := hook.Counter.Load(tag); ok {
 		c := value.(*counter.TrafficCounter)
-		snapshot = counter.PrepareSnapshot(c, node.Auth.uidLocked, func(string) int64 { return 0 })
-	}
-	node.Auth.mutex.Unlock()
-	if snapshot != nil {
-		if err := snapshot.Persist(persist); err != nil {
+		if err := c.PersistWithIdentityLock(&node.Auth.mutex, node.Auth.uidLocked, func(string) int64 { return 0 }, persist); err != nil {
 			return err
 		}
 	}

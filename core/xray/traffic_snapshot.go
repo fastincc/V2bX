@@ -8,14 +8,9 @@ import (
 
 func (x *Xray) PersistTrafficSnapshot(tag string, persist func([]panel.UserTraffic) error) error {
 	defer x.trafficGate.Lock(tag)()
-	x.users.mapLock.Lock()
-	var snapshot *counter.Snapshot
 	if value, ok := x.dispatcher.Counter.Load(tag); ok {
-		snapshot = counter.PrepareSnapshot(value.(*counter.TrafficCounter), func(uuid string) int { return x.users.uidMap[uuid] }, func(string) int64 { return 0 })
-	}
-	x.users.mapLock.Unlock()
-	if snapshot != nil {
-		if err := snapshot.Persist(persist); err != nil {
+		c := value.(*counter.TrafficCounter)
+		if err := c.PersistWithIdentityLock(&x.users.mapLock, func(uuid string) int { return x.users.uidMap[uuid] }, func(string) int64 { return 0 }, persist); err != nil {
 			return err
 		}
 	}

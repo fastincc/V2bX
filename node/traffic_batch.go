@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -105,21 +106,47 @@ func (c *Controller) captureTraffic() error {
 		return nil
 	})
 }
+
+// Only periodic collectors share this backoff. Shutdown and rebuild must try
+// their final snapshot immediately, even if an earlier scheduled write failed.
+type checkpointRetry struct {
+	mu    sync.Mutex
+	next  time.Time
+	delay time.Duration
+}
+
+func (c *Controller) scheduledCheckpoint(interval time.Duration) error {
+	r := &c.checkpointRetry
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.next.IsZero() && time.Now().Before(r.next) {
+		return nil
+	}
+	err := c.captureTraffic()
+	if err == nil {
+		err = c.trafficSpool.SealIfDue(interval)
+	}
+	if err != nil {
+		r.delay = min(max(2*time.Second, 2*r.delay), 8*time.Second)
+		r.next = time.Now().Add(r.delay)
+	} else if !r.next.IsZero() {
+		r.next = time.Time{}
+		r.delay = 0
+	}
+	return err
+}
+
 func (c *Controller) checkpointTrafficTask() error {
 	c.trafficLifeMu.RLock()
 	defer c.trafficLifeMu.RUnlock()
 	if c.closed {
 		return nil
 	}
-	if err := c.captureTraffic(); err != nil {
-		c.logTrafficStorageError(err)
-		return nil
-	}
 	interval := c.info.PushInterval
 	if interval <= 0 {
 		interval = time.Minute
 	}
-	if err := c.trafficSpool.SealIfDue(interval); err != nil {
+	if err := c.scheduledCheckpoint(interval); err != nil {
 		c.logTrafficStorageError(err)
 	} else if c.trafficDelivery != nil {
 		if n, _ := c.trafficSpool.Counts(); n > 0 {

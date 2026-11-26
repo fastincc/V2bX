@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"math/rand/v2"
 	"net/url"
 	"strings"
@@ -96,6 +97,7 @@ type trafficDelivery struct {
 	releaseBudget func()
 	// The fields below belong exclusively to run's goroutine.
 	catchup, paused                          bool
+	confirmedID                              string // remote confirmation awaiting local persistence
 	retryAt, extraAt, roundStart, drainStart time.Time
 	failures, roundCount, drained            int
 	lastState                                deliveryState
@@ -239,7 +241,14 @@ func (d *trafficDelivery) attempt(extra bool) (result deliveryResult) {
 		}
 		d.roundCount++
 	}
-	err := d.api.ReportTrafficBatchContext(d.ctx, batch.ID, batch.Traffic)
+	var err error
+	if d.confirmedID == "" {
+		err = d.api.ReportTrafficBatchContext(d.ctx, batch.ID, batch.Traffic)
+	} else if d.confirmedID != batch.ID {
+		d.paused = true
+		result.state, result.err = deliveryPaused, trafficbatch.ErrConflict
+		return result
+	}
 	if d.ctx.Err() != nil {
 		result.state = deliveryCanceled
 		return result
@@ -251,26 +260,23 @@ func (d *trafficDelivery) attempt(extra bool) (result deliveryResult) {
 		d.roundCount = 0
 	}
 	if err != nil {
-		delay := d.policy.backoff
-		for i := 0; i < d.failures && delay < d.policy.maxBackoff; i++ {
-			delay = min(delay*2, d.policy.maxBackoff)
-		}
-		d.failures = min(d.failures+1, 32)
-		delay = min(delay+time.Duration(rand.Float64()*float64(delay)/4), d.policy.maxBackoff)
-		delay = max(delay, panel.TrafficRetryAfter(err))
+		delay := d.nextBackoff(err)
 		d.retryAt = time.Now().Add(delay)
 		log.WithFields(log.Fields{"tag": d.tag, "retry_in": delay, "error": err}).Info("Reliable traffic attempt deferred; batch retained")
 		result.state = deliveryFailed
 		result.err = err
 		return result
 	}
+	d.confirmedID = batch.ID
 	if err = d.spool.Acknowledge(batch.ID); err != nil {
-		d.paused = true
+		d.paused = errors.Is(err, trafficbatch.ErrConflict) || errors.Is(err, trafficbatch.ErrClosed)
+		d.retryAt = time.Now().Add(d.nextBackoff(err))
 		result.state = deliveryAckPending
-		log.WithFields(log.Fields{"tag": d.tag, "error": err}).Error("Panel acknowledged traffic batch; local acknowledgement failed; batch retained and sender paused until restart")
+		log.WithFields(log.Fields{"tag": d.tag, "error": err}).Error("Panel confirmed traffic batch; local acknowledgement pending")
 		result.err = err
 		return result
 	}
+	d.confirmedID = ""
 	result.state = deliveryConfirmed
 	result.rows = batch.Traffic
 	d.failures = 0
@@ -279,6 +285,16 @@ func (d *trafficDelivery) attempt(extra bool) (result deliveryResult) {
 		d.drained++
 	}
 	return result
+}
+
+func (d *trafficDelivery) nextBackoff(err error) time.Duration {
+	delay := d.policy.backoff
+	for i := 0; i < d.failures && delay < d.policy.maxBackoff; i++ {
+		delay = min(delay*2, d.policy.maxBackoff)
+	}
+	d.failures = min(d.failures+1, 32)
+	delay = min(delay+time.Duration(rand.Float64()*float64(delay)/4), d.policy.maxBackoff)
+	return max(delay, panel.TrafficRetryAfter(err))
 }
 
 // Called only by the sender goroutine. Emit skipped states on transitions,

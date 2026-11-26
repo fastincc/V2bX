@@ -1,6 +1,11 @@
 package counter
 
-import "github.com/InazumaV/V2bX/api/panel"
+import (
+	"errors"
+	"github.com/InazumaV/V2bX/api/panel"
+	"github.com/InazumaV/V2bX/common/trafficbatch"
+	"sync"
+)
 
 type trafficSample struct {
 	storage  *TrafficStorage
@@ -58,8 +63,31 @@ func (snapshot *Snapshot) Persist(persist func([]panel.UserTraffic) error) error
 	return nil
 }
 
-// PersistSnapshot is a convenience for callers with immutable identity mappings
-// and their own serialization. Cores use the two-phase form above.
+// PersistWithIdentityLock holds the identity lock only during sampling. If a
+// published checkpoint lacked a durability confirmation, retry that exact UID
+// assignment before observing any new increments, even during a final drain.
+func (c *TrafficCounter) PersistWithIdentityLock(identity sync.Locker, uid func(string) int, minimum func(string) int64, persist func([]panel.UserTraffic) error) error {
+	if c.unconfirmed != nil {
+		if err := c.unconfirmed.Persist(persist); err != nil {
+			return err
+		}
+		c.unconfirmed = nil
+	}
+	if identity != nil {
+		identity.Lock()
+	}
+	sample := PrepareSnapshot(c, uid, minimum)
+	if identity != nil {
+		identity.Unlock()
+	}
+	err := sample.Persist(persist)
+	if errors.Is(err, trafficbatch.ErrUnconfirmedSave) {
+		c.unconfirmed = sample
+	}
+	return err
+}
+
+// PersistSnapshot is for callers with immutable identity mappings and their own node gate.
 func PersistSnapshot(c *TrafficCounter, uid func(string) int, minimum func(string) int64, persist func([]panel.UserTraffic) error) error {
-	return PrepareSnapshot(c, uid, minimum).Persist(persist)
+	return c.PersistWithIdentityLock(nil, uid, minimum, persist)
 }

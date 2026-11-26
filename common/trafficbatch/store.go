@@ -11,10 +11,12 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -32,16 +34,21 @@ type queued struct {
 	size  int64
 }
 type Store struct {
-	lastSeal     time.Time
-	mu           sync.Mutex
-	dir, binding string
-	lock         *os.File
-	active       *Batch
-	queue        []queued
-	sequence     uint64
-	poisoned     bool
-	maxBytes     int64
-	maxBatches   int
+	lastSeal      time.Time
+	mu            sync.Mutex
+	dir, binding  string
+	lock          *os.File
+	active        *Batch
+	queue         []queued
+	sequence      uint64
+	pendingSave   *unconfirmedSave
+	pendingSeal   *queued
+	ackUnlinked   bool
+	verifyAckHead bool
+	verifyActive  bool
+	syncDirectory func(string) error
+	maxBytes      int64
+	maxBatches    int
 }
 
 func Open(dir, binding string) (*Store, error) { return OpenWithLimits(dir, binding, 64<<20, 4096) }
@@ -64,7 +71,7 @@ func OpenWithLimits(dir, binding string, maxBytes int64, maxBatches int) (s *Sto
 		f.Close()
 		return nil, fmt.Errorf("traffic spool is locked or unsupported")
 	}
-	s = &Store{dir: dir, binding: binding, lock: f, maxBytes: maxBytes, maxBatches: maxBatches, lastSeal: time.Now()}
+	s = &Store{dir: dir, binding: binding, lock: f, maxBytes: maxBytes, maxBatches: maxBatches, lastSeal: time.Now(), syncDirectory: syncDirectory}
 	defer func() {
 		if err != nil {
 			f.Close()
@@ -146,7 +153,7 @@ func OpenWithLimits(dir, binding string, maxBytes int64, maxBatches int) (s *Sto
 		if e = os.Remove(activePath); e != nil {
 			return nil, e
 		}
-		if e = s.syncDir(); e != nil {
+		if e = s.syncDirectory(s.dir); e != nil {
 			return nil, e
 		}
 		s.active = nil
@@ -170,7 +177,7 @@ func OpenWithLimits(dir, binding string, maxBytes int64, maxBatches int) (s *Sto
 	}
 	// Old binaries reject this marker, including when this queue is empty.
 	data, _ := json.Marshal(Batch{Version: 2, Binding: binding})
-	if e = s.write("pending.json", data); e != nil {
+	if _, e = s.write("pending.json", data); e != nil {
 		return nil, e
 	}
 	return s, nil
@@ -188,13 +195,13 @@ func readBatch(path, binding string) (*Batch, error) {
 	var b Batch
 	decoder := json.NewDecoder(f)
 	if e = decoder.Decode(&b); e != nil {
-		return nil, fmt.Errorf("corrupt batch")
+		return nil, fmt.Errorf("corrupt batch: %w", ErrConflict)
 	}
 	if decoder.Decode(new(any)) != io.EOF {
-		return nil, fmt.Errorf("trailing batch content")
+		return nil, fmt.Errorf("trailing batch content: %w", ErrConflict)
 	}
 	if e = validBatch(&b, binding); e != nil {
-		return nil, e
+		return nil, errors.Join(ErrConflict, e)
 	}
 	return &b, nil
 }
@@ -238,9 +245,37 @@ func (s *Store) Counts() (int, bool) {
 	defer s.mu.Unlock()
 	return len(s.queue), s.active != nil
 }
+
+var (
+	ErrClosed   = errors.New("traffic spool closed")
+	ErrConflict = errors.New("traffic journal conflicts with the expected contents")
+	// Only this error requires replaying the original counter/UID snapshot.
+	ErrUnconfirmedSave = errors.New("traffic checkpoint awaiting storage confirmation")
+)
+
+type unconfirmedSave struct {
+	batch *Batch
+	rows  []panel.UserTraffic
+}
+
 func (s *Store) usable() error {
-	if s.lock == nil || s.poisoned {
-		return fmt.Errorf("spool requires restart after close or storage failure")
+	if s.lock == nil {
+		return ErrClosed
+	}
+	if s.pendingSave != nil || s.pendingSeal != nil || s.verifyActive || s.verifyAckHead || s.ackUnlinked {
+		// A remounted or replaced directory may be protected by someone else's
+		// lock. Recover only on the original, exclusively held spool.
+		held, err := s.lock.Stat()
+		if err != nil {
+			return err
+		}
+		named, err := os.Lstat(filepath.Join(s.dir, "lock"))
+		if err != nil {
+			return err
+		}
+		if !os.SameFile(held, named) {
+			return ErrConflict
+		}
 	}
 	return nil
 }
@@ -259,6 +294,24 @@ func (s *Store) Save(rows []panel.UserTraffic) error {
 	defer s.mu.Unlock()
 	if e := s.usable(); e != nil {
 		return e
+	}
+	if s.pendingSeal != nil {
+		if err := s.recoverSeal(); err != nil {
+			return err
+		}
+	}
+	if s.pendingSave != nil {
+		return s.confirmSave(rows)
+	}
+	if s.verifyActive {
+		actual, err := s.inspect("active.json")
+		if err != nil {
+			return err
+		}
+		if !sameBatch(actual, s.active) {
+			return ErrConflict
+		}
+		s.verifyActive = false
 	}
 	if len(rows) == 0 {
 		return nil
@@ -296,12 +349,71 @@ func (s *Store) Save(rows []panel.UserTraffic) error {
 	if e != nil || len(data) > 64<<20 || s.bytes()+int64(len(data)) > s.maxBytes {
 		return fmt.Errorf("traffic spool capacity reached; counters retained in memory")
 	}
-	if e = s.write("active.json", data); e != nil {
-		s.poisoned = true
-		return fmt.Errorf("journal persistence failed; restart required")
+	publicationAttempted, e := s.write("active.json", data)
+	if e != nil {
+		if publicationAttempted {
+			s.pendingSave = &unconfirmedSave{b, slices.Clone(rows)}
+			return errors.Join(ErrUnconfirmedSave, e)
+		}
+		s.verifyActive = true
+		return fmt.Errorf("journal write failed: %w", e)
 	}
 	s.active = b
 	return nil
+}
+
+// After rename the candidate is visible, but a failed directory sync means
+// durability is unknown. Keep the exact counter observations until it is proven.
+func (s *Store) confirmSave(rows []panel.UserTraffic) error {
+	p := s.pendingSave
+	if !slices.Equal(p.rows, rows) {
+		return errors.Join(ErrUnconfirmedSave, ErrConflict)
+	}
+	actual, err := s.inspect("active.json")
+	if err == nil {
+		switch {
+		case sameBatch(actual, p.batch):
+			err = s.syncDirectory(s.dir)
+		case sameBatch(actual, s.active):
+			// Storage recovery exposed the exact previous version. Reinstall
+			// the same candidate, including its ID, before deducting the sample.
+			var data []byte
+			data, err = json.Marshal(p.batch)
+			if err == nil {
+				_, err = s.write("active.json", data)
+			}
+		default:
+			err = ErrConflict
+		}
+	}
+	if err != nil {
+		return errors.Join(ErrUnconfirmedSave, err)
+	}
+	s.active = p.batch
+	s.pendingSave = nil
+	return nil
+}
+
+// inspect distinguishes absence, a verified batch and unreadable data.
+func (s *Store) inspect(name string) (*Batch, error) {
+	path := filepath.Join(s.dir, name)
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, ErrConflict
+	}
+	return readBatch(path, s.binding)
+}
+func sameBatch(a, b *Batch) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Binding == b.Binding && a.ID == b.ID && a.Version == b.Version && slices.Equal(a.Traffic, b.Traffic)
 }
 func (s *Store) enqueue(b *Batch) error {
 	if len(s.queue) >= s.maxBatches {
@@ -316,9 +428,8 @@ func (s *Store) enqueue(b *Batch) error {
 	if e != nil {
 		return e
 	}
-	if e = s.write(name, data); e != nil {
-		s.poisoned = true
-		return fmt.Errorf("batch seal failed; restart required")
+	if _, e = s.write(name, data); e != nil {
+		return fmt.Errorf("batch seal failed: %w", e)
 	}
 	s.queue = append(s.queue, queued{name, clone(b), int64(len(data))})
 	return nil
@@ -340,49 +451,117 @@ func (s *Store) sealLocked() error {
 	if e := s.usable(); e != nil {
 		return e
 	}
+	if s.pendingSave != nil {
+		return ErrUnconfirmedSave
+	}
+	if s.pendingSeal != nil {
+		return s.recoverSeal()
+	}
 	if s.active == nil {
 		return nil
 	}
-	if e := s.enqueue(s.active); e != nil {
-		return e
+	if len(s.queue) >= s.maxBatches {
+		return fmt.Errorf("traffic queue full; journal retained")
 	}
-	if e := os.Remove(filepath.Join(s.dir, "active.json")); e != nil {
-		s.poisoned = true
-		return fmt.Errorf("journal retirement failed; restart required")
+	if s.sequence == math.MaxUint64 {
+		return fmt.Errorf("traffic queue sequence exhausted")
 	}
-	if e := s.syncDir(); e != nil {
-		s.poisoned = true
-		return fmt.Errorf("journal retirement sync failed; restart required")
+	// The active file already contains the immutable batch payload. A rename
+	// changes its role without creating another independently mutable copy.
+	activePath := filepath.Join(s.dir, "active.json")
+	actual, err := s.inspect("active.json")
+	if err != nil {
+		return err
 	}
+	if !sameBatch(actual, s.active) {
+		return ErrConflict
+	}
+	name := fmt.Sprintf("batch-%020d-%s.json", s.sequence+1, s.active.ID)
+	destination := filepath.Join(s.dir, name)
+	if _, err := os.Lstat(destination); !errors.Is(err, os.ErrNotExist) {
+		if err != nil {
+			return err
+		}
+		return ErrConflict
+	}
+	info, err := os.Stat(activePath)
+	if err != nil {
+		return err
+	}
+	s.pendingSeal = &queued{name, s.active, info.Size()}
+	if err = os.Rename(activePath, destination); err != nil {
+		return err
+	}
+	return s.finishSeal()
+}
+func (s *Store) recoverSeal() error {
+	q := s.pendingSeal
+	target, err := s.inspect(q.name)
+	if err != nil {
+		return err
+	}
+	active, err := s.inspect("active.json")
+	if err != nil {
+		return err
+	}
+	switch {
+	case sameBatch(target, q.batch) && active == nil:
+	case target == nil && sameBatch(active, q.batch):
+		if err := os.Rename(filepath.Join(s.dir, "active.json"), filepath.Join(s.dir, q.name)); err != nil {
+			return err
+		}
+	case sameBatch(target, q.batch) && sameBatch(active, q.batch):
+		// First ensure that the immutable copy is durable, then retire its twin.
+		if err := s.syncDirectory(s.dir); err != nil {
+			return err
+		}
+		if err := os.Remove(filepath.Join(s.dir, "active.json")); err != nil {
+			return err
+		}
+	default:
+		return ErrConflict
+	}
+	return s.finishSeal()
+}
+func (s *Store) finishSeal() error {
+	if err := s.syncDirectory(s.dir); err != nil {
+		return fmt.Errorf("batch seal not yet confirmed: %w", err)
+	}
+	s.queue = append(s.queue, *s.pendingSeal)
+	s.sequence++
+	s.pendingSeal = nil
 	s.active = nil
 	s.lastSeal = time.Now()
 	return nil
 }
-func (s *Store) write(name string, data []byte) error {
+
+// The flag marks an attempted publication. Even rename errors can be ambiguous
+// on a failing filesystem, so the caller retains both candidate and preimage.
+func (s *Store) write(name string, data []byte) (bool, error) {
 	f, e := os.CreateTemp(s.dir, "journal-*.tmp")
 	if e != nil {
-		return e
+		return false, e
 	}
 	tmp := f.Name()
 	defer os.Remove(tmp)
 	if _, e = f.Write(data); e != nil {
 		f.Close()
-		return e
+		return false, e
 	}
 	if e = f.Sync(); e != nil {
 		f.Close()
-		return e
+		return false, e
 	}
 	if e = f.Close(); e != nil {
-		return e
+		return false, e
 	}
 	if e = os.Rename(tmp, filepath.Join(s.dir, name)); e != nil {
-		return e
+		return true, e
 	}
-	return s.syncDir()
+	return true, s.syncDirectory(s.dir)
 }
-func (s *Store) syncDir() error {
-	f, e := os.Open(s.dir)
+func syncDirectory(dir string) error {
+	f, e := os.Open(dir)
 	if e != nil {
 		return e
 	}
@@ -396,15 +575,40 @@ func (s *Store) Acknowledge(id string) error {
 		return e
 	}
 	if len(s.queue) == 0 || s.queue[0].batch.ID != id {
-		return fmt.Errorf("batch acknowledgement mismatch")
+		return fmt.Errorf("batch acknowledgement mismatch: %w", ErrConflict)
 	}
-	if e := os.Remove(filepath.Join(s.dir, s.queue[0].name)); e != nil {
-		return fmt.Errorf("clear batch failed")
+	head := s.queue[0]
+	if s.verifyAckHead || s.ackUnlinked {
+		actual, err := s.inspect(head.name)
+		if err != nil {
+			return err
+		}
+		switch {
+		case sameBatch(actual, head.batch):
+			s.ackUnlinked = false // exact pre-unlink state is safe to retry
+		case actual == nil && s.ackUnlinked:
+		default:
+			return ErrConflict
+		}
 	}
-	if e := s.syncDir(); e != nil {
-		s.poisoned = true
-		return fmt.Errorf("ack sync failed; restart required")
+	if !s.ackUnlinked {
+		if err := os.Remove(filepath.Join(s.dir, head.name)); err != nil {
+			s.verifyAckHead = true
+			if errors.Is(err, os.ErrNotExist) {
+				return ErrConflict
+			}
+			// EIO does not establish whether unlink took effect. Reconcile the
+			// original ID and the two possible filesystem states on retry.
+			s.ackUnlinked = errors.Is(err, syscall.EIO)
+			return fmt.Errorf("clear batch failed: %w", err)
+		}
+		s.ackUnlinked = true
 	}
+	if err := s.syncDirectory(s.dir); err != nil {
+		return fmt.Errorf("acknowledgement not yet durable: %w", err)
+	}
+	s.ackUnlinked = false
+	s.verifyAckHead = false
 	s.queue = s.queue[1:]
 	return nil
 }

@@ -32,6 +32,7 @@ type Controller struct {
 	closed                    bool
 	nodeRemoved               bool
 	trafficSpool              *trafficbatch.Store
+	checkpointRetry           checkpointRetry
 	server                    vCore.Core
 	apiClient                 *panel.Client
 	tag                       string

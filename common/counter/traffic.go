@@ -6,7 +6,8 @@ import (
 )
 
 type TrafficCounter struct {
-	Counters sync.Map
+	Counters    sync.Map
+	unconfirmed *Snapshot // protected by the core's per-node persistence gate
 }
 
 type TrafficStorage struct {

@@ -18,10 +18,7 @@ func (c *Controller) reportUserTrafficTask() (err error) {
 	var userTraffic, onlineTraffic []panel.UserTraffic
 	var reportErr error
 	if c.reliableTrafficEnabled && c.trafficDelivery != nil {
-		storageErr := c.captureTraffic()
-		if storageErr == nil {
-			storageErr = c.trafficSpool.SealIfDue(c.info.PushInterval)
-		}
+		storageErr := c.scheduledCheckpoint(c.info.PushInterval)
 		onlineTraffic = c.takeOnlineTraffic()
 		delivery := c.trafficDelivery
 		c.operationMu.Unlock()

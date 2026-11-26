@@ -67,7 +67,7 @@ func TestStoreRejectsWrongBindingAndCorruption(t *testing.T) {
 	}
 }
 
-func TestStoreWriteFailureRequiresRestart(t *testing.T) {
+func TestStoreUnpublishedWriteRetriesAfterRepair(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "spool")
 	s, e := Open(dir, "node")
 	if e != nil {
@@ -81,7 +81,7 @@ func TestStoreWriteFailureRequiresRestart(t *testing.T) {
 		t.Fatal("failed rename ignored")
 	}
 	os.Remove(filepath.Join(dir, "active.json"))
-	if e = s.Save([]panel.UserTraffic{{UID: 1, Upload: 1}}); e == nil {
-		t.Fatal("ambiguous store failure reused")
+	if e = s.Save([]panel.UserTraffic{{UID: 1, Upload: 1}}); e != nil {
+		t.Fatal("write did not recover", e)
 	}
 }
