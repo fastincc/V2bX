@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/InazumaV/V2bX/common/file"
@@ -41,6 +42,8 @@ func (c *Controller) requestCert() error {
 			return fmt.Errorf("cert file path or key file path not exist")
 		}
 		if file.IsExist(c.CertConfig.CertFile) && file.IsExist(c.CertConfig.KeyFile) {
+			warnPrivateFileMode(c.CertConfig.KeyFile, "TLS private key")
+			warnPrivateFileMode(legoAccountPath(c.CertConfig), "ACME account")
 			return nil
 		}
 		l, err := NewLego(c.CertConfig)
@@ -56,6 +59,7 @@ func (c *Controller) requestCert() error {
 			return fmt.Errorf("cert file path or key file path not exist")
 		}
 		if file.IsExist(c.CertConfig.CertFile) && file.IsExist(c.CertConfig.KeyFile) {
+			warnPrivateFileMode(c.CertConfig.KeyFile, "TLS private key")
 			return nil
 		}
 		err := generateSelfSslCertificate(
@@ -71,8 +75,24 @@ func (c *Controller) requestCert() error {
 	return nil
 }
 
+// Preserve the operator's existing sharing policy, including group-read access.
+// Avoid logging paths, which can contain the account email or other identifiers.
+func warnPrivateFileMode(name, kind string) {
+	if runtime.GOOS == "windows" {
+		return // POSIX mode bits cannot describe the effective Windows ACL.
+	}
+	info, err := os.Stat(name)
+	if err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0037 != 0 {
+		log.WithFields(log.Fields{"file_kind": kind, "mode": fmt.Sprintf("%04o", info.Mode().Perm())}).
+			Warn("Review permissions on an existing managed private file")
+	}
+}
+
 func generateSelfSslCertificate(domain, certPath, keyPath string) error {
-	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return err
+	}
 	tmpl := &x509.Certificate{
 		Version:      3,
 		SerialNumber: big.NewInt(time.Now().Unix()),
@@ -90,27 +110,17 @@ func generateSelfSslCertificate(domain, certPath, keyPath string) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(certPath, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	err = pem.Encode(f, &pem.Block{
+	certPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: cert,
 	})
-	if err != nil {
+	if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
 		return err
 	}
-	f, err = os.OpenFile(keyPath, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	err = pem.Encode(f, &pem.Block{
+	keyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "EC PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	warnPrivateFileMode(keyPath, "TLS private key")
+	return os.WriteFile(keyPath, keyPEM, 0600)
 }

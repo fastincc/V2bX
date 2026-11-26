@@ -32,10 +32,7 @@ type Lego struct {
 }
 
 func NewLego(config *conf.CertConfig) (*Lego, error) {
-	user, err := NewLegoUser(path.Join(path.Dir(config.CertFile),
-		"user",
-		fmt.Sprintf("user-%s.json", config.Email)),
-		config.Email)
+	user, err := NewLegoUser(legoAccountPath(config), config.Email)
 	if err != nil {
 		return nil, fmt.Errorf("create user error: %s", err)
 	}
@@ -55,6 +52,10 @@ func NewLego(config *conf.CertConfig) (*Lego, error) {
 		return nil, fmt.Errorf("set provider error: %s", err)
 	}
 	return &l, nil
+}
+
+func legoAccountPath(config *conf.CertConfig) string {
+	return path.Join(path.Dir(config.CertFile), "user", fmt.Sprintf("user-%s.json", config.Email))
 }
 
 func checkPath(p string) error {
@@ -159,7 +160,9 @@ func (l *Lego) writeCert(certificates *certificate.Resource) error {
 	if err != nil {
 		return fmt.Errorf("check path error: %s", err)
 	}
-	err = os.WriteFile(l.parseParams(l.config.KeyFile), certificates.PrivateKey, 0644)
+	keyPath := l.parseParams(l.config.KeyFile)
+	warnPrivateFileMode(keyPath, "TLS private key")
+	err = os.WriteFile(keyPath, certificates.PrivateKey, 0600)
 	if err != nil {
 		return err
 	}
@@ -186,6 +189,7 @@ func (u *User) GetPrivateKey() crypto.PrivateKey {
 func NewLegoUser(path string, email string) (*User, error) {
 	var user User
 	if file.IsExist(path) {
+		warnPrivateFileMode(path, "ACME account")
 		err := user.Load(path)
 		if err != nil {
 			return nil, err
@@ -239,22 +243,28 @@ func EncodePrivate(privKey *ecdsa.PrivateKey) (string, error) {
 	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: encoded})
 	return string(pemEncoded), nil
 }
-func (u *User) Save(path string) error {
-	err := checkPath(path)
-	if err != nil {
-		return fmt.Errorf("check path error: %s", err)
+func (u *User) Save(name string) error {
+	accountDir := path.Dir(name)
+	// The certificate tree can be shared. Restrict only a newly created
+	// account directory; preserve permissions on existing directories.
+	if err := checkPath(accountDir); err != nil {
+		return err
 	}
-	u.KeyEncoded, _ = EncodePrivate(u.key.(*ecdsa.PrivateKey))
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err := os.MkdirAll(accountDir, 0700); err != nil {
+		return fmt.Errorf("check path error: %w", err)
+	}
+	encoded, err := EncodePrivate(u.key.(*ecdsa.PrivateKey))
 	if err != nil {
 		return err
 	}
-	err = json.NewEncoder(f).Encode(u)
+	record := *u
+	record.KeyEncoded = encoded
+	data, err := json.Marshal(&record)
 	if err != nil {
-		return fmt.Errorf("marshal json error: %s", err)
+		return fmt.Errorf("marshal json error: %w", err)
 	}
-	u.KeyEncoded = ""
-	return nil
+	warnPrivateFileMode(name, "ACME account")
+	return os.WriteFile(name, append(data, '\n'), 0600)
 }
 
 func (u *User) DecodePrivate(pemEncodedPriv string) (*ecdsa.PrivateKey, error) {
